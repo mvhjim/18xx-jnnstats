@@ -79,6 +79,7 @@ Always:
 - **Tile manifest** (collapsed by default): how many of each tile are left, by colour; colours the current phase does not allow yet are dimmed.
 - **Routes & revenue:** pick an operating round to see what each company ran: train, revenue, the stops of every route, and pay out or withhold. It follows the history slider. A map sketch can draw each company's routes on the board's hex grid, to match them against the real map.
 - **Replay move by move**, plus a post-game report, route mistakes, share-sale timing and dividend hindsight cards.
+- **Company profit and loss, cash flow per player, ownership over time, who holds what, president changes, tile-lay map, market movement, rust radar, priority deal tracker and game-end clock** cards, plus a *Rules now* row in Game info.
 - **Charts and map:** log or % change on the value and price charts, and a heat map of the hexes trains ran through most.
 - **More cards:** withholding vs paying out, train timing, and a few just-for-fun badges. The 🔗 button copies a link that reopens the game with your card layout.
 - **Route efficiency, whole game:** check every run against the engine's auto-router, with a summary of what was left on the table.

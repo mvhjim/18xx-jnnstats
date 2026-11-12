@@ -2,6 +2,21 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.21.0] - 2026-11-12
+
+### Added
+- **Company profit and loss:** per company, revenue, paid out, kept, and spending on trains, tiles and tokens.
+- **Cash flow per player:** money in and out for each player in each round.
+- **Ownership over time:** who held how much of a company, round by round (pick the company).
+- **Who holds what:** a graph joining players to the companies they own, line thickness by stake.
+- **President changes:** every change of president, and when.
+- **Tile-lay map:** every built hex coloured by the company that laid the latest tile, with counts and upgrades on hover.
+- **Market movement:** how share prices moved in the latest round.
+- **Rust and obsolescence radar:** which running trains rust or go obsolete, when, and which companies (and how much of their last run) are hit.
+- **Priority deal tracker:** who had priority deal in each stock round and what they did first.
+- **Game-end clock:** how close the game is to ending, by every route.
+- **Game info:** a *Rules now* row with the current phase's train limit, allowed tiles and operating rounds.
+
 ## [0.20.0] - 2026-11-12
 
 ### Added
