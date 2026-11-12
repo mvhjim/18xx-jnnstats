@@ -48,6 +48,7 @@
         var ids2 = {}; (d.hexMap ? d.hexMap.hexes : []).forEach(function (h) { ids2[h.id] = 1; });
         var stopN = 0, stopOk = 0; d.routes.forEach(function (r) { r.corps.forEach(function (c) { c.trains.forEach(function (tr) { tr.stops.split('-').forEach(function (x) { var k = x.replace(/[\[\]()]/g, '').split(' + ')[0].trim(); stopN++; if (ids2[k]) stopOk++; }); }); }); });
         row.map = !d.hexMap ? 'no hex data' : Math.round(100 * stopOk / Math.max(stopN, 1)) + '% of route stops found on the map (' + d.hexMap.hexes.length + ' hexes)';
+        row.replay = d.replay ? d.replay.labels.length + ' frames, ' + d.replay.hx.filter(function (z) { return z; }).length + ' with a board' : 'no replay';
         row.engine = xbad.length ? xbad.join('; ') : 'ok (' + pick.length + ' points)';
         try { var w = holder.contentWindow; w.document.body.innerHTML = ''; A.render(w, d); row.render = 'ok'; } catch (e) { row.render = 'ERROR ' + String(e).slice(0, 100); }
       } catch (e) { row.error = String(e).slice(0, 160); }

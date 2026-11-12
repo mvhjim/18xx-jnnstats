@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.13.0';
+  var VERSION = '0.14.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -55,12 +55,19 @@
   // takes a snapshot of share prices, holdings, cash, minors and private companies.
   var SNAP = null;
   function nameOf(o) { return o && rt(o, 'name') ? s(o.$name()) : ''; }
+  // names of the companies that have a token on a tile
+  function hexTokens(tl) {
+    var out = [];
+    try { tl.$cities().forEach(function (ct) { (ct.$tokens() || []).forEach(function (tk) { var cp = tk && !nil(tk) ? call(tk, 'corporation') : null; if (cp) out.push(s(cp.$name())); }); }); } catch (e) {}
+    return out;
+  }
   function takeSnapshot(g) {
     var rd = g.round, short = s(rd.$class().$short_name());
     var snap = { label: short + ' ' + s(g.$turn()) + (short === 'OR' ? '.' + s(call(rd, 'round_num')) : ''), prices: {}, hold: {}, cash: {}, priv: {}, value: {}, minors: {}, companies: {}, corpCash: {}, pos: {} };
     var corps = g.$corporations();
     snap.bank = num(call(call(g, 'bank'), 'cash'));
     try { var ph0 = call(g, 'phase'); snap.phase = ph0 ? s(ph0.$name()) : ''; } catch (e0) { snap.phase = ''; }
+    try { var hxo = {}, hl2 = g.$hexes(); for (var h2 = 0; h2 < hl2.length; h2++) { var tl2 = hl2[h2].$tile(); hxo[s(hl2[h2].$id())] = [s(tl2.$color()), s(tl2.$name()), hexTokens(tl2)]; } snap.hx = hxo; } catch (e00) { snap.hx = null; }
     snap.certLimit = num(call(g, 'cert_limit', g.$players()[0]) || call(g, 'cert_limit'));
     corps.forEach(function (c) {
       var sp = call(c, 'share_price');
@@ -628,7 +635,7 @@
         var hx = hxs[hi], tl = hx.$tile(), cities = 0, towns = 0, offb = 0, tcolor = 'white', tname = '';
         try { cities = tl.$cities().length; towns = tl.$towns().length; offb = tl.$offboards().length; tcolor = s(tl.$color()); tname = s(tl.$name()); } catch (e5) {}
         lay = s(hx.$layout());
-        hl.push({ id: s(hx.$id()), x: num(hx.$x()), y: num(hx.$y()), c: tcolor, t: tname, city: cities, town: towns, off: offb, loc: s(call(hx, 'location_name') || '') });
+        hl.push({ id: s(hx.$id()), x: num(hx.$x()), y: num(hx.$y()), c: tcolor, t: tname, k: hexTokens(tl), city: cities, town: towns, off: offb, loc: s(call(hx, 'location_name') || '') });
       }
       if (hl.length) hexMap = { layout: lay, hexes: hl };
     } catch (e) { hexMap = null; }
@@ -639,6 +646,9 @@
       info = { stage: '', rules: Array.isArray(opt) ? opt.map(String) : (opt ? String(opt).split(',') : []), players: (raw.players || []).length, async: !!cfg0.is_async, auto: cfg0.auto_routing ? String(cfg0.auto_routing) : '', pin: cfg0.pin ? String(cfg0.pin) : '' };
       try { info.stage = s(g.$class().$const_get('DEV_STAGE')); } catch (e6) {}
     } catch (e) { info = null; }
+    // Replay frames: one per point on the value chart, with the board (tiles and tokens) at that moment
+    var replay = null;
+    try { var byLab = {}; snaps.forEach(function (sn2) { byLab[sn2.label] = sn2; }); replay = { labels: vh.labels.slice(), hx: vh.labels.map(function (l2) { return byLab[l2] ? byLab[l2].hx : null; }) }; if (!replay.hx.some(function (z) { return z; })) replay = null; } catch (e) { replay = null; }
     var routeTable = [];
     try {
       if (gameLog) gameLog.rounds.forEach(function (rd3, ri3) {
@@ -774,7 +784,7 @@
       ticker: ticker, portfolio: portfolio, holdings: holdings, minors: minorList, companies: companyList, snapErr: SNAP && SNAP.err,
       nextTrain: nextTrain ? { name: s(nextTrain.$name()), sym: s(call(nextTrain, 'sym')), price: num(nextTrain.$price()) } : null,
       upcomingCount: upcoming.length, notes: notes, updated: new Date(), live: live, feed: feed, certNote: certNote, loanInfo: loanInfo, cheapest: cheapest,
-      events: events, info: info, grid: grid, gridHist: gridHist, bank2: bankInfo, tiles: tileInfo, recap: recap, gameLog: gameLog, routes: routeTable, hexMap: hexMap, pin: (raw.settings && raw.settings.pin) ? String(raw.settings.pin) : ''
+      events: events, info: info, replay: replay, grid: grid, gridHist: gridHist, bank2: bankInfo, tiles: tileInfo, recap: recap, gameLog: gameLog, routes: routeTable, hexMap: hexMap, pin: (raw.settings && raw.settings.pin) ? String(raw.settings.pin) : ''
     };
   }
 
@@ -836,7 +846,7 @@
     '.mk{display:grid;grid-template-columns:repeat(var(--cols),minmax(34px,1fr));gap:2px;overflow-x:auto}',
     '.mc{border:1px solid var(--grid);border-radius:5px;padding:2px 3px;min-height:40px;font-size:11px;min-width:0}.mc.empty{border-color:transparent}.mp{color:var(--text-secondary);font-variant-numeric:tabular-nums;font-size:10.5px}',
     '.cp{display:block;border-radius:4px;padding:0 3px;margin-top:2px;font-size:10.5px;font-weight:700;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default}.cp.mine{outline:2px solid var(--accent);outline-offset:1px}.cp.gh{background:transparent!important;border:1.5px dashed;font-weight:600}',
-    '.bankrow{display:flex;flex-wrap:wrap;gap:6px 22px;margin:0 0 10px}.bankrow .bb{flex:1 1 200px;min-width:0}.bankrow .bb:first-child{flex:2 1 260px}.bankrow .bl{margin-top:0}.feed.gl{max-height:420px}.feed li.gl{display:grid;grid-template-columns:92px 1fr;gap:8px;padding-left:0;border-left:4px solid var(--pc,transparent)}.feed li.gl .gu{padding-left:6px;color:var(--text-secondary);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.feed li.gl.me{background:color-mix(in srgb,var(--pc) 14%,transparent)}.feed li.gl.me .gu{color:var(--text);font-weight:700}.feed li.gl.head{border-left-color:transparent}.feed li.mine .gm{font-weight:600;color:var(--accent)}.glr{color:var(--text-muted);font-size:10.5px}.gla{color:var(--text-muted);text-decoration:none;font-size:11px;margin-left:4px;opacity:.55}.gla:hover{opacity:1;color:var(--accent)}.rt td,.rt th{padding:3px 8px;text-align:left;vertical-align:top;white-space:normal}.rt td.n{text-align:right;white-space:nowrap}.rt .stp{color:var(--text-secondary);font-size:11.5px;word-break:break-word}#rt-map svg{width:100%;height:auto;display:block}#rt-map .tabs{margin:0 0 6px}.chart.iso .ser,.chart.iso .enl{opacity:.12}.chart.iso .ser.on,.chart.iso .enl.on{opacity:1}.legend span{cursor:pointer}.legend span.off{opacity:.4}.st-same{color:var(--text-muted)}.rtsel{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--text-secondary)}.rt tr.tot td{border-top:1px solid var(--border);font-weight:600}.gltools{display:flex;gap:8px;align-items:center;margin:0 0 8px}.gltools input{flex:1;min-width:80px}',
+    '.bankrow{display:flex;flex-wrap:wrap;gap:6px 22px;margin:0 0 10px}.bankrow .bb{flex:1 1 200px;min-width:0}.bankrow .bb:first-child{flex:2 1 260px}.bankrow .bl{margin-top:0}.feed.gl{max-height:420px}.feed li.gl{display:grid;grid-template-columns:92px 1fr;gap:8px;padding-left:0;border-left:4px solid var(--pc,transparent)}.feed li.gl .gu{padding-left:6px;color:var(--text-secondary);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.feed li.gl.me{background:color-mix(in srgb,var(--pc) 14%,transparent)}.feed li.gl.me .gu{color:var(--text);font-weight:700}.feed li.gl.head{border-left-color:transparent}.feed li.mine .gm{font-weight:600;color:var(--accent)}.glr{color:var(--text-muted);font-size:10.5px}.gla{color:var(--text-muted);text-decoration:none;font-size:11px;margin-left:4px;opacity:.55}.gla:hover{opacity:1;color:var(--accent)}.rt td,.rt th{padding:3px 8px;text-align:left;vertical-align:top;white-space:normal}.rt td.n{text-align:right;white-space:nowrap}.rt .stp{color:var(--text-secondary);font-size:11.5px;word-break:break-word}#rt-map svg{width:100%;height:auto;display:block}#rt-map .tabs{margin:0 0 6px}.chart.iso .ser,.chart.iso .enl{opacity:.12}.chart.iso .ser.on,.chart.iso .enl.on{opacity:1}.legend span{cursor:pointer}.legend span.off{opacity:.4}.st-same{color:var(--text-muted)}.rpb{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start}.rpm{flex:1 1 360px;min-width:0}.rps{flex:1 1 280px;min-width:0}.rph{font-size:12px;margin:6px 0 3px;color:var(--text-secondary)}.rpp{display:flex;flex-wrap:wrap;gap:3px 12px;font-size:12px}.rtsel{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--text-secondary)}.rt tr.tot td{border-top:1px solid var(--border);font-weight:600}.gltools{display:flex;gap:8px;align-items:center;margin:0 0 8px}.gltools input{flex:1;min-width:80px}',
     '.gslide{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--text-secondary)}.gslide input{flex:1;min-width:80px}',
     '.zl{display:flex;flex-wrap:wrap;gap:4px 12px;margin:8px 0 0;font-size:11.5px;color:var(--text-secondary)}.zl i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1px solid var(--border)}',
     '.dq{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px}.dq .chip{font-variant-numeric:tabular-nums}.dq .chip.next{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:650}.bl{font-size:12px;color:var(--text-muted);margin:6px 0 2px}',
@@ -1029,6 +1039,10 @@
     }
     out.push('<line class="xh" x1="0" x2="0" y1="' + T + '" y2="' + (T + ph) + '" stroke="var(--text-muted)" stroke-dasharray="3 3" visibility="hidden"/>');
     out.push('<rect class="hit" x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '" fill="transparent"/>');
+    if (opts.cursor != null && opts.cursor >= 0 && opts.cursor < n) {
+      out.push('<line x1="' + x(opts.cursor) + '" x2="' + x(opts.cursor) + '" y1="' + T + '" y2="' + (T + ph) + '" stroke="var(--accent)" stroke-width="1.5"/>');
+      model.series.forEach(function (ser) { var vv = ser.values[opts.cursor]; if (vv != null) out.push('<circle cx="' + x(opts.cursor) + '" cy="' + y(vv) + '" r="4.5" fill="' + displayColor(ser.color, opts.dark) + '" stroke="var(--surface-1)" stroke-width="1.5"/>'); });
+    }
     // events on the time axis (drawn last so their tooltips work): phase changes and closures
     var evAt = {};
     (opts.events || []).forEach(function (ev) { var ix = model.labels.indexOf(ev.label); if (ix >= 0) (evAt[ix] = evAt[ix] || []).push(ev); });
@@ -1272,68 +1286,98 @@
   // Route sketch: the engine's hex grid, laid tiles as colours, one company's routes drawn through the hexes in order
   var RT_PAL = ['#3b82f6', '#f59e0b', '#22c55e', '#ef4444', '#a855f7', '#14b8a6'], RT_CLS = { E: '#3b82f6', F: '#f59e0b', L: '#22c55e' };
   var TILE_FILL = { white: '#c9c8bc', yellow: '#e8d44d', green: '#5aa65a', brown: '#a47852', gray: '#8a8a8a', red: '#c0504d', blue: '#5b8fc7' };
-  function rtMapSvg(d, R, corp) {
-    var M = d.hexMap, u = 26, flat = M.layout !== 'pointy', tx = flat ? 1.5 * u : Math.sqrt(3) / 2 * u, ty = flat ? Math.sqrt(3) / 2 * u : 1.5 * u;
+  // Which stops each train of the chosen company (or all companies, '*') visited, as hex ids, with a colour per train (or per company)
+  function rtPaths(d, R, corp, pos) {
+    var out = [], colOf = {}; d.ticker.forEach(function (t) { colOf[t.name] = t.color; });
+    var runners = R ? R.corps.filter(function (c) { return corp === '*' ? c.trains.length : c.corp === corp; }) : [];
+    runners.forEach(function (C) {
+      C.trains.forEach(function (t, i) {
+        var ids = t.stops.split('-').map(function (x) { return { id: x.replace(/[\[\]()]/g, '').split(' + ')[0].trim(), skip: /^\[/.test(x) }; }).filter(function (x) { return pos[x.id]; });
+        var cm = CONFIG[d.title] && CONFIG[d.title].trainClass ? /([A-Z])\*?$/.exec(t.train) : null;
+        out.push({ corp: C.corp, t: t, ids: ids, col: corp === '*' ? (colOf[C.corp] || RT_PAL[out.length % RT_PAL.length]) : (cm && RT_CLS[cm[1]] ? RT_CLS[cm[1]] : RT_PAL[i % RT_PAL.length]) });
+      });
+    });
+    return out;
+  }
+  function hexPos(d, u) {
+    var M = d.hexMap, flat = M.layout !== 'pointy', tx = flat ? 1.5 * u : Math.sqrt(3) / 2 * u, ty = flat ? Math.sqrt(3) / 2 * u : 1.5 * u;
     var minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9, pos = {};
     M.hexes.forEach(function (h) { minx = Math.min(minx, h.x); miny = Math.min(miny, h.y); maxx = Math.max(maxx, h.x); maxy = Math.max(maxy, h.y); });
     M.hexes.forEach(function (h) { pos[h.id] = [tx * (h.x - minx) + u, ty * (h.y - miny) + u]; });
-    var W = tx * (maxx - minx) + 2 * u, H = ty * (maxy - miny) + 2 * u, o = ['<svg viewBox="0 0 ' + W.toFixed(0) + ' ' + H.toFixed(0) + '" role="img" aria-label="Routes on the board" style="max-width:' + Math.round(Math.min(W * 1.5, 760)) + 'px">'];
+    return { flat: flat, pos: pos, W: tx * (maxx - minx) + 2 * u, H: ty * (maxy - miny) + 2 * u };
+  }
+  // The board: tiles as colours (with tile numbers), cities, towns, off-boards, company tokens, and any routes to draw on top.
+  // hx = tile/token state of one moment (a replay frame), or null for the board as it is now.
+  function boardSvg(d, hx, paths, maxW) {
+    var M = d.hexMap, u = 26, G = hexPos(d, u), flat = G.flat, pos = G.pos, W = G.W, H = G.H, on = {}, tokCol = {};
+    d.ticker.forEach(function (t) { tokCol[t.name] = t.color; });
+    var o = ['<svg viewBox="0 0 ' + W.toFixed(0) + ' ' + H.toFixed(0) + '" role="img" aria-label="The board" style="max-width:' + Math.round(Math.min(W * 1.5, maxW || 760)) + 'px">'];
     var poly = function (cx, cy, r) { var pts = []; for (var a = 0; a < 6; a++) { var ang = (flat ? 0 : 30) + a * 60, rad = ang * Math.PI / 180; pts.push((cx + r * Math.cos(rad)).toFixed(1) + ',' + (cy + r * Math.sin(rad)).toFixed(1)); } return pts.join(' '); };
-    var C = R ? R.corps.filter(function (c) { return c.corp === corp; })[0] : null, on = {};
-    var paths = C ? C.trains.map(function (t, i) {
-      var ids = t.stops.split('-').map(function (x) { return { id: x.replace(/[\[\]()]/g, '').split(' + ')[0].trim(), skip: /^\[/.test(x) }; }).filter(function (x) { return pos[x.id]; });
-      var cm = CONFIG[d.title] && CONFIG[d.title].trainClass ? /([A-Z])\*?$/.exec(t.train) : null;
-      return { t: t, ids: ids, col: cm && RT_CLS[cm[1]] ? RT_CLS[cm[1]] : RT_PAL[i % RT_PAL.length] };
-    }) : [];
     paths.forEach(function (p) { p.ids.forEach(function (x) { on[x.id] = 1; }); });
     M.hexes.forEach(function (h) {
-      var c = pos[h.id], lit = on[h.id];
-      o.push('<polygon points="' + poly(c[0], c[1], u - 1) + '" fill="' + (TILE_FILL[h.c] || TILE_FILL.white) + '" fill-opacity="' + (h.c === 'white' ? '.22' : '.6') + '" stroke="var(--border)" stroke-width="1"><title>' + esc(h.id + (h.loc ? ' ' + h.loc : '') + (h.t ? ' · tile ' + h.t : '') + ' · ' + h.c) + '</title></polygon>');
-      if (h.city) o.push('<circle cx="' + c[0].toFixed(1) + '" cy="' + c[1].toFixed(1) + '" r="' + (6 + (h.city > 1 ? 2 : 0)) + '" fill="var(--surface-1)" stroke="var(--text-muted)" stroke-width="1"/>');
-      else if (h.off) o.push('<rect x="' + (c[0] - 5).toFixed(1) + '" y="' + (c[1] - 5).toFixed(1) + '" width="10" height="10" transform="rotate(45 ' + c[0].toFixed(1) + ' ' + c[1].toFixed(1) + ')" fill="var(--surface-1)" stroke="var(--text-muted)" stroke-width="1"/>');
-      else if (h.town) o.push('<circle cx="' + c[0].toFixed(1) + '" cy="' + c[1].toFixed(1) + '" r="3" fill="var(--text-muted)"/>');
-      o.push('<text x="' + c[0].toFixed(1) + '" y="' + (c[1] + u * 0.62).toFixed(1) + '" text-anchor="middle" font-size="' + (lit ? 9 : 7.5) + '" fill="var(--text-' + (lit ? 'primary' : 'muted') + ')"' + (lit ? ' font-weight="700"' : '') + '>' + esc(h.id) + '</text>');
+      var c = pos[h.id], lit = on[h.id], st = hx && hx[h.id] ? { c: hx[h.id][0], t: hx[h.id][1], k: hx[h.id][2] } : { c: h.c, t: h.t, k: h.k || [] };
+      o.push('<polygon points="' + poly(c[0], c[1], u - 1) + '" fill="' + (TILE_FILL[st.c] || TILE_FILL.white) + '" fill-opacity="' + (st.c === 'white' ? '.22' : '.6') + '" stroke="var(--border)" stroke-width="1"><title>' + esc(h.id + (h.loc ? ' ' + h.loc : '') + (st.t ? ' · tile ' + st.t : '') + ' · ' + st.c + (st.k.length ? ' · tokens: ' + st.k.join(', ') : '')) + '</title></polygon>');
+      var cx = c[0].toFixed(1), cy = c[1].toFixed(1);
+      if (h.city) o.push('<circle cx="' + cx + '" cy="' + cy + '" r="' + (7 + (h.city > 1 ? 2 : 0)) + '" fill="var(--surface-1)" stroke="var(--text-muted)" stroke-width="1"/>');
+      else if (h.off) o.push('<rect x="' + (c[0] - 5).toFixed(1) + '" y="' + (c[1] - 5).toFixed(1) + '" width="10" height="10" transform="rotate(45 ' + cx + ' ' + cy + ')" fill="var(--surface-1)" stroke="var(--text-muted)" stroke-width="1"/>');
+      else if (h.town) o.push('<circle cx="' + cx + '" cy="' + cy + '" r="3" fill="var(--text-muted)"/>');
+      st.k.forEach(function (kn, ki) {
+        var ang = ki * 2 * Math.PI / st.k.length, rr = st.k.length > 1 ? 4.2 : 0;
+        o.push('<circle cx="' + (c[0] + rr * Math.cos(ang)).toFixed(1) + '" cy="' + (c[1] + rr * Math.sin(ang)).toFixed(1) + '" r="3.6" fill="' + (tokCol[kn] || '#999') + '" stroke="var(--surface-1)" stroke-width="1"><title>' + esc(kn) + '</title></circle>');
+      });
+      if (st.t && st.c !== 'white') o.push('<text x="' + cx + '" y="' + (c[1] - u * 0.5).toFixed(1) + '" text-anchor="middle" font-size="6.5" fill="var(--text-secondary)">#' + esc(st.t) + '</text>');
+      o.push('<text x="' + cx + '" y="' + (c[1] + u * 0.68).toFixed(1) + '" text-anchor="middle" font-size="' + (lit ? 9 : 7.5) + '" fill="var(--text-' + (lit ? 'primary' : 'muted') + ')"' + (lit ? ' font-weight="700"' : '') + '>' + esc(h.id) + '</text>');
     });
     paths.forEach(function (p, i) {
-      var off = (i - (paths.length - 1) / 2) * 4, pts = p.ids.map(function (x) { return (pos[x.id][0] + off).toFixed(1) + ',' + (pos[x.id][1] + off).toFixed(1); });
-      if (pts.length > 1) o.push('<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + p.col + '" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round" opacity=".9"/>');
+      var off = (i - (paths.length - 1) / 2) * 3.2, pts = p.ids.map(function (x) { return (pos[x.id][0] + off).toFixed(1) + ',' + (pos[x.id][1] + off).toFixed(1); });
+      if (pts.length > 1) o.push('<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + p.col + '" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" opacity=".9"/>');
       p.ids.forEach(function (x, k) {
         var e = k === 0 || k === p.ids.length - 1;
-        o.push('<circle cx="' + (pos[x.id][0] + off).toFixed(1) + '" cy="' + (pos[x.id][1] + off).toFixed(1) + '" r="' + (e ? 5 : 3) + '" fill="' + (x.skip ? 'var(--surface-1)' : p.col) + '" stroke="' + p.col + '" stroke-width="1.5"/>');
+        o.push('<circle cx="' + (pos[x.id][0] + off).toFixed(1) + '" cy="' + (pos[x.id][1] + off).toFixed(1) + '" r="' + (e ? 4.6 : 2.8) + '" fill="' + (x.skip ? 'var(--surface-1)' : p.col) + '" stroke="' + p.col + '" stroke-width="1.5"/>');
       });
     });
     o.push('</svg>');
     return o.join('');
   }
+  function rtMapSvg(d, R, corp) { return boardSvg(d, null, rtPaths(d, R, corp, hexPos(d, 26).pos), 760); }
   function rtMapHtml(d, k, corp) {
     var R = d.routes[Math.min(Math.max(k, 0), d.routes.length - 1)], runners = R.corps.filter(function (c) { return c.trains.length; });
     if (!runners.length) return '<p class="sub">Nobody ran trains in this round.</p>';
-    if (!runners.some(function (c) { return c.corp === corp; })) corp = runners[0].corp;
-    var chips = runners.map(function (c) { return '<button class="pill rtc' + (c.corp === corp ? ' cur' : '') + '" data-c="' + esc(c.corp) + '">' + esc(c.corp) + '</button>'; }).join(' ');
+    if (corp !== '*' && !runners.some(function (c) { return c.corp === corp; })) corp = runners[0].corp;
+    var chips = ['<button class="pill rtc' + (corp === '*' ? ' cur' : '') + '" data-c="*">All</button>'].concat(runners.map(function (c) { return '<button class="pill rtc' + (c.corp === corp ? ' cur' : '') + '" data-c="' + esc(c.corp) + '">' + esc(c.corp) + '</button>'; })).join(' ');
     return '<div class="tabs">' + chips + ' <button id="rt-ci" class="lnk" title="Copy this map and the routes as a picture, to paste into chat">copy as image</button></div>' + rtMapSvg(d, R, corp) +
       '<p class="sub" style="margin-top:6px">Each line joins the stops the engine logs, in order, so it shows where the train went but not the exact track. One colour per train; a hollow dot is a stop the train skips. Hex colours show the tiles on the board in the game state you are viewing, not necessarily when the route ran. ◯ city &nbsp;◆ off-board &nbsp;• town</p>';
   }
+  // One frame of the replay: the board at that moment (with that round's routes), standings and prices
+  function rpFrame(d, k, dark, pal, me) {
+    var G = hexPos(d, 26), R = null, lab = d.replay.labels[k], mm = /^OR (\d+\.\d+)$/.exec(lab);
+    if (mm) d.routes.forEach(function (r) { if (r.label.indexOf('Operating Round ' + mm[1] + ' ') >= 0 || r.label.indexOf('Operating Round ' + mm[1] + ')') >= 0) R = r; });
+    var paths = R ? rtPaths(d, R, '*', G.pos) : [];
+    var rows = d.players.map(function (p, i) { return { name: p.name, v: d.valueHistory.series[i][k], col: pal[p.idx % pal.length] }; }).filter(function (r) { return r.v != null; }).sort(function (a, b) { return b.v - a.v; });
+    var mx = 0; d.valueHistory.series.forEach(function (ser) { ser.forEach(function (v) { if (v != null && v > mx) mx = v; }); });
+    var stand = '<table><tbody>' + rows.map(function (r, i) { return '<tr><td>' + (i + 1) + '</td><td style="text-align:left"><i class="sw" style="background:' + r.col + '"></i>' + (r.name === me ? '<b>' + esc(r.name) + '</b>' : esc(r.name)) + '</td><td>' + esc(d.money(r.v)) + '</td><td style="width:34%"><div class="bar"><i style="width:' + Math.max(2, Math.round(100 * r.v / (mx || 1))) + '%;background:' + r.col + '"></i></div></td></tr>'; }).join('') + '</tbody></table>';
+    var pk = d.prices.labels.indexOf(lab), pr = pk < 0 ? [] : d.prices.series.map(function (sr) { return { name: sr.name, v: sr.values[pk], col: sr.color }; }).filter(function (r) { return r.v != null; }).sort(function (a, b) { return b.v - a.v; });
+    var prices = pr.length ? '<div class="rpp">' + pr.map(function (r) { return '<span><i class="sw" style="background:' + displayColor(r.col, dark) + '"></i>' + esc(r.name) + ' ' + esc(d.money(r.v)) + '</span>'; }).join('') + '</div>' : '';
+    var vm = { labels: d.valueHistory.labels, fmt: d.money, series: d.players.map(function (p, i) { return { name: p.name, color: pal[p.idx % pal.length], values: d.valueHistory.series[i] }; }) };
+    var ch = lineChart(vm, { title: 'Player value', dark: dark, height: 170, cursor: k });
+    return { map: boardSvg(d, d.replay.hx[k], paths, 600), side: '<h3 class="rph">Standings</h3>' + stand + '<h3 class="rph">Share prices</h3>' + prices + '<div class="chart" style="margin-top:8px">' + ch.svg + '</div>', routes: paths.length };
+  }
   // Picture of one company's routes in one round (map + list) for pasting into chat
   function routeImage(d, k, corp, dark) {
-    var R = d.routes[k], C = R.corps.filter(function (c) { return c.corp === corp; })[0], M = d.hexMap;
+    var R = d.routes[k], C = corp === '*' ? { total: '', kind: '' } : R.corps.filter(function (c) { return c.corp === corp; })[0], M = d.hexMap;
     var th = dark ? { bg: '#14181d', tx: '#e8eaed', t2: '#a9b0b8', gr: '#3a424c' } : { bg: '#f1f0e7', tx: '#1b1f24', t2: '#5b636c', gr: '#b9b8ac' };
     var u = 26, flat = M.layout !== 'pointy', tx = flat ? 1.5 * u : Math.sqrt(3) / 2 * u, ty = flat ? Math.sqrt(3) / 2 * u : 1.5 * u, minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9, pos = {};
     M.hexes.forEach(function (h) { minx = Math.min(minx, h.x); miny = Math.min(miny, h.y); maxx = Math.max(maxx, h.x); maxy = Math.max(maxy, h.y); });
     M.hexes.forEach(function (h) { pos[h.id] = [tx * (h.x - minx) + u, ty * (h.y - miny) + u]; });
-    var mw = tx * (maxx - minx) + 2 * u, mh = ty * (maxy - miny) + 2 * u, sc = 560 / mw, S = 2, W = 900, top = 56, H = Math.max(mh * sc, 40 + C.trains.length * 46 + 60) + top + 16;
+    var mw = tx * (maxx - minx) + 2 * u, mh = ty * (maxy - miny) + 2 * u, sc = 560 / mw, S = 2, W = 900, top = 56, H = Math.max(mh * sc, 40 + paths.length * 46 + 60) + top + 16;
     var cv = document.createElement('canvas'); cv.width = W * S; cv.height = H * S; var x = cv.getContext('2d'); x.scale(S, S);
     var F = function (sz, wt) { x.font = (wt || '400') + ' ' + sz + 'px system-ui,-apple-system,Segoe UI,Roboto,sans-serif'; };
     x.fillStyle = th.bg; x.fillRect(0, 0, W, H); x.textBaseline = 'alphabetic';
-    F(17, '700'); x.fillStyle = th.tx; x.fillText(d.title + ' · ' + R.label + ' · ' + corp, 16, 30);
+    F(17, '700'); x.fillStyle = th.tx; x.fillText(d.title + ' · ' + R.label + ' · ' + (corp === '*' ? 'all companies' : corp), 16, 30);
     F(12); x.fillStyle = th.t2; x.fillText('Routes as the engine logs them · 18xx-JNNstats', 16, 47);
     var ox = 16, oy = top;
     var hexPath = function (cx, cy, r) { x.beginPath(); for (var a = 0; a < 6; a++) { var rad = ((flat ? 0 : 30) + a * 60) * Math.PI / 180, px = ox + (cx + r * Math.cos(rad)) * sc, py = oy + (cy + r * Math.sin(rad)) * sc; if (a) x.lineTo(px, py); else x.moveTo(px, py); } x.closePath(); };
-    var on = {}, paths = C.trains.map(function (t, i) {
-      var ids = t.stops.split('-').map(function (q) { return { id: q.replace(/[\[\]()]/g, '').split(' + ')[0].trim(), skip: /^\[/.test(q) }; }).filter(function (q) { return pos[q.id]; });
-      var cm = CONFIG[d.title] && CONFIG[d.title].trainClass ? /([A-Z])\*?$/.exec(t.train) : null;
-      ids.forEach(function (q) { on[q.id] = 1; });
-      return { t: t, ids: ids, col: cm && RT_CLS[cm[1]] ? RT_CLS[cm[1]] : RT_PAL[i % RT_PAL.length] };
-    });
+    var on = {}, paths = rtPaths(d, R, corp, pos); paths.forEach(function (p) { p.ids.forEach(function (q) { on[q.id] = 1; }); });
     M.hexes.forEach(function (h) {
       var c = pos[h.id]; hexPath(c[0], c[1], u - 1);
       x.globalAlpha = h.c === 'white' ? 0.22 : 0.65; x.fillStyle = TILE_FILL[h.c] || TILE_FILL.white; x.fill(); x.globalAlpha = 1; x.strokeStyle = th.gr; x.lineWidth = 1; x.stroke();
@@ -1348,12 +1392,12 @@
     var lx = 16 + 560 + 24, ly = top + 14;
     paths.forEach(function (p) {
       x.fillStyle = p.col; x.beginPath(); x.arc(lx + 6, ly - 4, 6, 0, 7); x.fill();
-      F(14, '700'); x.fillStyle = th.tx; x.fillText(p.t.train + '   ' + p.t.rev, lx + 20, ly);
+      F(14, '700'); x.fillStyle = th.tx; x.fillText((corp === '*' ? p.corp + ' ' : '') + p.t.train + '   ' + p.t.rev, lx + 20, ly);
       F(11); x.fillStyle = th.t2; var words = p.t.stops.split('-'), line = '', yy = ly + 16;
       words.forEach(function (wd) { var t2 = line ? line + '-' + wd : wd; if (x.measureText(t2).width > W - lx - 20 - 16) { x.fillText(line, lx + 20, yy); yy += 14; line = wd; } else line = t2; });
       x.fillText(line, lx + 20, yy); ly = yy + 30;
     });
-    F(14, '700'); x.fillStyle = th.tx; x.fillText('Total ' + (C.total || '') + (C.kind ? ' · ' + C.kind : ''), lx, ly + 4);
+    F(14, '700'); x.fillStyle = th.tx; if (corp !== '*') x.fillText('Total ' + (C.total || '') + (C.kind ? ' · ' + C.kind : ''), lx, ly + 4);
     return cv;
   }
   // Body of the Routes & revenue card: one operating round, a row per train
@@ -1677,6 +1721,14 @@
           gr.items.map(function (o) { return '<span class="tcp' + (!o.unl && o.left === 0 ? ' z' : '') + '" title="' + esc('tile ' + o.name + ': ' + (o.unl ? 'unlimited' : o.left + ' of ' + o.total + ' left')) + '">#' + esc(o.name) + ' <small style="color:var(--text-muted)">' + (o.unl ? '∞' : o.left + '/' + o.total) + '</small></span>'; }).join('') + '</div></div>';
       }).join('') + '</section>');
     }
+    // Replay
+    if (d.replay && d.replay.labels.length > 1) {
+      var rpLast = d.replay.labels.length - 1, rpK = ST.rpIdx != null && ST.rpGame === d.id && ST.rpIdx <= rpLast ? ST.rpIdx : rpLast, rf = rpFrame(d, rpK, dark, pal, me);
+      h.push('<section class="card wide"><h2>Replay</h2><p class="sub">Watch the game unfold round by round: tiles and tokens on the board, who runs where in operating rounds, standings, prices.</p>' +
+        '<div class="gslide"><button id="rp-play" title="Play or pause">' + (ST.rpPlay ? '⏸' : '▶') + '</button><button id="rp-p" title="Previous">◀</button><input type="range" id="rp-i" min="0" max="' + rpLast + '" value="' + rpK + '"><button id="rp-n" title="Next">▶</button>' +
+        '<b id="rp-l">' + esc(d.replay.labels[rpK]) + '</b><select id="rp-sp" title="Speed"><option value="0.5">slow</option><option value="1" selected>normal</option><option value="2">fast</option></select></div>' +
+        '<div class="rpb"><div id="rp-map" class="rpm">' + rf.map + '</div><div id="rp-side" class="rps">' + rf.side + '</div></div></section>');
+    }
     // Game info
     if (d.info) {
       var I = d.info, row = function (k, v) { return v ? '<tr><td style="color:var(--text-secondary)">' + esc(k) + '</td><td style="text-align:left;white-space:normal">' + v + '</td></tr>' : ''; };
@@ -1733,6 +1785,33 @@
       Array.prototype.forEach.call(lg.querySelectorAll('span'), function (sp) { sp.onclick = function () { var si = sp.getAttribute('data-si'); apply(ST.iso && ST.iso[key] === si ? null : si); }; });
       if (ST.iso && ST.iso[key] != null) apply(ST.iso[key]);
     });
+    // replay: slider, play, speed
+    if (ST.rpTimer) { clearInterval(ST.rpTimer); ST.rpTimer = null; }
+    var rpi = doc.getElementById('rp-i');
+    if (rpi && d.replay) {
+      var rpSet = function (v) {
+        v = Math.min(Math.max(v, 0), d.replay.labels.length - 1); rpi.value = v; ST.rpIdx = v; ST.rpGame = d.id;
+        var fr = rpFrame(d, v, dark, pal, me); doc.getElementById('rp-l').textContent = d.replay.labels[v];
+        doc.getElementById('rp-map').innerHTML = fr.map; doc.getElementById('rp-side').innerHTML = fr.side;
+      };
+      var rpStart = function () {
+        if (ST.rpTimer) clearInterval(ST.rpTimer);
+        ST.rpTimer = setInterval(function () {
+          if (!doc.getElementById('rp-i')) { clearInterval(ST.rpTimer); ST.rpTimer = null; return; }
+          if (+rpi.value >= d.replay.labels.length - 1) { ST.rpPlay = false; clearInterval(ST.rpTimer); ST.rpTimer = null; doc.getElementById('rp-play').textContent = '▶'; return; }
+          rpSet(+rpi.value + 1);
+        }, 1400 / (parseFloat(doc.getElementById('rp-sp').value) || 1));
+      };
+      rpi.oninput = function () { rpSet(+rpi.value); };
+      doc.getElementById('rp-p').onclick = function () { rpSet(+rpi.value - 1); };
+      doc.getElementById('rp-n').onclick = function () { rpSet(+rpi.value + 1); };
+      doc.getElementById('rp-sp').onchange = function () { if (ST.rpPlay) rpStart(); };
+      doc.getElementById('rp-play').onclick = function () {
+        ST.rpPlay = !ST.rpPlay; this.textContent = ST.rpPlay ? '⏸' : '▶';
+        if (ST.rpPlay) { if (+rpi.value >= d.replay.labels.length - 1) rpSet(0); rpStart(); } else if (ST.rpTimer) { clearInterval(ST.rpTimer); ST.rpTimer = null; }
+      };
+      if (ST.rpPlay) rpStart();
+    }
     // routes card: round picker
     var rts = doc.getElementById('rt-s');
     if (rts && d.routes) {
@@ -1869,8 +1948,8 @@
   // ---------- Layout: collapse and reorder sections, remembered per mode ----------------
   // Two layouts are kept in this browser: 'live' (game in progress) and 'review' (finished game).
   var DEFAULT_ORDER = {
-    live: ['now', 'what-just-happened', 'trains-phases-bank', 'routes-revenue', 'stock-round-helper', 'stock-market', 'standings', 'player-value-over-time', 'stock-ticker', 'portfolios', 'corporations', 'company-revenue-per-operating-round', 'share-price', 'game-log', 'minors-private-companies', 'tile-manifest', 'game-info'],
-    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'game-log', 'company-revenue-per-operating-round', 'share-price', 'portfolios', 'corporations', 'trains-phases-bank', 'routes-revenue', 'minors-private-companies', 'tile-manifest', 'game-info']
+    live: ['now', 'what-just-happened', 'trains-phases-bank', 'routes-revenue', 'stock-round-helper', 'stock-market', 'standings', 'player-value-over-time', 'replay', 'stock-ticker', 'portfolios', 'corporations', 'company-revenue-per-operating-round', 'share-price', 'game-log', 'minors-private-companies', 'tile-manifest', 'game-info'],
+    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'replay', 'game-log', 'company-revenue-per-operating-round', 'share-price', 'portfolios', 'corporations', 'trains-phases-bank', 'routes-revenue', 'minors-private-companies', 'tile-manifest', 'game-info']
   };
   function slug(txt) { return String(txt).toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
   function loadLayout(mode) {

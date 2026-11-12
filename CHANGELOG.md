@@ -2,6 +2,12 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.14.0] - 2026-11-12
+
+### Added
+- **Replay** card: play or scrub through the whole game. The board shows the tiles (with tile numbers) and company tokens as they stood after each round, every company's routes in operating rounds, the standings, share prices, and a value chart with a moving marker. Speed: slow, normal, fast.
+- **Map sketch:** tile numbers, company tokens in cities, and an *All* button that draws every company's routes at once (in company colours). *Copy as image* works for both.
+
 ## [0.13.0] - 2026-11-12
 
 ### Added
