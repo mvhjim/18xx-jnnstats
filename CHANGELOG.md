@@ -2,6 +2,23 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.8.0] - 2026-11-12
+
+### Added
+- **Light/dark toggle** (☀ / 🌙) at the top; the choice is remembered. Light mode checked on all sections.
+- **Compact header:** icon toolbar, a **⋯** menu for opening another game and resetting the layout, and the header shrinks when you scroll.
+- **Sticky first column** in wide tables so names stay visible when scrolling sideways.
+- **copy as text** in Standings.
+- **Window position and size are remembered**; the round is in the window title.
+- **"New version available"** note, via `version.js`.
+- **"I am" is picked automatically** from the logged-in name in the page header when it matches exactly one player.
+- `tests/` folder with a regression script (exact scores against official results) and a live-play simulation.
+
+### Changed
+- *Since your last turn* is now a tab inside *What just happened* and hidden when empty.
+- Thousands separators everywhere; a negative bank shows as "−$2,139" with a *broken* label.
+- Single-row market grids wrap into even rows. "Player" column header is left-aligned.
+
 ## [0.7.1] - 2026-11-12
 
 ### Fixed

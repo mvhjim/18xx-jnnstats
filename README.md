@@ -29,17 +29,17 @@ The bookmark is only a loader: it fetches `stats.js` from this repository each t
 2. Click **18xx-JNNstats** in the bookmarks bar. A stats window opens.
 3. The first time, your browser may block the pop-up. Allow pop-ups for 18xx.games and click again.
 4. Leave the window open. It updates the moment a move is made. If you reload or leave the game page, the stats window shows *Updates paused*; click the bookmark again on the game page.
-5. To look at another game, old or live, type its number or link into the box at the top of the stats window and press **Open**. Any title works.
-6. **Half screen:** the window opens on the right half of your screen, so the game keeps the left half. Press **Half screen** to put it back if it moves.
-7. **Arrange it your way:** collapse a section with ▾, and move it by dragging the ⠿ handle or with ▲ ▼. The arrangement is saved separately for live games and for reviews of finished games. Live games start with *Trains & phases* at the top. **Reset layout** restores the defaults.
+5. To look at another game, old or live, open the **⋯** menu at the top of the stats window, type its number or link and press **Open**. Any title works.
+6. **Half screen:** the window opens on the right half of your screen, so the game keeps the left half. Move or resize it and it remembers that next time; press **◨** to snap it back to the right half.
+7. **Light or dark:** press ☀ / 🌙 at the top. By default it follows your system.
+8. **Arrange it your way:** collapse a section with ▾, and move it by dragging the ⠿ handle or with ▲ ▼. The arrangement is saved separately for live games and for reviews of finished games. Live games start with *Trains & phases* at the top. **Reset layout** (in the **⋯** menu) restores the defaults.
 
 ## What the window shows
 
 While a game is in progress:
 
 - **Now:** who is to act, the order of the round, operating rounds left in the set, priority deal, a personal tile once you pick your name under *I am…*, a train rush warning and a game-end estimate.
-- **What just happened:** the latest moves, with new ones marked.
-- **Since your last turn:** everything logged after your own last move, once you pick your name under *I am…*.
+- **What just happened:** the latest moves, with new ones marked. A second tab, *Since your last turn*, lists everything logged after your own last move (shown when there is something, and once you are picked under *I am…*; the page's logged-in name is picked automatically when it matches a player).
 - **Stock round helper:** shares available, dividend per share, yield, presidency warnings, and where the price goes if a company pays or withholds.
 - **Your turn:** a green frame around the window, ● in the title, and an optional sound.
 - **Live movement:** when shares or trains change hands, a small chip glides from the old holder to the new one, and a rusted train fades out.
@@ -48,7 +48,7 @@ Always:
 
 - **Stock market:** the title's own market grid with every company on its square, the price zones, your own companies outlined, and in a live game a dashed marker for where the acting company goes if it pays out or withholds. A slider steps the grid back through earlier rounds.
 - **Stock ticker:** each company's share price, the change since the previous round, and a trend line.
-- **Standings:** player value (cash + shares at market + private companies), gap to the leader, cash, certificates against the limit.
+- **Standings:** player value (cash + shares at market + private companies), gap to the leader, cash, certificates against the limit. **copy as text** puts the ranking and share prices on your clipboard for Discord or the forum.
 - **Player value over time:** the score race, round by round.
 - **Company revenue per OR:** ● paid out, ◉ half payout, ○ withheld; minors as dashed lines.
 - **Share price** history.
@@ -89,7 +89,9 @@ You are asked to run code from the internet on a page where you are logged in, s
 
 - **It reads, it never acts.** It replays the game with the site's own engine and draws numbers. It cannot make a move, change a setting or sign you in.
 - **It only talks to 18xx.games.** The only network requests in the code are to the site's own game data (`/api/game/<number>`, the same data the page shows) and the site's own rules files. Nothing is sent to anyone else, there is no analytics, and no cookies or passwords are read.
-- **Your settings stay in your browser.** Only a few small preferences are stored locally (your name selection, the sound switch and the window layout).
+- **Your settings stay in your browser.** Only a few small preferences are stored locally (your name selection, the sound switch, light/dark choice, window position and the section layout).
+- **The "I am" auto-pick** only reads the display name in the page's header and compares it with the players of the game. It never touches passwords, cookies or tokens.
+- **Update note:** once every six hours the window loads a one-line script, `version.js`, from this repository (through jsDelivr) to see if a newer version exists, and shows a link if so. It sends nothing about you or your game.
 - **Names from games are escaped** before being shown, so a hostile player name cannot inject code into the stats window.
 - **The one trust point is the loader.** The bookmark downloads `stats.js` from this GitHub repository through the jsDelivr CDN. Code running on a page can in principle see everything on that page, so you are trusting this repository and that CDN, as with any bookmarklet. An extension bundled in your browser does not update itself from the web; this does, unless you pin it.
 - **How to stay in control:** read [stats.js](stats.js) (it is one readable file, GPL-licensed), read the [changelog](CHANGELOG.md) before updating, and **pin the bookmark to a commit** you have reviewed by replacing `@main` in the bookmark's address with `@` and the short commit hash from GitHub. A pinned address never changes, so nothing can be swapped in later. Switch back to `@main` when you want updates.
