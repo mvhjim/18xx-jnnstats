@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.10.1';
+  var VERSION = '0.10.2';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -1245,9 +1245,9 @@
       }).join('');
       h.push('<div class="tile"><div class="l">Game end</div>' +
         (en.triggered ? '<div class="v st-crit">Triggered</div><div class="d2">' + esc(en.triggered.reason) + ' → ends ' + esc(en.triggered.timing) + '</div>'
-          : en.bankORs != null ? '<div class="v">≈ ' + (en.bankORs < 10 ? en.bankORs.toFixed(1) : Math.round(en.bankORs)) + ' <small class="sm">ORs of bank left at this pace</small></div><div class="d2">Bank ' + esc(m(d.bank)) + ', falling about ' + esc(m(en.bankDrop)) + ' per OR lately. Payouts grow as trains come, so the real number is smaller, and the other ways to end the game may come first.</div>'
+          : en.bankORs != null ? '<div class="v">≈ ' + (en.bankORs < 10 ? en.bankORs.toFixed(1) : Math.round(en.bankORs)) + ' <small class="sm">ORs of bank left at this pace</small></div><div class="d2">Bank ' + esc(m(d.bank)) + ', falling about ' + esc(m(en.bankDrop)) + ' per OR lately (a guess: payouts grow, so it is shorter in practice).</div>'
           : '<div class="v sm2">not triggered</div>') +
-        (endList ? '<div class="d2" style="margin-top:6px"><b>The game can end when:</b></div>' + endList : '') + '</div>');
+        (endList ? '<details class="d2" style="margin-top:6px"><summary style="cursor:pointer"><b>How the game can end</b></summary>' + endList + '</details>' : '') + '</div>');
       h.push('</div></section>');
 
       // What just happened: latest moves, plus everything since your own last move

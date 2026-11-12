@@ -2,6 +2,11 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.10.2] - 2026-11-12
+
+### Changed
+- **Game end** tile: the list of ways the game can end is folded away under *How the game can end*, so the narrower Now tile stays compact.
+
 ## [0.10.1] - 2026-11-12
 
 ### Changed
