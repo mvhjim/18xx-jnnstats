@@ -2,6 +2,12 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.9.2] - 2026-11-12
+
+### Changed
+- **Bank & depot** is now the top of *Trains & phases* instead of a section of its own.
+- *Corporations* sits directly under *Portfolios*; *Minors & private companies* and *Tile manifest* stay at the bottom and start collapsed. (If you saved your own layout, press ⋯ → Reset layout once to get the new order.)
+
 ## [0.9.1] - 2026-11-12
 
 ### Added

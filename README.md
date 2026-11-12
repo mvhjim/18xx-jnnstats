@@ -39,7 +39,7 @@ The bookmark is only a loader: it fetches `stats.js` from this repository each t
 5. To look at another game, old or live, open the **⋯** menu at the top of the stats window, type its number or link and press **Open**. Any title works.
 6. **Half screen:** the window opens on the right half of your screen, so the game keeps the left half. Move or resize it and it remembers that next time; press **◨** to snap it back to the right half.
 7. **Light or dark:** press ☀ / 🌙 at the top. By default it follows your system.
-8. **Arrange it your way:** collapse a section with ▾, and move it by dragging the ⠿ handle or with ▲ ▼. The arrangement is saved separately for live games and for reviews of finished games. Live games start with *Trains & phases* at the top. **Reset layout** (in the **⋯** menu) restores the defaults.
+8. **Arrange it your way:** collapse a section with ▾, and move it by dragging the ⠿ handle or with ▲ ▼. The arrangement is saved separately for live games and for reviews of finished games. Live games start with *Trains & phases* near the top. **Reset layout** (in the **⋯** menu) restores the defaults.
 
 ## What the window shows
 
@@ -61,13 +61,12 @@ Always:
 - **Share price** history.
 - **Portfolios:** pick a player and see what they held over the game, stacked by company, with private companies and cash. Short positions (1817 family) go below zero.
 - **Holdings now:** who owns what percentage of each company; ★ is president, shorts in red.
-- **Trains & phases:** trains left in the bank per type, the next train, purchases until each phase change, what rusts next and which companies it hits.
-- **Bank & depot:** bank cash, the trains still to come in order, trains in the bank pool, and the shares left in the initial offering and the market.
+- **Trains & phases:** starts with the bank (cash, the trains still to come in order, trains in the bank pool, shares left in the initial offering and the market), then trains left per type, the next train, purchases until each phase change, what rusts next and which companies it hits.
 - **Tile manifest** (collapsed by default): how many of each tile are left, by colour; colours the current phase does not allow yet are dimmed.
 - **Game log:** the whole log of the game, one round at a time. Drag the slider (or press ◀ ▶) to walk through the game, search the whole log for a company or player, or jump to your own last move once you pick your name under *I am…*. Every line has the acting player's colour and name on the left, and your own lines are highlighted. Works in finished and live games.
 - **Hover linking:** hover a company anywhere and it lights up in every table and chart on screen.
 - **Corporations:** whether the treasury covers the cheapest train or an emergency buy is needed, train health (*safe*, *will rust*, *obsolete*, *trainless in N buys*), tokens, loans and interest.
-- **Minors & private companies:** owners over time and when each closed.
+- **Minors & private companies** (collapsed by default): owners over time and when each closed.
 
 ## Tested titles
 
