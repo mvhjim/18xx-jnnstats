@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.23.0';
+  var VERSION = '0.23.1';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -958,7 +958,7 @@
     '*{box-sizing:border-box}body{margin:0;background:var(--surface-0);color:var(--text-primary);font:13px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}',
     '.hr3{display:flex;align-items:center;gap:8px;margin-top:6px;padding:4px 8px;border-radius:8px;font-size:12px;color:var(--text-secondary);border:1px solid var(--grid)}.hr3 input{flex:1;min-width:80px}.hr3.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--text)}.hr3 b{white-space:nowrap}.tt-note{color:var(--text-muted)}',
     'header{position:sticky;top:0;z-index:5;background:var(--surface-1);border-bottom:1px solid var(--border);padding:7px 14px}',
-    '.hr1{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center}.hr1 .grow{flex:1}.hr2{color:var(--text-muted);font-size:11.5px;margin-top:3px}header.compact .hr2{display:none}',
+    '.ab{color:var(--text-muted);font-size:11.5px;line-height:1.5;border-top:1px solid var(--border);padding-top:6px;margin-top:2px}.ab a{color:inherit}.hr1{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center}.hr1 .grow{flex:1}.hr2{color:var(--text-muted);font-size:11.5px;margin-top:3px}header.compact .hr2{display:none}',
     'header h1{font-size:15px;margin:0;font-weight:650}header .kv{color:var(--text-secondary)}header .kv b{color:var(--text-primary);font-weight:600}',
     '.tb{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.ib{font:inherit;font-size:14px;line-height:1;padding:4px 8px;border:1px solid var(--border);background:var(--surface-0);color:var(--text-primary);border-radius:6px;cursor:pointer;list-style:none}.ib:hover{border-color:var(--accent)}summary.ib::-webkit-details-marker{display:none}',
     '.menu{position:relative}.mp2{position:absolute;right:0;top:calc(100% + 6px);z-index:10;min-width:240px;background:var(--surface-1);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.3);padding:8px;display:flex;flex-direction:column;gap:8px;font-size:12px}',
@@ -966,8 +966,8 @@
     '.upd{color:var(--warn);font-weight:600}@media (max-width:1000px){.kv.opt{display:none}}',
     'main{padding:10px 12px}.gb{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(440px,100%),1fr));align-items:stretch}.card.collapsed{align-self:start}',
     '.grp{margin:0 0 14px}.gh{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;letter-spacing:.02em;color:var(--text-primary);padding:6px 4px;margin:0 0 6px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;scroll-margin-top:84px}.gh .gn{font-weight:400;color:var(--text-muted)}.gh:hover{color:var(--accent)}.grp.gcol>.gb{display:none}',
-    '#jump{display:flex;align-items:center;gap:6px 14px;margin:6px 0 0;overflow-x:auto;white-space:nowrap;padding-bottom:2px}#jump .sb{font-size:12px;display:inline-flex;align-items:center;gap:4px}#jump .sb b{font-variant-numeric:tabular-nums}#jump .jg{margin-left:auto;display:inline-flex;gap:4px}#jump .jg button{font:inherit;font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:none;color:var(--text-secondary);cursor:pointer}#jump .jg button:hover{border-color:var(--accent);color:var(--accent)}',
-    'body{font-variant-numeric:tabular-nums}.tw thead th{position:sticky;top:0;background:var(--surface-1);z-index:1}.mtabs{margin:0 0 8px}.mp[hidden]{display:none}.sinfo{font-size:11px}',
+    '#jump{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin:6px 0 0}#jump .sb{font-size:12px;display:inline-flex;align-items:center;gap:4px}#jump .sb b{font-variant-numeric:tabular-nums}#jump .jg{margin-left:auto;display:inline-flex;flex-wrap:wrap;gap:4px}#jump .jg button{font:inherit;font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:none;color:var(--text-secondary);cursor:pointer}#jump .jg button:hover{border-color:var(--accent);color:var(--accent)}',
+    'body{font-variant-numeric:tabular-nums}.tw thead th{position:sticky;top:0;background:var(--surface-1);z-index:1}.mtabs{margin:0 0 8px}.mpane[hidden]{display:none}.sinfo{font-size:11px}',
     '.card{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:12px 14px;min-width:0}.card.wide{grid-column:1/-1}',
     '.tw{overflow-x:auto}.card h2{font-size:13px;margin:0 0 2px;font-weight:650}.card .sub{color:var(--text-muted);font-size:12px;margin:0 0 8px}',
     'table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}th,td{padding:4px 8px;text-align:right;border-bottom:1px solid var(--grid);white-space:nowrap}th{font-weight:600;color:var(--text-secondary);font-size:12px}th:first-child,td:first-child{text-align:left}',
@@ -1016,7 +1016,7 @@
     '.cmt{margin-left:8px;font-size:12px}.cmt .cm.on{font-weight:700;text-decoration:none;color:var(--text-primary)}',
     '.rpmv{margin:0 0 4px;font-size:12px;color:var(--text-secondary)}',
     '.badges{display:flex;flex-wrap:wrap;gap:10px}.bdg{display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:10px;padding:8px 12px;min-width:200px;font-size:13px}.bdg .bi{font-size:26px}.bdg .bn{font-weight:650}',
-    '.pies{display:flex;flex-wrap:wrap;gap:14px 26px}.pie1{display:flex;flex-direction:column;gap:4px;min-width:150px;font-size:12px}.pie1 svg{width:110px;height:110px;flex:none}.pie1 .pl{display:flex;flex-direction:column;gap:2px}.kml{list-style:none;margin:0;padding:0}.kml li{padding:4px 0;border-bottom:1px solid var(--grid);font-size:13px}.kmi{display:inline-block;width:1.5em}',
+    '.mbars{display:grid;gap:5px}.mb{display:grid;grid-template-columns:92px 1fr auto;gap:2px 10px;align-items:center;font-size:12.5px}.mbt{height:16px}.mbf{display:flex;height:100%;gap:2px;border-radius:0 4px 4px 0;overflow:hidden}.mbf i{display:block;min-width:2px}.mbn{font-weight:600}.mbd{grid-column:2/4;color:var(--text-muted);font-size:11.5px;margin:-2px 0 4px}.pies{display:flex;flex-wrap:wrap;gap:14px 26px}.pie1{display:flex;flex-direction:column;gap:4px;min-width:150px;font-size:12px}.pie1 svg{width:110px;height:110px;flex:none}.pie1 .pl{display:flex;flex-direction:column;gap:2px}.kml{list-style:none;margin:0;padding:0}.kml li{padding:4px 0;border-bottom:1px solid var(--grid);font-size:13px}.kmi{display:inline-block;width:1.5em}',
     '.tg2{margin:0 0 10px}.tg2 .tcs{display:flex;flex-wrap:wrap;gap:4px}.tcp{border:1px solid var(--border);border-radius:6px;padding:1px 7px;font-size:12px;font-variant-numeric:tabular-nums}.tcp.z{opacity:.4;text-decoration:line-through}.tg2.na{opacity:.55}',
     'tr.actrow{background:color-mix(in srgb,var(--good) 14%,transparent)}.act{color:var(--good);font-weight:700}',
     '.tw table th:first-child,.tw table td:first-child{position:sticky;left:0;z-index:1;background:var(--surface-1)}',
@@ -1160,6 +1160,13 @@
 
   // Generic line chart: model = {labels, series:[{name,color,values,kinds?}], fmt}
   // Small pie chart: parts = [{v, c}]
+  var TRAIN_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#6250d6', '#008300', '#e34948'];
+  function trainColor(d, name) {
+    var gs = d.trainGroups || [];
+    for (var i = 0; i < gs.length; i++) if (gs[i].sym === name || (gs[i].names || []).indexOf(name) >= 0) return TRAIN_COLORS[i % TRAIN_COLORS.length];
+    return '#999';
+  }
+  function trSw(d, name) { return '<i class="sw" style="background:' + trainColor(d, name) + ';border-radius:2px" title="train type"></i>'; }
   function pieSvg(parts, size) {
     var tot = parts.reduce(function (a, p) { return a + p.v; }, 0), r = size / 2 - 2, cx = size / 2, cy = size / 2, a0 = -Math.PI / 2, out = '';
     if (!tot) return '';
@@ -1190,7 +1197,7 @@
   }
   function lineChart(model, opts) {
     opts = opts || {};
-    var W = 640, H = opts.height || 269, L = 60, R = 84, T = 10, B = 30;
+    var W = 640, H = opts.height || 269, L = 40, R = 80, T = 8, B = 24;
     var pw = W - L - R, ph = H - T - B;
     var all = []; model.series.forEach(function (s) { s.values.forEach(function (v) { if (v != null) all.push(v); }); });
     var max = all.length ? Math.max.apply(null, all) : 1, min = Math.min(0, all.length ? Math.min.apply(null, all) : 0);
@@ -1209,11 +1216,11 @@
     var out = ['<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(opts.title || '') + '">'];
     ticks.forEach(function (v) {
       out.push('<line x1="' + L + '" x2="' + (L + pw) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="var(--grid)" stroke-width="1"/>');
-      out.push('<text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="13" fill="var(--text-muted)">' + esc(model.fmt(v)) + '</text>');
+      out.push('<text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="10" fill="var(--text-muted)">' + esc(model.fmt(v)) + '</text>');
     });
     var every = Math.max(1, Math.ceil(n / 12));
     model.labels.forEach(function (lab, i) {
-      if ((i % every === 0 && (n - 1 - i >= every || i === n - 1)) || i === n - 1) out.push('<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="middle" font-size="13" fill="var(--text-muted)">' + esc(lab) + '</text>');
+      if ((i % every === 0 && (n - 1 - i >= every || i === n - 1)) || i === n - 1) out.push('<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="middle" font-size="10" fill="var(--text-muted)">' + esc(lab) + '</text>');
     });
     var ends = [];
     model.series.forEach(function (ser, si) {
@@ -1241,7 +1248,7 @@
     if (model.series.length <= 8) {
       ends.sort(function (a, b) { return a.y - b.y; });
       for (var e = 1; e < ends.length; e++) if (ends[e].y - ends[e - 1].y < 13) ends[e].y = ends[e - 1].y + 13;
-      ends.forEach(function (en) { out.push('<text class="enl" data-si="' + en.si + '" x="' + (en.x + 7) + '" y="' + (en.y + 4) + '" font-size="13" fill="var(--text-secondary)" font-weight="600">' + esc(en.name) + '</text>'); });
+      ends.forEach(function (en) { out.push('<text class="enl" data-si="' + en.si + '" x="' + (en.x + 7) + '" y="' + (en.y + 4) + '" font-size="10.5" fill="var(--text-secondary)" font-weight="600">' + esc(en.name) + '</text>'); });
     }
     out.push('<line class="xh" x1="0" x2="0" y1="' + T + '" y2="' + (T + ph) + '" stroke="var(--text-muted)" stroke-dasharray="3 3" visibility="hidden"/>');
     out.push('<rect class="hit" x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '" fill="transparent"/>');
@@ -1288,7 +1295,7 @@
   }
   function stackedArea(model, opts) {
     opts = opts || {};
-    var W = 640, H = opts.height || 225, L = 60, R = 54, T = 10, B = 30, pw = W - L - R, ph = H - T - B;
+    var W = 640, H = opts.height || 225, L = 40, R = 50, T = 8, B = 24, pw = W - L - R, ph = H - T - B;
     var n = model.labels.length;
     var up = new Array(n).fill(0), down = new Array(n).fill(0);
     var layers = model.series.map(function (ser) {
@@ -1303,11 +1310,11 @@
     var out = ['<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(opts.title || '') + '">'];
     for (var v = min; v <= max + 1e-9; v += step) {
       out.push('<line x1="' + L + '" x2="' + (L + pw) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="var(--grid)"/>');
-      out.push('<text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="13" fill="var(--text-muted)">' + esc(model.fmt(v)) + '</text>');
+      out.push('<text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="10" fill="var(--text-muted)">' + esc(model.fmt(v)) + '</text>');
     }
     var every = Math.max(1, Math.ceil(n / 12));
     model.labels.forEach(function (lab, i) {
-      if ((i % every === 0 && (n - 1 - i >= every || i === n - 1)) || i === n - 1) out.push('<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="middle" font-size="13" fill="var(--text-muted)">' + esc(lab) + '</text>');
+      if ((i % every === 0 && (n - 1 - i >= every || i === n - 1)) || i === n - 1) out.push('<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="middle" font-size="10" fill="var(--text-muted)">' + esc(lab) + '</text>');
     });
     layers.forEach(function (ly) {
       var top = ly.hi.map(function (v, i) { return x(i).toFixed(1) + ' ' + y(v).toFixed(1); });
@@ -1321,7 +1328,7 @@
     var li = n - 1, lab = [];
     layers.forEach(function (ly) { var hgt = Math.abs(ly.hi[li] - ly.lo[li]); if (hgt > (max - min) * 0.06) lab.push({ y: y((ly.hi[li] + ly.lo[li]) / 2), name: ly.ser.name }); });
     lab.sort(function (a, b) { return a.y - b.y; }); for (var e = 1; e < lab.length; e++) if (lab[e].y - lab[e - 1].y < 13) lab[e].y = lab[e - 1].y + 13;
-    lab.forEach(function (lb) { out.push('<text x="' + (x(li) + 7) + '" y="' + (lb.y + 4) + '" font-size="13" font-weight="600" fill="var(--text-secondary)">' + esc(lb.name) + '</text>'); });
+    lab.forEach(function (lb) { out.push('<text x="' + (x(li) + 7) + '" y="' + (lb.y + 4) + '" font-size="10.5" font-weight="600" fill="var(--text-secondary)">' + esc(lb.name) + '</text>'); });
     out.push('<line class="xh" x1="0" x2="0" y1="' + T + '" y2="' + (T + ph) + '" stroke="var(--text-muted)" stroke-dasharray="3 3" visibility="hidden"/>');
     out.push('<rect class="hit" x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '" fill="transparent"/></svg>');
     return { svg: out.join(''), geom: { W: W, L: L, pw: pw, n: n, x: x } };
@@ -1796,6 +1803,14 @@
     h.push('<span class="kv">Bank <b data-f="bank" class="' + (d.bank <= 0 ? 'st-crit' : '') + '">' + esc(m(d.bank)) + '</b>' + (d.bank < 0 ? ' <small class="st-crit">broken</small>' : '') + '</span>');
     if (d.nextTrain) h.push('<span class="kv opt">Next train <b>' + esc(d.nextTrain.name) + '</b> ' + esc(m(d.nextTrain.price)) + '</span>');
     if (d.finished) h.push('<span class="pill" style="border-color:var(--crit);color:var(--crit)">Game over</span>');
+    var aboutHtml = '<div class="ab"><a href="' + REPO_URL + '" target="_blank" rel="noopener" style="color:inherit">18xx-JNNstats v' + VERSION + ' by jimiste</a>' +
+      (newer ? (ST.latestSha ? ' · <a class="upd" href="#" title="Load the newest version now. It lasts until you reload the game page; the bookmark itself is not changed.">⬆ v' + esc(ST.latest) + ' available, click to update</a> <a class="upd" style="font-weight:400" href="' + REPO_URL + '/blob/main/CHANGELOG.md" target="_blank" rel="noopener">what is new</a>'
+        : ' · <a class="upd" href="' + REPO_URL + '/blob/main/CHANGELOG.md" target="_blank" rel="noopener" title="A newer version exists. If you pinned a version, read the changelog, then update your bookmark.">⬆ v' + esc(ST.latest) + ' available</a>') : '') +
+      ' · ' + d.actions + ' actions · updated ' + d.updated.toLocaleTimeString() + ' · ' + esc(d.tt ? 'viewing history' : ST.statusText || '') +
+      (d.pin ? ' · <span class="st-warn" title="The site froze this game to an older version of the rules after a design change. The numbers here are replayed with that older version.">📌 pinned to version ' + esc(d.pin) + '</span>' : '') +
+      (ST.verify ? ' · <span class="' + (ST.verify.ok ? 'st-good' : 'st-warn') + '" title="After each round the whole game is replayed from scratch and compared with the live numbers">' + (ST.verify.ok ? '✓ verified' : '⚠ corrected') + ' at ' + esc(ST.verify.at) + '</span>' : '') + '</div>';
+    var updHtml = newer ? (ST.latestSha ? '<a class="ib upd" id="upd" href="#" title="Load the newest version now. It lasts until you reload the game page; the bookmark itself is not changed.">⬆ v' + esc(ST.latest) + '</a>'
+      : '<a class="ib upd" href="' + REPO_URL + '/blob/main/CHANGELOG.md" target="_blank" rel="noopener" title="A newer version exists. If you pinned a version, read the changelog, then update your bookmark.">⬆ v' + esc(ST.latest) + '</a>') : '';
     h.push('<span class="grow"></span><span class="tb">' +
       '<label class="mesel">I am <select id="me"><option value="">…</option>' + d.players.map(function (p) { return '<option' + (p.name === me ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') + '</select></label>' +
       '<button class="ib" id="snd" title="' + (soundOn ? (armed ? 'Sound on: plays when it becomes your turn. Click to switch off.' : 'Click once to arm the sound (browsers need a click)') : 'Sound off. Click to play a sound when it becomes your turn.') + '">' + (soundOn ? (armed ? '🔔' : '🔔?') : '🔕') + '</button>' +
@@ -1803,18 +1818,14 @@
       '<button class="ib" id="sn" title="Move this window to the right half of the screen">◨</button>' +
       '<button class="ib" id="tt" title="History: step back through the game round by round">⏱</button>' +
       '<button class="ib" id="th" title="Switch between dark and light">' + (dark ? '🌙' : '☀') + '</button>' +
+      updHtml +
       '<details class="menu" id="mn"' + (ST.menuOpen ? ' open' : '') + '><summary class="ib" title="More">⋯</summary><div class="mp2">' +
         '<button id="lr" title="Restore the default order and expand all sections">Reset <span id="lm">layout</span></button>' +
         '<span style="display:flex;gap:6px;align-items:center">Text size <button id="zo" title="Smaller text">A−</button><button id="zi" title="Larger text">A+</button></span> <button id="sh-v" class="ib" title="Copy a link that opens this game with your card layout (no names or other data are in it)">🔗</button> <button id="nw" class="ib" title="Switch between the single-column layout used in narrow windows and the normal layout">▯</button>' +
         '<form id="gf" style="display:flex;gap:6px"><input id="gi" placeholder="game # or link" size="14" value="' + esc(ST.giVal || '') + '"><button>Open</button></form>' +
-        '<div style="color:var(--text-muted)">Look at another game, old or live.</div></div></details></span></div>');
-    h.push('<div class="hr2"><a href="' + REPO_URL + '" target="_blank" rel="noopener" style="color:inherit">18xx-JNNstats v' + VERSION + ' by jimiste</a>' +
-      (newer ? (ST.latestSha ? ' · <a class="upd" id="upd" href="#" title="Load the newest version now. It lasts until you reload the game page; the bookmark itself is not changed.">⬆ v' + esc(ST.latest) + ' available, click to update</a> <a class="upd" style="font-weight:400" href="' + REPO_URL + '/blob/main/CHANGELOG.md" target="_blank" rel="noopener">what is new</a>'
-        : ' · <a class="upd" href="' + REPO_URL + '/blob/main/CHANGELOG.md" target="_blank" rel="noopener" title="A newer version exists. If you pinned a version, read the changelog, then update your bookmark.">⬆ v' + esc(ST.latest) + ' available</a>') : '') +
-      ' · ' + d.actions + ' actions · updated ' + d.updated.toLocaleTimeString() + ' · ' + esc(d.tt ? 'viewing history' : ST.statusText || '') +
-      (d.pin ? ' · <span class="st-warn" title="The site froze this game to an older version of the rules after a design change. The numbers here are replayed with that older version.">📌 pinned to version ' + esc(d.pin) + '</span>' : '') +
-      (ST.verify ? ' · <span class="' + (ST.verify.ok ? 'st-good' : 'st-warn') + '" title="After each round the whole game is replayed from scratch and compared with the live numbers">' + (ST.verify.ok ? '✓ verified' : '⚠ corrected') + ' at ' + esc(ST.verify.at) + '</span>' : '') +
-      (ST.ttOpen && ST.rounds && ST.rounds.length > 1 ? (function () {
+        '<div style="color:var(--text-muted)">Look at another game, old or live.</div>' +
+        '<button id="cmp-open" class="ib" title="Compare this game with others, or look at your history with the same friends">' + (ST.cmpOpen ? 'Hide' : 'Compare games…') + '</button>' + aboutHtml + '</div></details></span></div>');
+    h.push(      (ST.ttOpen && ST.rounds && ST.rounds.length > 1 ? (function () {
         var tl = ST.rounds.length - 1, ti = d.tt ? d.tt.idx : tl;
         return '<div class="hr3' + (d.tt ? ' on' : '') + '"><span>⏱ History</span><button class="ib" id="tt-p" title="Previous round">◀</button><input type="range" id="tt-i" min="0" max="' + tl + '" value="' + ti + '"><button class="ib" id="tt-n" title="Next round">▶</button><b id="tt-l">' + (d.tt ? 'the game after ' + esc(d.tt.label) : 'Now') + '</b>' + (d.tt ? ' <span class="tt-note">paused, read only</span> <button class="lnk" id="tt-x">back to now</button>' : '') + '</div>';
       })() : '') +
@@ -2104,11 +2115,14 @@
       }
       if (AN.money) {
         var SRC = [['div', 'Dividends', '#3987e5'], ['priv', 'Private companies', '#e0a020'], ['sales', 'Share sales', '#4cc36b']];
-        h.push('<section class="card wide"><h2>Where the money came from</h2><p class="sub">Cash each player has taken in so far, by source (cash paid for shares is not counted).</p><div class="pies">' +
-          AN.money.map(function (pl) {
+        var mxT = Math.max.apply(null, AN.money.map(function (pl) { return pl.div + pl.priv + pl.sales; }).concat([1]));
+        h.push('<section class="card wide"><h2>Where the money came from</h2><p class="sub">Cash each player has taken in so far, by source (cash paid for shares is not counted).</p>' +
+          '<div class="dq" style="margin-bottom:8px">' + SRC.map(function (sc) { return '<span class="chip"><i class="sw" style="background:' + sc[2] + '"></i>' + sc[1] + '</span>'; }).join('') + '</div><div class="mbars">' +
+          AN.money.slice().sort(function (a1, b1) { return (b1.div + b1.priv + b1.sales) - (a1.div + a1.priv + a1.sales); }).map(function (pl) {
             var tot = pl.div + pl.priv + pl.sales;
-            return '<div class="pie1"><b>' + esc(pl.name) + '</b>' + (tot ? pieSvg(SRC.map(function (sc) { return { v: pl[sc[0]], c: sc[2], t: pl.name + ': ' + sc[1] + ' ' + m(pl[sc[0]]) }; }), 110) : '') +
-              '<div class="pl">' + SRC.map(function (sc) { return pl[sc[0]] ? '<span><i class="sw" style="background:' + sc[2] + '"></i>' + sc[1] + ' ' + esc(m(pl[sc[0]])) + ' <small style="color:var(--text-muted)">' + Math.round(pl[sc[0]] / tot * 100) + '%</small></span>' : ''; }).join('') + '</div><small style="color:var(--text-muted)">total ' + esc(m(tot)) + '</small></div>';
+            return '<div class="mb' + (me && pl.name === me ? ' merow' : '') + '"><b>' + esc(pl.name) + '</b><div class="mbt"><div class="mbf" style="width:' + (tot / mxT * 100).toFixed(1) + '%">' +
+              SRC.map(function (sc) { return pl[sc[0]] ? '<i style="flex:' + pl[sc[0]] + ';background:' + sc[2] + '" title="' + esc(pl.name + ': ' + sc[1] + ' ' + m(pl[sc[0]]) + ' (' + Math.round(pl[sc[0]] / tot * 100) + '%)') + '"></i>' : ''; }).join('') +
+              '</div></div><span class="mbn">' + esc(m(tot)) + '</span><span class="mbd">' + SRC.map(function (sc) { return pl[sc[0]] ? Math.round(pl[sc[0]] / tot * 100) + '% ' + sc[1].toLowerCase() : ''; }).filter(Boolean).join(' · ') + '</span></div>';
           }).join('') + '</div></section>');
       }
       if (AN.val.length) {
@@ -2126,7 +2140,7 @@
         h.push('<section class="card wide"><h2>Train purchases</h2><p class="sub">' + AN.trains.length + ' purchases, ' + esc(m(spent)) + ' in total' + (inter.length ? ', ' + inter.length + ' between companies' : '') + '. “vs depot” compares with the first depot price paid for the same train.</p><div class="tw" style="max-height:340px;overflow-y:auto"><table><thead><tr><th>When</th><th>Buyer</th><th>Train</th><th>Paid</th><th>From</th><th>vs depot</th></tr></thead><tbody>' +
           AN.trains.slice().reverse().map(function (x) {
             var dl = x.list != null ? x.price - x.list : null;
-            return '<tr><td style="text-align:left">' + esc(x.round.replace(/^Operating Round/, 'OR').replace(/^Stock Round/, 'SR')) + lnk(x.id) + '</td><td><b>' + esc(x.buyer) + '</b></td><td>' + esc(x.train) + '</td><td>' + esc(m(x.price)) + '</td><td>' + esc(x.from) + '</td><td>' + (dl == null ? '—' : dl === 0 ? 'list price' : '<span class="' + (dl > 0 ? 'st-warn' : 'st-good') + '">' + (dl > 0 ? '+' : '−') + esc(m(Math.abs(dl))) + '</span>') + '</td></tr>';
+            return '<tr><td style="text-align:left">' + esc(x.round.replace(/^Operating Round/, 'OR').replace(/^Stock Round/, 'SR')) + lnk(x.id) + '</td><td><b>' + esc(x.buyer) + '</b></td><td>' + trSw(d, x.train) + esc(x.train) + '</td><td>' + esc(m(x.price)) + '</td><td>' + esc(x.from) + '</td><td>' + (dl == null ? '—' : dl === 0 ? 'list price' : '<span class="' + (dl > 0 ? 'st-warn' : 'st-good') + '">' + (dl > 0 ? '+' : '−') + esc(m(Math.abs(dl))) + '</span>') + '</td></tr>';
           }).join('') + '</tbody></table></div></section>');
       }
       if (AN.moments.length) {
@@ -2189,7 +2203,7 @@
         h.push('<section class="card wide"><h2>Train timing</h2><p class="sub">Who bought trains and when, counted for whoever presided over the company at the time of each purchase. Percentages show how far through the game each first purchase happened' + (d.trainLimit ? '; the current limit is ' + esc(String(d.trainLimit)) + ' trains per company' : '') + '.</p><div class="tw"><table><thead><tr><th>Player</th><th>Companies</th><th>Trains bought</th><th>Spent</th><th>First train at</th><th>Trains held now</th></tr></thead><tbody>' +
           Object.keys(pl).map(function (k) { return pl[k]; }).filter(function (x) { return x.bought; }).sort(function (a, b) { return b.spent - a.spent; }).map(function (x) { return '<tr' + (me && x.name === me ? ' class="merow"' : '') + '><td><b>' + esc(x.name) + '</b></td><td>' + Object.keys(x.cos).length + '</td><td>' + x.bought + '</td><td>' + esc(m(x.spent)) + '</td><td>' + (x.first != null ? x.first + '%' : '—') + '</td><td>' + (heldBy[x.name] || 0) + '</td></tr>'; }).join('') +
           '</tbody></table></div><div class="tw" style="margin-top:10px"><table><thead><tr><th>Company</th><th>President now</th><th style="text-align:left">Purchases (round, train, price, bought under)</th><th>Held now</th><th>ORs with no run</th></tr></thead><tbody>' +
-          coRows.sort(function (a, b) { return b.o.spent - a.o.spent; }).map(function (x) { return '<tr><td>' + cs(x.color) + '<b>' + esc(x.name) + '</b></td><td>' + esc(x.pres || '') + '</td><td style="text-align:left;white-space:normal"><small>' + x.o.buys.map(function (b2) { return esc(b2.lab) + ' · ' + esc(b2.train) + ' · ' + esc(m(b2.price)) + (b2.who && b2.who !== x.pres ? ' · ' + esc(b2.who) : ''); }).join('<br>') + '</small></td><td>' + x.held + '</td><td>' + (x.norun || '—') + '</td></tr>'; }).join('') + '</tbody></table></div></section>');
+          coRows.sort(function (a, b) { return b.o.spent - a.o.spent; }).map(function (x) { return '<tr><td>' + cs(x.color) + '<b>' + esc(x.name) + '</b></td><td>' + esc(x.pres || '') + '</td><td style="text-align:left;white-space:normal">' + x.o.buys.map(function (b2) { return esc(b2.lab) + ' · ' + trSw(d, b2.train) + esc(b2.train) + ' · ' + esc(m(b2.price)) + (b2.who && b2.who !== x.pres ? ' · ' + esc(b2.who) : ''); }).join('<br>') + '</td><td>' + x.held + '</td><td>' + (x.norun || '—') + '</td></tr>'; }).join('') + '</tbody></table></div></section>');
       }
       // badges: only where there is a clear winner; the runner-up is shown too
       var badges = [], VH = d.valueHistory, nf = VH.labels.length, fmtM = function (v) { return m(v); };
@@ -2364,7 +2378,7 @@
           [0, 50, 100].forEach(function (v) { ax += '<line x1="' + L0 + '" x2="' + (W - R0) + '" y1="' + ys(v).toFixed(1) + '" y2="' + ys(v).toFixed(1) + '" stroke="var(--grid)" stroke-width="1"/><text x="' + (L0 - 5) + '" y="' + (ys(v) + 3).toFixed(1) + '" text-anchor="end" font-size="9" fill="var(--text-muted)">' + v + '%</text>'; });
           for (var oi = 0; oi < nF; oi += xt) ax += '<text x="' + xs(oi).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="9" fill="var(--text-muted)">' + esc(OW.labels[oi]) + '</text>';
           h.push('<section class="card wide"><h2>Ownership over time</h2><p class="sub">Who held how much of a company, round by round. The empty space above the colours is the part held by the bank (initial offering and market).</p>' +
-            '<div class="tabs"><select id="own-c">' + ocs.map(function (nm) { return '<option' + (nm === oc ? ' selected' : '') + '>' + esc(nm) + '</option>'; }).join('') + '</select></div>' +
+            '<div class="tabs" id="own-tabs">' + ocs.map(function (nm) { return '<button data-c="' + esc(nm) + '"' + (nm === oc ? ' class="on"' : '') + '>' + c21(tk21[nm]) + esc(nm) + '</button>'; }).join('') + '</div>' +
             '<div class="chart"><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Ownership of ' + esc(oc) + ' over time" style="width:100%;max-width:720px">' + ax + polys + '</svg></div>' +
             '<div class="dq">' + d.players.map(function (p) { return '<span class="chip"><i class="sw" style="background:' + pc21[p.name] + '"></i>' + esc(p.name) + '</span>'; }).join('') + '</div></section>');
         }
@@ -2376,7 +2390,7 @@
       if (AN2 && AN2.own && AN2.own.labels.length) {
         var lastI = AN2.own.labels.length - 1, hcs = Object.keys(AN2.own.corps).filter(function (nm) { return d.players.some(function (p) { return AN2.own.corps[nm][p.name][lastI] > 0; }); });
         if (hcs.length && d.players.length) {
-          var rowH = 26, nR = Math.max(hcs.length, d.players.length), HH = nR * rowH + 16, WW = 640, lx = 120, rx = WW - 120, ln = '', tx = '';
+          var rowH = 39, nR = Math.max(hcs.length, d.players.length), HH = nR * rowH + 16, WW = 640, lx = 120, rx = WW - 120, ln = '', tx = '';
           var py = function (i) { return 14 + i * (HH - 16) / Math.max(d.players.length, 1) + (HH - 16) / Math.max(d.players.length, 1) / 2 - 7; }, cy = function (i) { return 14 + i * (HH - 16) / hcs.length + (HH - 16) / hcs.length / 2 - 7; };
           d.players.forEach(function (p, pi) {
             hcs.forEach(function (nm, ci) { var v = AN2.own.corps[nm][p.name][lastI]; if (v > 0) ln += '<line x1="' + lx + '" y1="' + py(pi).toFixed(1) + '" x2="' + rx + '" y2="' + cy(ci).toFixed(1) + '" stroke="' + pc21[p.name] + '" stroke-opacity=".6" stroke-width="' + (0.8 + v / 100 * 12).toFixed(1) + '" stroke-linecap="round"><title>' + esc(p.name + ' holds ' + v + '% of ' + nm) + '</title></line>'; });
@@ -2525,6 +2539,7 @@
       doc.getElementById('gr-b').innerHTML = gridBody(d, dark, me, iv, m);
       if (ST.hlCorp) hlSet(ST.hlCorp);
     };
+    var cmpOpenB = doc.getElementById('cmp-open'); if (cmpOpenB) cmpOpenB.onclick = function () { ST.cmpOpen = !ST.cmpOpen; ST.menuOpen = false; rerender(); if (ST.cmpOpen) w.scrollTo(0, 0); };
     var fhGo = doc.getElementById('fh-go');
     if (fhGo) fhGo.onclick = function () {
       var uidsX = d.players.map(function (p) { return p.uid; }).filter(Boolean); ST.profiles = {};
@@ -2536,7 +2551,7 @@
     };
     Array.prototype.forEach.call(doc.querySelectorAll('.fht'), function (b) { b.onclick = function () { ST.fhTitle = b.getAttribute('data-t'); rerender(); }; });
     var fhc = doc.getElementById('c-fh'); if (fhc && fhModel) attachHover(doc, fhc, fhModel, fhChart);
-    var ownSel = doc.getElementById('own-c'); if (ownSel) ownSel.onchange = function () { ST.ownCorp = ownSel.value; rerender(); };
+    Array.prototype.forEach.call(doc.querySelectorAll('#own-tabs button'), function (b) { b.onclick = function () { ST.ownCorp = b.getAttribute('data-c'); rerender(); }; });
     // chart legends: click a name to show only that line (click again to show all)
     Array.prototype.forEach.call(doc.querySelectorAll('.legend'), function (lg) {
       var card = lg.closest('section'), ch = card && card.querySelector('.chart'); if (!ch || !ch.querySelector('.ser')) return;
@@ -2804,12 +2819,12 @@
       { id: 'trains', title: 'Trains & board', keys: ['trains-phases-bank', 'routes-revenue', 'train-history', 'tile-manifest'] },
       { id: 'money', title: 'Money', keys: ['company-profit-and-loss', 'cash-flow-per-player', 'where-the-money-came-from', 'portfolios'] },
       { id: 'history', title: 'Players & history', keys: ['player-value-over-time', 'key-moments', 'board-and-replay', 'game-log', 'president-changes', 'priority-deal-tracker'] },
-      { id: 'analysis', title: 'Analysis', keys: ['decisions-review', 'compare', 'game-info'] }
+      { id: 'analysis', title: 'Analysis', keys: ['decisions-review', 'game-info'] }
     ],
     review: [
       { id: 'now', title: 'Result', keys: ['result', 'player-value-over-time', 'key-moments'] },
       { id: 'history', title: 'Players & history', keys: ['board-and-replay', 'game-log', 'president-changes', 'priority-deal-tracker'] },
-      { id: 'analysis', title: 'Analysis', keys: ['decisions-review', 'compare'] },
+      { id: 'analysis', title: 'Analysis', keys: ['decisions-review'] },
       { id: 'money', title: 'Money', keys: ['company-profit-and-loss', 'cash-flow-per-player', 'where-the-money-came-from', 'portfolios', 'valuation'] },
       { id: 'companies', title: 'Companies', keys: ['stock-ticker', 'stock-market', 'corporations', 'share-price', 'company-revenue-per-operating-round', 'ownership-over-time', 'who-holds-what', 'minors-private-companies'] },
       { id: 'trains', title: 'Trains & board', keys: ['trains-phases-bank', 'routes-revenue', 'train-history', 'tile-manifest', 'game-info'] }
@@ -2856,7 +2871,7 @@
       host.innerHTML = '<h2>' + title + '</h2>' + tabs;
       var first = all[have[0][0]]; first.parentNode.insertBefore(host, first);
       have.forEach(function (p) {
-        var src = all[p[0]], pane = doc.createElement('div'); pane.className = 'mp'; pane.setAttribute('data-p', p[0]); if (p[0] !== cur) pane.hidden = true;
+        var src = all[p[0]], pane = doc.createElement('div'); pane.className = 'mpane'; pane.setAttribute('data-p', p[0]); if (p[0] !== cur) pane.hidden = true;
         Array.prototype.slice.call(src.children).forEach(function (ch) { if (ch.tagName !== 'H2') pane.appendChild(ch); });
         host.appendChild(pane); src.parentNode.removeChild(src);
       });
@@ -2864,7 +2879,7 @@
         b.onclick = function () {
           var k = b.getAttribute('data-p'); ST.mt[key] = k;
           Array.prototype.forEach.call(host.querySelectorAll('.mtb'), function (x) { x.classList.toggle('cur', x === b); });
-          Array.prototype.forEach.call(host.querySelectorAll('.mp'), function (x) { x.hidden = x.getAttribute('data-p') !== k; });
+          Array.prototype.forEach.call(host.querySelectorAll('.mpane'), function (x) { x.hidden = x.getAttribute('data-p') !== k; });
         };
       });
     });
@@ -2878,7 +2893,7 @@
         '<span class="mv"><button data-mv="-1" title="Move up">▲</button><button data-mv="1" title="Move down">▼</button></span>';
       if (lay.collapsed.indexOf(key) >= 0) { sec.classList.add('collapsed'); h2.querySelector('.tg').textContent = '▸'; h2.querySelector('.tg').setAttribute('aria-expanded', 'false'); }
       // long introductions fold behind a small "i" button
-      Array.prototype.forEach.call(sec.querySelectorAll(':scope > p.sub, :scope > .mp > p.sub:first-child'), function (sub) {
+      Array.prototype.forEach.call(sec.querySelectorAll(':scope > p.sub, :scope > .mpane > p.sub:first-child'), function (sub) {
       if (sub.textContent.length > 120 && !sub.querySelector('*')) {
         var txt = sub.textContent, cut = txt.indexOf('. '), short = cut > 20 && cut < 160 ? txt.slice(0, cut + 1) : txt.slice(0, 110).replace(/\s+\S*$/, '') + '…';
         sub.innerHTML = '<span class="sfull" hidden></span><span class="sshort"></span> <button class="lnk sinfo" title="Show or hide the full explanation">more</button>';
@@ -2904,6 +2919,9 @@
       var wrap = main.querySelector('.grp[data-g="' + g.id + '"]'), n = bodies[g.id].children.length;
       if (!n) wrap.parentNode.removeChild(wrap); else wrap.querySelector('.gn').textContent = n + (n === 1 ? ' card' : ' cards');
     });
+    // Compare lives in the "…" menu: shown at the top only while it is open
+    var cmpSec = main.querySelector('section[data-key="compare"]');
+    if (cmpSec) { if (ST.cmpOpen) { cmpSec.classList.remove('collapsed'); main.insertBefore(cmpSec, main.firstChild); cmpSec.style.marginBottom = '12px'; } else cmpSec.parentNode.removeChild(cmpSec); }
     function persist() {
       var cur = Array.prototype.map.call(main.querySelectorAll('section[data-key]'), function (s) { return s.getAttribute('data-key'); });
       lay.order = cur.concat(lay.order.filter(function (k) { return cur.indexOf(k) < 0; }));
@@ -2917,7 +2935,7 @@
       gh.onclick = toggle; gh.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } };
     });
     Array.prototype.forEach.call(doc.querySelectorAll('#jump [data-g]'), function (b) {
-      b.onclick = function () { var wrap = main.querySelector('.grp[data-g="' + b.getAttribute('data-g') + '"]'); if (!wrap) return; if (wrap.classList.contains('gcol')) { setGroup(wrap, true); persist(); } try { wrap.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { wrap.scrollIntoView(); } };
+      b.onclick = function () { var wrap = main.querySelector('.grp[data-g="' + b.getAttribute('data-g') + '"]'); if (!wrap) return; if (wrap.classList.contains('gcol')) { setGroup(wrap, true); persist(); } var hd = doc.querySelector('header'), top = wrap.getBoundingClientRect().top + (w.scrollY || 0) - (hd ? hd.offsetHeight : 0) - 6; try { w.scrollTo({ top: top, behavior: 'smooth' }); } catch (e) { w.scrollTo(0, top); } };
     });
     main.onclick = function (ev) {
       var b = ev.target.closest('button'); if (!b) return;

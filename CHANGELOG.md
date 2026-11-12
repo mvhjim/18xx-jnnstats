@@ -2,6 +2,18 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.23.1] - 2026-11-13
+
+### Changed
+- **Section bar wraps** onto a second row in narrow windows instead of scrolling sideways, and jumping to a section lands just below the sticky header so the bar stays usable.
+- **Version, action count and update time moved into the *…* menu**; an update notice still shows in the toolbar when a newer version exists.
+- **Compare moved into the *…* menu** (*Compare games…* opens it at the top of the page).
+- **Where the money came from** uses stacked bars instead of pie charts.
+- **Charts:** smaller axis text and tighter padding on Share price, Revenue and Portfolios.
+- **Who holds what** is 50% taller.
+- **Train history:** train types have a colour in the purchases list, and the text size matches the other cards (a style clash had shrunk every merged card's text).
+- **Ownership over time:** company buttons instead of a drop-down.
+
 ## [0.23.0] - 2026-11-13
 
 ### Changed
