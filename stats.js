@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.18.0';
+  var VERSION = '0.19.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -189,9 +189,12 @@
     var rxPriv = new RegExp('^(.+?) collects ' + CUR + ' from ');
     var rxSell = new RegExp('^(.+?) (?:sells|shorts) .*? (?:and receives|for) ' + CUR + '\\s*$');
     // --- trains
+    var pres = {}, firstTok = {}, rxPres = /^(.+?) becomes the president of (.+)$/, rxTokHex = /^(.+?)(?: \([^)]*\))? places a token on (\S+)/;
     var trains = [], depot = {}, rxTrain = new RegExp('^(.+?) buys an? (\\S+) train for ' + CUR + ' from (.+?)(?: \\(.*\\))?\\s*$');
     gameLog.rounds.forEach(function (rd) { rd.lines.forEach(function (ln) {
       var q = ln.msg, mm;
+      if ((mm = rxPres.exec(q)) && cn[mm[2]]) { pres[mm[2]] = mm[1]; }
+      if ((mm = rxTokHex.exec(q)) && cn[mm[1]] && !firstTok[mm[1]]) firstTok[mm[1]] = { hex: mm[2], round: rd.label, id: ln.id };
       if ((mm = rxTile.exec(q)) && cn[mm[1]]) { var c1 = getT(mm[1]); c1.tiles++; if (mm[2]) c1.tileCost += N(mm[2]); return; }
       if ((mm = rxTok.exec(q)) && cn[mm[1]]) { var c2 = getT(mm[1]); c2.tokens++; if (mm[2]) c2.tokenCost += N(mm[2]); return; }
       if ((mm = rxTokBuy.exec(q)) && cn[mm[1]]) { getT(mm[1]).tokenCost += N(mm[3]); return; }
@@ -201,7 +204,7 @@
       if ((mm = rxTrain.exec(q))) {
         var price = N(mm[3]), from = mm[4], isDepot = /depot/i.test(from);
         if (isDepot && depot[mm[2]] == null) depot[mm[2]] = price;
-        trains.push({ round: rd.label, id: ln.id, buyer: mm[1], train: mm[2], price: price, from: isDepot ? 'Depot' : from, depot: isDepot });
+        trains.push({ round: rd.label, id: ln.id, buyer: mm[1], train: mm[2], price: price, from: isDepot ? 'Depot' : from, depot: isDepot, pres: pres[mm[1]] || '' });
       }
     }); });
     routeTable.forEach(function (R) { R.corps.forEach(function (c) { if (c.totalN != null && c.trains.length && cn[c.corp]) { var t3 = getT(c.corp); t3.rev += c.totalN; t3.runs++; } }); });
@@ -242,6 +245,25 @@
     routeTable.forEach(function (R) { R.corps.forEach(function (c) { if (c.trains.length && c.totalN != null && (!best || c.totalN > best.v)) best = { v: c.totalN, corp: c.corp, label: R.label, round: R.round }; }); });
     if (best) { var bl = null; gameLog.rounds[best.round].lines.forEach(function (ln) { if (!bl && ln.id > 0 && ln.msg.indexOf(best.corp + ' runs') === 0) bl = ln.id; }); mo.push({ f: 1e9, kind: 'run', text: 'Best single run: ' + best.corp + ' earns ' + best.v + ' (' + best.label.replace(/^Operating Round/, 'OR') + ')', act: bl || 0, raw: best.v }); }
     out.moments = changes.slice(-6).concat(mo).sort(function (a, b) { return a.f - b.f; });
+    var mapLab = function (lab) { return String(lab).replace(/^Operating Round /, 'OR ').replace(/^Stock Round /, 'SR ').replace(/ \(of \d+\)$/, ''); };
+    out.withholds = [];
+    routeTable.forEach(function (R) { var lab = mapLab(R.label), sn = byLab[lab]; R.corps.forEach(function (c) {
+      if (c.trains.length && /^withholds/.test(c.kind) && c.totalN > 0 && cn[c.corp]) {
+        var gets = {}; if (sn) pnames.forEach(function (n) { var hh = (sn.hold[n] || {})[c.corp]; if (hh && hh.pct) gets[n] = Math.round(c.totalN * hh.pct / 100); });
+        out.withholds.push({ corp: c.corp, label: lab, rev: c.totalN, gets: gets });
+      }
+    }); });
+    // more key moments: price crashes, closures, first tokens
+    var prevS = null, crashes = [], closed = {};
+    snaps.forEach(function (sn) {
+      if (prevS && sn.label !== 'Now') Object.keys(sn.prices).forEach(function (nm) { var a = prevS.prices[nm], b = sn.prices[nm]; if (a > 0 && b != null && b < a) crashes.push({ nm: nm, a: a, b: b, pct: (a - b) / a, label: sn.label, act: sn.act }); });
+      if (prevS) Object.keys(prevS.prices).forEach(function (nm) { if (sn.prices[nm] == null && !closed[nm]) { closed[nm] = 1; var fi = L.indexOf(sn.label); if (fi >= 0) mo.push({ f: fi, kind: 'close', text: nm + ' closes or merges (' + sn.label + ')', act: sn.act > 0 ? sn.act : 0 }); } });
+      prevS = sn;
+    });
+    crashes.sort(function (a, b) { return b.pct - a.pct; });
+    crashes.filter(function (x) { return x.pct >= 0.2; }).slice(0, 3).forEach(function (x) { var fi = L.indexOf(x.label); if (fi >= 0) mo.push({ f: fi, kind: 'crash', text: x.nm + ' share price falls ' + Math.round(x.pct * 100) + '% (' + x.a + ' to ' + x.b + ') in ' + x.label, act: x.act > 0 ? x.act : 0 }); });
+    Object.keys(firstTok).forEach(function (nm) { var ft = firstTok[nm], lab = mapLab(ft.round), fi = L.indexOf(lab); mo.push({ f: fi >= 0 ? fi : 0, kind: 'token', text: nm + ' places its first token on ' + ft.hex + (fi >= 0 ? ' (' + lab + ')' : ''), act: ft.id > 0 ? ft.id : 0 }); });
+    out.moments = changes.slice(-6).concat(mo).sort(function (a, b) { return a.f - b.f; });
     // --- score range at the end of the game (rough, from the recent pace of each player's value)
     if (!finished && L.length >= 4) {
       var ors = []; for (var f3 = 0; f3 < L.length; f3++) if (/^OR/.test(L[f3])) ors.push(f3);
@@ -253,7 +275,7 @@
           return { name: p.name, now: now, low: now + lo * nOR, high: now + hi * nOR, mid: now + av * nOR };
         });
         var rk = function (key) { var o = rows.slice().sort(function (a, b) { return b[key] - a[key]; }); rows.forEach(function (r) { r['r_' + key] = o.indexOf(r) + 1; }); };
-        rk('now'); rk('mid');
+        rk('now'); rk('mid'); rk('low'); rk('high');
         out.range = { rows: rows, n: nOR, fromBank: !!(endInfo && endInfo.bankORs) };
       }
     }
@@ -931,7 +953,6 @@
     'h2.sh .tg{font-size:13px;width:22px}.grip{cursor:grab;color:var(--text-muted);user-select:none;padding:0 2px}.mv{opacity:0;transition:opacity .15s}.card:hover .mv,.card:focus-within .mv{opacity:1}',
     'section.collapsed>*:not(.sh){display:none!important}section.collapsed h2.sh{margin-bottom:-4px!important}section.dragging{opacity:.4}',
     '.cdesc{white-space:normal;max-width:420px;color:var(--text-muted);font-size:11.5px;line-height:1.35;margin-top:2px}',
-    '@media (max-width:720px){main{padding:8px;gap:8px}header{padding:6px 8px}.card{padding:9px 10px}.hr1 h1{font-size:15px}.hr3{flex-wrap:wrap}.rtsel,.gltools,.gslide{flex-wrap:wrap}.tabs{flex-wrap:nowrap;overflow-x:auto}.feed li.gl{grid-template-columns:64px 1fr}.tile{flex-basis:46%}.cdesc{max-width:260px}}',
     '@media (max-width:1100px){.card{padding:10px 12px}th,td{padding:3px 6px}.tile .v{font-size:17px}}',
     '.ticker{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}.tk{flex:0 0 auto;border:1px solid var(--grid);border-radius:8px;padding:6px 10px;min-width:150px;display:grid;grid-template-columns:auto auto;gap:0 10px;align-items:center}',
     '.tk .nm{font-weight:700}.tk .px{font-size:18px;font-weight:650;font-variant-numeric:tabular-nums}.tk .ch{font-size:12px;font-variant-numeric:tabular-nums}.tk svg{grid-row:1/3;grid-column:2}.tk.closed{opacity:.5}',
@@ -945,6 +966,7 @@
     '.gslide{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--text-secondary)}.gslide input{flex:1;min-width:80px}',
     '.zl{display:flex;flex-wrap:wrap;gap:4px 12px;margin:8px 0 0;font-size:11.5px;color:var(--text-secondary)}.zl i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1px solid var(--border)}',
     '.dq{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px}.dq .chip{font-variant-numeric:tabular-nums}.dq .chip.next{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:650}.bl{font-size:12px;color:var(--text-muted);margin:6px 0 2px}',
+    '.cmt{margin-left:8px;font-size:12px}.cmt .cm.on{font-weight:700;text-decoration:none;color:var(--text-primary)}',
     '.badges{display:flex;flex-wrap:wrap;gap:10px}.bdg{display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:10px;padding:8px 12px;min-width:200px;font-size:13px}.bdg .bi{font-size:26px}.bdg .bn{font-weight:650}',
     '.pies{display:flex;flex-wrap:wrap;gap:14px 26px}.pie1{display:flex;flex-direction:column;gap:4px;min-width:150px;font-size:12px}.pie1 svg{width:110px;height:110px;flex:none}.pie1 .pl{display:flex;flex-direction:column;gap:2px}.kml{list-style:none;margin:0;padding:0}.kml li{padding:4px 0;border-bottom:1px solid var(--grid);font-size:13px}.kmi{display:inline-block;width:1.5em}',
     '.tg2{margin:0 0 10px}.tg2 .tcs{display:flex;flex-wrap:wrap;gap:4px}.tcp{border:1px solid var(--border);border-radius:6px;padding:1px 7px;font-size:12px;font-variant-numeric:tabular-nums}.tcp.z{opacity:.4;text-decoration:line-through}.tg2.na{opacity:.55}',
@@ -956,6 +978,8 @@
     '.glide{position:fixed;left:0;top:0;z-index:40;padding:1px 8px;border-radius:999px;font-weight:700;font-size:12px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.3);margin:-10px 0 0 -24px;white-space:nowrap}',
     '.tl{display:flex;flex-wrap:wrap;gap:4px;align-items:center}.tl span.o{border:1px solid var(--border);border-radius:6px;padding:0 6px}.tl small{color:var(--text-muted)}'
   ].join('\n');
+  // the narrow-window layout lives in its own style element so it can be switched off
+  var NARROW = '@media (max-width:720px){main{padding:8px;gap:8px}header{padding:6px 8px}.card{padding:9px 10px}.hr1 h1{font-size:15px}.hr3{flex-wrap:wrap}.rtsel,.gltools,.gslide{flex-wrap:wrap}.tabs{flex-wrap:nowrap;overflow-x:auto}.feed li.gl{grid-template-columns:64px 1fr}.tile{flex-basis:46%}.cdesc{max-width:260px}}';
 
   function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
@@ -1100,21 +1124,45 @@
     });
     return '<svg viewBox="0 0 ' + size + ' ' + size + '" width="' + size + '" height="' + size + '">' + out + '</svg>';
   }
+  // Value and price charts can be shown as they are, on a log scale, or as the % change from the first value
+  function modeModel(model) {
+    if ((ST.chartMode || 'abs') !== 'pct') return model;
+    var o = {}; Object.keys(model).forEach(function (k) { o[k] = model[k]; });
+    o.fmt = function (v) { return (v >= 0 ? '+' : '−') + Math.abs(Math.round(v)) + '%'; };
+    o.series = model.series.map(function (s) {
+      var f = null; s.values.some(function (v) { if (v != null && v > 0) { f = v; return true; } return false; });
+      var c = {}; Object.keys(s).forEach(function (k) { c[k] = s[k]; });
+      c.values = s.values.map(function (v) { return v == null || !f ? null : (v / f - 1) * 100; }); return c;
+    });
+    return o;
+  }
+  function modeBar() {
+    var md = ST.chartMode || 'abs';
+    return '<span class="cmt">' + [['abs', 'normal'], ['log', 'log scale'], ['pct', '% change']].map(function (x) { return '<button class="lnk cm' + (md === x[0] ? ' on' : '') + '" data-cm="' + x[0] + '">' + x[1] + '</button>'; }).join(' · ') + '</span>';
+  }
   function lineChart(model, opts) {
     opts = opts || {};
     var W = 640, H = opts.height || 269, L = 60, R = 84, T = 10, B = 30;
     var pw = W - L - R, ph = H - T - B;
     var all = []; model.series.forEach(function (s) { s.values.forEach(function (v) { if (v != null) all.push(v); }); });
     var max = all.length ? Math.max.apply(null, all) : 1, min = Math.min(0, all.length ? Math.min.apply(null, all) : 0);
-    var step = niceStep((max - min) / 4); max = Math.ceil(max / step) * step || step; min = Math.floor(min / step) * step;
+    var rawMin = min, step = niceStep((max - min) / 4); max = Math.ceil(max / step) * step || step; min = Math.floor(min / step) * step;
+    if (opts.snap && rawMin < 0 && rawMin > -0.12 * step) min = 0;
+    var ticks = [], lg = !!opts.log, lmin = 1, lmax = 10;
+    if (lg) {
+      var posv = all.filter(function (v) { return v > 0; });
+      lmin = Math.pow(10, Math.floor(Math.log(Math.max(Math.min.apply(null, posv.length ? posv : [1]), 1e-9)) / Math.LN10 + 1e-9)); lmax = Math.pow(10, Math.ceil(Math.log(Math.max.apply(null, posv.length ? posv : [10])) / Math.LN10 - 1e-9));
+      if (lmax <= lmin) lmax = lmin * 10;
+      for (var pw10 = lmin; pw10 <= lmax * 1.0001; pw10 *= 10) { ticks.push(pw10); if (pw10 * 3 < lmax) ticks.push(pw10 * 3); }
+    } else for (var tv = min; tv <= max + 1e-9; tv += step) ticks.push(tv);
     var n = model.labels.length;
     var x = function (i) { return L + (n <= 1 ? pw / 2 : i * pw / (n - 1)); };
-    var y = function (v) { return T + ph - (v - min) / (max - min || 1) * ph; };
+    var y = function (v) { if (lg) { if (!(v > 0)) return T + ph; return T + ph - (Math.log(v / lmin) / Math.log(lmax / lmin)) * ph; } return T + ph - (v - min) / (max - min || 1) * ph; };
     var out = ['<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(opts.title || '') + '">'];
-    for (var v = min; v <= max + 1e-9; v += step) {
+    ticks.forEach(function (v) {
       out.push('<line x1="' + L + '" x2="' + (L + pw) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="var(--grid)" stroke-width="1"/>');
       out.push('<text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="13" fill="var(--text-muted)">' + esc(model.fmt(v)) + '</text>');
-    }
+    });
     var every = Math.max(1, Math.ceil(n / 12));
     model.labels.forEach(function (lab, i) {
       if ((i % every === 0 && (n - 1 - i >= every || i === n - 1)) || i === n - 1) out.push('<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="middle" font-size="13" fill="var(--text-muted)">' + esc(lab) + '</text>');
@@ -1418,7 +1466,12 @@
   }
   // The board: tiles as colours (with tile numbers), cities, towns, off-boards, company tokens, and any routes to draw on top.
   // hx = tile/token state of one moment (a replay frame), or null for the board as it is now.
-  function boardSvg(d, hx, paths, maxW) {
+  function heatCounts(d) {
+    var G = hexPos(d, 26), cnt = {}, mx = 0;
+    d.routes.forEach(function (R) { rtPaths(d, R, '*', G.pos).forEach(function (p) { var seen = {}; p.ids.forEach(function (x) { if (!x.skip && !seen[x.id]) { seen[x.id] = 1; cnt[x.id] = (cnt[x.id] || 0) + 1; if (cnt[x.id] > mx) mx = cnt[x.id]; } }); }); });
+    return { cnt: cnt, max: mx };
+  }
+  function boardSvg(d, hx, paths, maxW, heat) {
     var M = d.hexMap, u = 26, G = hexPos(d, u), flat = G.flat, pos = G.pos, W = G.W, H = G.H, on = {}, tokCol = {};
     d.ticker.forEach(function (t) { tokCol[t.name] = t.color; });
     var o = ['<svg viewBox="0 0 ' + W.toFixed(0) + ' ' + H.toFixed(0) + '" role="img" aria-label="The board" style="max-width:' + Math.round(Math.min(W * 1.5, maxW || 760)) + 'px">'];
@@ -1427,6 +1480,7 @@
     M.hexes.forEach(function (h) {
       var c = pos[h.id], lit = on[h.id], st = hx && hx[h.id] ? { c: hx[h.id][0], t: hx[h.id][1], k: hx[h.id][2] } : { c: h.c, t: h.t, k: h.k || [] };
       o.push('<polygon points="' + poly(c[0], c[1], u - 1) + '" fill="' + (TILE_FILL[st.c] || TILE_FILL.white) + '" fill-opacity="' + (st.c === 'white' ? '.22' : '.6') + '" stroke="var(--border)" stroke-width="1"><title>' + esc(h.id + (h.loc ? ' ' + h.loc : '') + (st.t ? ' · tile ' + st.t : '') + ' · ' + st.c + (st.k.length ? ' · tokens: ' + st.k.join(', ') : '')) + '</title></polygon>');
+      if (heat && heat.cnt[h.id]) o.push('<polygon points="' + poly(c[0], c[1], u - 1) + '" fill="var(--accent)" fill-opacity="' + (0.15 + 0.7 * heat.cnt[h.id] / heat.max).toFixed(2) + '" stroke="none"><title>' + esc(h.id + ': run through ' + heat.cnt[h.id] + ' times') + '</title></polygon>');
       var cx = c[0].toFixed(1), cy = c[1].toFixed(1);
       if (h.city) o.push('<circle cx="' + cx + '" cy="' + cy + '" r="' + (7 + (h.city > 1 ? 2 : 0)) + '" fill="var(--surface-1)" stroke="var(--text-muted)" stroke-width="1"/>');
       else if (h.off) o.push('<rect x="' + (c[0] - 5).toFixed(1) + '" y="' + (c[1] - 5).toFixed(1) + '" width="10" height="10" transform="rotate(45 ' + cx + ' ' + cy + ')" fill="var(--surface-1)" stroke="var(--text-muted)" stroke-width="1"/>');
@@ -1452,9 +1506,11 @@
   function rtMapSvg(d, R, corp) { return boardSvg(d, null, rtPaths(d, R, corp, hexPos(d, 26).pos), 760); }
   function rtMapHtml(d, k, corp) {
     var R = d.routes[Math.min(Math.max(k, 0), d.routes.length - 1)], runners = R.corps.filter(function (c) { return c.trains.length; });
-    if (!runners.length) return '<p class="sub">Nobody ran trains in this round.</p>';
-    if (corp !== '*' && !runners.some(function (c) { return c.corp === corp; })) corp = runners[0].corp;
-    var chips = ['<button class="pill rtc' + (corp === '*' ? ' cur' : '') + '" data-c="*">All</button>'].concat(runners.map(function (c) { return '<button class="pill rtc' + (c.corp === corp ? ' cur' : '') + '" data-c="' + esc(c.corp) + '">' + esc(c.corp) + '</button>'; })).join(' ');
+    var heat = corp === '#';
+    if (!runners.length && !heat) return '<p class="sub">Nobody ran trains in this round.</p>';
+    if (corp !== '*' && !heat && !runners.some(function (c) { return c.corp === corp; })) corp = runners[0].corp;
+    var chips = ['<button class="pill rtc' + (corp === '*' ? ' cur' : '') + '" data-c="*">All</button>', '<button class="pill rtc' + (heat ? ' cur' : '') + '" data-c="#" title="Which hexes the trains ran through most, over the whole game">Heat</button>'].concat(runners.map(function (c) { return '<button class="pill rtc' + (c.corp === corp ? ' cur' : '') + '" data-c="' + esc(c.corp) + '">' + esc(c.corp) + '</button>'; })).join(' ');
+    if (heat) return '<div class="tabs">' + chips + '</div>' + boardSvg(d, null, [], 760, heatCounts(d)) + '<p class="sub" style="margin-top:6px">Darker hexes were run through more often, over the whole game (each route counts a hex once). Hover a hex for the number.</p>';
     return '<div class="tabs">' + chips + ' <button id="rt-ci" class="lnk" title="Copy this map and the routes as a picture, to paste into chat">copy as image</button></div>' + rtMapSvg(d, R, corp) +
       '<p class="sub" style="margin-top:6px">Each line joins the stops the engine logs, in order, so it shows where the train went but not the exact track. One colour per train; a hollow dot is a stop the train skips. Hex colours show the tiles on the board in the game state you are viewing, not necessarily when the route ran. ◯ city &nbsp;◆ off-board &nbsp;• town</p>';
   }
@@ -1612,6 +1668,7 @@
     var soundOn = lsGet('xxStats.sound') === '1', armed = !!w.__xxAudio;
     doc.title = (myTurn ? '● Your turn · ' : '') + d.roundLabel + ' · ' + d.title + ' · ' + d.id + ' · 18xx-JNNstats';
     doc.documentElement.setAttribute('data-theme', themePref() || 'dark');
+    try { var nst = doc.getElementById('xxn'); if (nst) nst.disabled = lsGet('xxStats.wide') === '1'; } catch (eN) {}
     if (ST.lookGame !== d.id && !d.tt) { ST.lookGame = d.id; ST.lookId = d.feed.length ? d.feed[0].id : 0; }
     if (!d.tt) ST.maxFeedId = d.feed.length ? d.feed[0].id : 0;
     var leader = Math.max.apply(null, d.players.map(function (p) { return p.value; }));
@@ -1634,7 +1691,7 @@
       '<button class="ib" id="th" title="Switch between dark and light">' + (dark ? '🌙' : '☀') + '</button>' +
       '<details class="menu" id="mn"' + (ST.menuOpen ? ' open' : '') + '><summary class="ib" title="More">⋯</summary><div class="mp2">' +
         '<button id="lr" title="Restore the default order and expand all sections">Reset <span id="lm">layout</span></button>' +
-        '<span style="display:flex;gap:6px;align-items:center">Text size <button id="zo" title="Smaller text">A−</button><button id="zi" title="Larger text">A+</button></span> <button id="sh-v" class="ib" title="Copy a link that opens this game with your card layout (no names or other data are in it)">🔗</button>' +
+        '<span style="display:flex;gap:6px;align-items:center">Text size <button id="zo" title="Smaller text">A−</button><button id="zi" title="Larger text">A+</button></span> <button id="sh-v" class="ib" title="Copy a link that opens this game with your card layout (no names or other data are in it)">🔗</button> <button id="nw" class="ib" title="Switch between the single-column layout used in narrow windows and the normal layout">▯</button>' +
         '<form id="gf" style="display:flex;gap:6px"><input id="gi" placeholder="game # or link" size="14" value="' + esc(ST.giVal || '') + '"><button>Open</button></form>' +
         '<div style="color:var(--text-muted)">Look at another game, old or live.</div></div></details></span></div>');
     h.push('<div class="hr2"><a href="' + REPO_URL + '" target="_blank" rel="noopener" style="color:inherit">18xx-JNNstats v' + VERSION + ' by jimiste</a>' +
@@ -1767,9 +1824,9 @@
     h.push('</tbody></table></div>' + (d.certNote ? '<p class="sub" style="margin:6px 0 0"><span class="st-warn">Certificate limit changed from ' + d.certNote.from + ' to ' + d.certNote.to + ' at ' + esc(d.certNote.at) + '.</span> In some titles it changes again with phases or the number of companies.</p>' : '') + '</section>');
 
     // Value history
-    var vModel = { labels: d.valueHistory.labels, fmt: m, series: d.players.map(function (p, i) { return { name: p.name, color: pal[p.idx % pal.length], values: d.valueHistory.series[i], bold: p.name === me }; }) };
-    var vChart = lineChart(vModel, { title: 'Player value over time', dark: dark, events: d.events });
-    h.push('<section class="card"><h2>Player value over time</h2><p class="sub">Value at the end of each round</p>' + legend(vModel.series) + '<div class="chart" id="c-value">' + vChart.svg + '<div class="tip"></div></div></section>');
+    var vModel = modeModel({ labels: d.valueHistory.labels, fmt: m, series: d.players.map(function (p, i) { return { name: p.name, color: pal[p.idx % pal.length], values: d.valueHistory.series[i], bold: p.name === me }; }) });
+    var vChart = lineChart(vModel, { title: 'Player value over time', dark: dark, events: d.events, log: ST.chartMode === 'log', snap: ST.chartMode === 'pct' });
+    h.push('<section class="card"><h2>Player value over time</h2><p class="sub">Value at the end of each round ' + modeBar() + '</p>' + legend(vModel.series) + '<div class="chart" id="c-value">' + vChart.svg + '<div class="tip"></div></div></section>');
 
     // Revenue
     var rModel = { labels: d.revenue.labels, fmt: m, series: d.revenue.series };
@@ -1785,9 +1842,9 @@
     }
 
     // Share prices
-    var pModel = { labels: d.prices.labels, fmt: m, series: d.prices.series };
-    var pChart = lineChart(pModel, { title: 'Share price', dark: dark, events: d.events });
-    h.push('<section class="card"><h2>Share price</h2><p class="sub">Market price at the end of each round</p>' + legend(pModel.series, dark) + '<div class="chart" id="c-price">' + pChart.svg + '<div class="tip"></div></div></section>');
+    var pModel = modeModel({ labels: d.prices.labels, fmt: m, series: d.prices.series });
+    var pChart = lineChart(pModel, { title: 'Share price', dark: dark, events: d.events, log: ST.chartMode === 'log', snap: ST.chartMode === 'pct' });
+    h.push('<section class="card"><h2>Share price</h2><p class="sub">Market price at the end of each round ' + modeBar() + '</p>' + legend(pModel.series, dark) + '<div class="chart" id="c-price">' + pChart.svg + '<div class="tip"></div></div></section>');
 
     // Portfolio
     var meIdx = d.players.map(function (p) { return p.name; }).indexOf(me);
@@ -1935,9 +1992,13 @@
           }).join('') + '</div></section>');
       }
       if (AN.val.length) {
-        h.push('<section class="card wide"><h2>Valuation</h2><p class="sub">Share price against what each company paid per share in its last three runs. Payback = how many ORs of that payout it takes to earn the price back.</p><div class="tw"><table><thead><tr><th>Company</th><th>Price</th><th>Last payouts per share</th><th>Yield per OR</th><th>Payback</th></tr></thead><tbody>' +
+        var trPrice = {}; (d.trainGroups || []).forEach(function (gr) { (gr.names || []).forEach(function (nm) { trPrice[nm] = gr.price; }); });
+        var corpBy = {}; d.corps.forEach(function (c) { corpBy[c.name] = c; });
+        var bookOf = function (v) { var c = corpBy[v.corp]; if (!c || c.closed) return null; var b = c.cash || 0; (c.trains || []).forEach(function (tr2) { b += trPrice[tr2.name] || 0; }); var cap = v.price * (100 / (c.sharePct || 10)); return { cap: cap, book: b, ratio: b > 0 ? cap / b : null }; };
+        h.push('<section class="card wide"><h2>Valuation</h2><p class="sub">Share price against what each company paid per share in its last three runs. Payback = how many ORs of that payout it takes to earn the price back. Book = treasury cash plus its trains at list price; market value = price of all its shares.</p><div class="tw"><table><thead><tr><th>Company</th><th>Price</th><th>Last payouts per share</th><th>Yield per OR</th><th>Payback</th><th>Market value</th><th>Book</th><th>Value ÷ book</th></tr></thead><tbody>' +
           AN.val.map(function (v) {
-            return '<tr><td>' + cs(v.color) + '<b>' + esc(v.corp) + '</b></td><td>' + esc(m(v.price)) + '</td><td>' + v.last.map(function (x) { return esc(m(x)); }).join(' · ') + '</td><td>' + v.yld.toFixed(1) + '%</td><td>' + (v.payback ? v.payback.toFixed(1) + ' ORs' : '—') + '</td></tr>';
+            var bk = bookOf(v);
+            return '<tr><td>' + cs(v.color) + '<b>' + esc(v.corp) + '</b></td><td>' + esc(m(v.price)) + '</td><td>' + v.last.map(function (x) { return esc(m(x)); }).join(' · ') + '</td><td>' + v.yld.toFixed(1) + '%</td><td>' + (v.payback ? v.payback.toFixed(1) + ' ORs' : '—') + '</td><td>' + (bk ? esc(m(Math.round(bk.cap))) : '—') + '</td><td>' + (bk ? esc(m(Math.round(bk.book))) : '—') + '</td><td>' + (bk && bk.ratio ? bk.ratio.toFixed(1) + '×' : '—') + '</td></tr>';
           }).join('') + '</tbody></table></div></section>');
       }
       if (AN.trains) {
@@ -1949,14 +2010,14 @@
           }).join('') + '</tbody></table></div></section>');
       }
       if (AN.moments.length) {
-        h.push('<section class="card wide"><h2>Key moments</h2><p class="sub">Lead changes, the biggest swings in player value and the best single run. ↗ opens the game at that moment.</p><ul class="kml">' +
-          AN.moments.map(function (x) { return '<li><span class="kmi">' + (x.kind === 'lead' ? '👑' : x.kind === 'gain' ? '📈' : x.kind === 'loss' ? '📉' : '🚂') + '</span> ' + esc(x.text) + lnk(x.act) + '</li>'; }).join('') + '</ul></section>');
+        h.push('<section class="card wide"><h2>Key moments</h2><p class="sub">Lead changes, the biggest swings in player value, price crashes, closures, each company’s first token and the best single run. ↗ opens the game at that moment.</p><ul class="kml">' +
+          AN.moments.slice(0, ST.kmAll ? 999 : 14).map(function (x) { return '<li><span class="kmi">' + ({ lead: '👑', gain: '📈', loss: '📉', run: '🚂', crash: '💥', close: '🔚', token: '🔘' }[x.kind] || '•') + '</span> ' + esc(x.text) + lnk(x.act) + '</li>'; }).join('') + '</ul>' + (AN.moments.length > 14 ? '<button class="lnk" id="km-all">' + (ST.kmAll ? 'show fewer' : 'show all ' + AN.moments.length) + '</button>' : '') + '</section>');
       }
       if (AN.range) {
-        var RG = AN.range;
-        h.push('<section class="card wide"><h2>Score range</h2><p class="sub">Player value if the game ended now, and a rough range in ' + RG.n + ' more ORs' + (RG.fromBank ? ' (the bank estimate)' : '') + ', from each player’s smallest and largest recent gain per OR. Not a forecast.</p><div class="tw"><table><thead><tr><th>Player</th><th>Now</th><th>Rank now</th><th>In ' + RG.n + ' ORs (low – high)</th><th>Likely rank</th></tr></thead><tbody>' +
+        var RG = AN.range, cellR = function (v, r) { return esc(m(Math.round(v))) + ' <small style="color:var(--text-muted)">#' + r + '</small>'; };
+        h.push('<section class="card wide"><h2>Score range</h2><p class="sub">Player value if the game ended now, and three rough scenarios after ' + RG.n + ' more ORs' + (RG.fromBank ? ' (the bank estimate)' : '') + ': cautious (each player’s smallest recent gain per OR), current pace (the average) and best case (the largest). Not a forecast.</p><div class="tw"><table><thead><tr><th>Player</th><th>Now</th><th>Cautious</th><th>Current pace</th><th>Best case</th></tr></thead><tbody>' +
           RG.rows.slice().sort(function (a, b) { return b.now - a.now; }).map(function (r) {
-            return '<tr' + (me && r.name === me ? ' class="merow"' : '') + '><td><b>' + esc(r.name) + '</b></td><td>' + esc(m(r.now)) + '</td><td>' + r.r_now + '</td><td>' + esc(m(Math.round(r.low))) + ' – ' + esc(m(Math.round(r.high))) + '</td><td>' + r.r_mid + '</td></tr>';
+            return '<tr' + (me && r.name === me ? ' class="merow"' : '') + '><td><b>' + esc(r.name) + '</b></td><td>' + cellR(r.now, r.r_now) + '</td><td>' + cellR(r.low, r.r_low) + '</td><td>' + cellR(r.mid, r.r_mid) + '</td><td>' + cellR(r.high, r.r_high) + '</td></tr>';
           }).join('') + '</tbody></table></div></section>');
       }
     }
@@ -1982,41 +2043,59 @@
             return '<tr><td>' + cs(x.color) + '<b>' + esc(x.corp) + '</b></td><td>' + esc(x.pres || '') + '</td><td>' + x.W.n + ' of ' + (x.W.n + x.P.n) + ' ORs</td><td>' + esc(m(x.W.rev)) + '</td><td>' + x.W.best + '</td><td>' + sgn(avg(x.W.mv)) + '</td><td>' + sgn(avg(x.P.mv)) + '</td></tr>';
           }).join('') + '</tbody></table></div></section>');
       }
+      // withholds in detail: what a payout would have given each shareholder
+      if (AN && AN.withholds && AN.withholds.length) {
+        var wdIdx = h.length; // placed right after the withholding card
+        var wdHtml = '<section class="card wide"><h2>Withholds in detail</h2><p class="sub">Each time revenue was kept, what paying it out would have given each shareholder, using who held shares in that round. Shares in the company’s own treasury would have paid the company.</p><div class="tw" style="max-height:340px;overflow-y:auto"><table><thead><tr><th>When</th><th>Company</th><th>Revenue kept</th><th style="text-align:left">A payout would have given</th></tr></thead><tbody>' +
+          AN.withholds.slice().reverse().map(function (x) {
+            return '<tr><td style="text-align:left">' + esc(x.label) + '</td><td>' + cs(tkCol[x.corp]) + '<b>' + esc(x.corp) + '</b></td><td>' + esc(m(x.rev)) + '</td><td style="text-align:left;white-space:normal"><small>' + Object.keys(x.gets).sort(function (a, b) { return x.gets[b] - x.gets[a]; }).map(function (n) { return '<span' + (me && n === me ? ' class="mename"' : '') + '>' + esc(n) + ' ' + esc(m(x.gets[n])) + '</span>'; }).join(' · ') + '</small></td></tr>';
+          }).join('') + '</tbody></table></div></section>';
+        h.push(wdHtml);
+      }
       // train timing
-      var AN2 = d.analysis, ttRows = {}, corpPres = {}, mapLab = function (lab) { return String(lab).replace(/^Operating Round /, 'OR ').replace(/^Stock Round /, 'SR ').replace(/ \(of \d+\)$/, ''); };
+      var AN2 = d.analysis, corpPres = {}, mapLab = function (lab) { return String(lab).replace(/^Operating Round /, 'OR ').replace(/^Stock Round /, 'SR ').replace(/ \(of \d+\)$/, ''); };
       d.corps.forEach(function (c) { corpPres[c.name] = c; });
       var noRun = {}; (d.routes || []).forEach(function (R) { R.corps.forEach(function (c) { if (!c.trains.length && /does not run/.test(c.kind || '')) noRun[c.corp] = (noRun[c.corp] || 0) + 1; }); });
       if (AN2 && AN2.trains && AN2.trains.length) {
-        var byCo = {}, nLab = Math.max(d.valueHistory.labels.length - 1, 1);
-        AN2.trains.forEach(function (x) { var o = byCo[x.buyer] || (byCo[x.buyer] = { buys: [], spent: 0 }); var lab = mapLab(x.round), li = d.valueHistory.labels.indexOf(lab); o.buys.push({ lab: lab, train: x.train, price: x.price, pct: li < 0 ? null : Math.round(li / nLab * 100) }); o.spent += x.price; });
-        var pl = {}; d.players.forEach(function (p) { pl[p.name] = { name: p.name, cos: 0, bought: 0, spent: 0, first: null, held: 0 }; });
-        var coRows = Object.keys(byCo).filter(function (n) { return corpPres[n]; }).map(function (n) {
-          var c = corpPres[n], o = byCo[n], pr = pl[c.president];
-          if (pr) { pr.cos++; pr.bought += o.buys.length; pr.spent += o.spent; pr.held += c.trains.length; var f0 = o.buys[0].pct; if (f0 != null && (pr.first == null || f0 < pr.first)) pr.first = f0; }
-          return { name: n, color: c.color, pres: c.president, o: o, held: c.trains.length, norun: noRun[n] || 0 };
+        var byCo = {}, nLab = Math.max(d.valueHistory.labels.length - 1, 1), pl = {};
+        d.players.forEach(function (p) { pl[p.name] = { name: p.name, cos: {}, bought: 0, spent: 0, first: null }; });
+        AN2.trains.forEach(function (x) {
+          var lab = mapLab(x.round), li = d.valueHistory.labels.indexOf(lab), pc = li < 0 ? null : Math.round(li / nLab * 100), who = x.pres || (corpPres[x.buyer] && corpPres[x.buyer].president) || '';
+          var o = byCo[x.buyer] || (byCo[x.buyer] = { buys: [], spent: 0 }); o.buys.push({ lab: lab, train: x.train, price: x.price, pc: pc, who: who }); o.spent += x.price;
+          var pr = pl[who]; if (pr) { pr.cos[x.buyer] = 1; pr.bought++; pr.spent += x.price; if (pc != null && (pr.first == null || pc < pr.first)) pr.first = pc; }
         });
-        h.push('<section class="card wide"><h2>Train timing</h2><p class="sub">Who bought trains and when, counted for the player who presides the company now. Percentages show how far through the game each first purchase happened' + (d.trainLimit ? '; the current limit is ' + esc(String(d.trainLimit)) + ' trains per company' : '') + '.</p><div class="tw"><table><thead><tr><th>Player</th><th>Companies</th><th>Trains bought</th><th>Spent</th><th>First train at</th><th>Trains held now</th></tr></thead><tbody>' +
-          Object.keys(pl).map(function (k) { return pl[k]; }).filter(function (x) { return x.bought; }).sort(function (a, b) { return b.spent - a.spent; }).map(function (x) { return '<tr' + (me && x.name === me ? ' class="merow"' : '') + '><td><b>' + esc(x.name) + '</b></td><td>' + x.cos + '</td><td>' + x.bought + '</td><td>' + esc(m(x.spent)) + '</td><td>' + (x.first != null ? x.first + '%' : '—') + '</td><td>' + x.held + '</td></tr>'; }).join('') +
-          '</tbody></table></div><div class="tw" style="margin-top:10px"><table><thead><tr><th>Company</th><th>President</th><th style="text-align:left">Purchases (round, train, price)</th><th>Held now</th><th>ORs with no run</th></tr></thead><tbody>' +
-          coRows.sort(function (a, b) { return b.o.spent - a.o.spent; }).map(function (x) { return '<tr><td>' + cs(x.color) + '<b>' + esc(x.name) + '</b></td><td>' + esc(x.pres || '') + '</td><td style="text-align:left;white-space:normal"><small>' + x.o.buys.map(function (b2) { return esc(b2.lab) + ' · ' + esc(b2.train) + ' · ' + esc(m(b2.price)); }).join('<br>') + '</small></td><td>' + x.held + '</td><td>' + (x.norun || '—') + '</td></tr>'; }).join('') + '</tbody></table></div></section>');
+        var heldBy = {}; d.corps.forEach(function (c) { if (c.president) heldBy[c.president] = (heldBy[c.president] || 0) + c.trains.length; });
+        var coRows = Object.keys(byCo).filter(function (n) { return corpPres[n]; }).map(function (n) { var c = corpPres[n]; return { name: n, color: c.color, pres: c.president, o: byCo[n], held: c.trains.length, norun: noRun[n] || 0 }; });
+        h.push('<section class="card wide"><h2>Train timing</h2><p class="sub">Who bought trains and when, counted for whoever presided over the company at the time of each purchase. Percentages show how far through the game each first purchase happened' + (d.trainLimit ? '; the current limit is ' + esc(String(d.trainLimit)) + ' trains per company' : '') + '.</p><div class="tw"><table><thead><tr><th>Player</th><th>Companies</th><th>Trains bought</th><th>Spent</th><th>First train at</th><th>Trains held now</th></tr></thead><tbody>' +
+          Object.keys(pl).map(function (k) { return pl[k]; }).filter(function (x) { return x.bought; }).sort(function (a, b) { return b.spent - a.spent; }).map(function (x) { return '<tr' + (me && x.name === me ? ' class="merow"' : '') + '><td><b>' + esc(x.name) + '</b></td><td>' + Object.keys(x.cos).length + '</td><td>' + x.bought + '</td><td>' + esc(m(x.spent)) + '</td><td>' + (x.first != null ? x.first + '%' : '—') + '</td><td>' + (heldBy[x.name] || 0) + '</td></tr>'; }).join('') +
+          '</tbody></table></div><div class="tw" style="margin-top:10px"><table><thead><tr><th>Company</th><th>President now</th><th style="text-align:left">Purchases (round, train, price, bought under)</th><th>Held now</th><th>ORs with no run</th></tr></thead><tbody>' +
+          coRows.sort(function (a, b) { return b.o.spent - a.o.spent; }).map(function (x) { return '<tr><td>' + cs(x.color) + '<b>' + esc(x.name) + '</b></td><td>' + esc(x.pres || '') + '</td><td style="text-align:left;white-space:normal"><small>' + x.o.buys.map(function (b2) { return esc(b2.lab) + ' · ' + esc(b2.train) + ' · ' + esc(m(b2.price)) + (b2.who && b2.who !== x.pres ? ' · ' + esc(b2.who) : ''); }).join('<br>') + '</small></td><td>' + x.held + '</td><td>' + (x.norun || '—') + '</td></tr>'; }).join('') + '</tbody></table></div></section>');
       }
-      // badges
-      var badges = [], VH = d.valueHistory, nf = VH.labels.length;
+      // badges: only where there is a clear winner; the runner-up is shown too
+      var badges = [], VH = d.valueHistory, nf = VH.labels.length, fmtM = function (v) { return m(v); };
+      var metricBadge = function (emoji, title, map, fmt, detail) {
+        var ks = Object.keys(map).filter(function (k) { return map[k] > 0; }).sort(function (a, b) { return map[b] - map[a]; });
+        if (!ks.length || (ks.length > 1 && map[ks[1]] === map[ks[0]])) return;
+        badges.push([emoji, title, ks[0], detail(map[ks[0]]), ks.length > 1 ? 'runner-up: ' + ks[1] + ' (' + fmt(map[ks[1]]) + ')' : '']);
+      };
       var finalRank = d.players.slice().sort(function (a, b) { return b.value - a.value; });
       var deficit = d.players.map(function (p, i) { var mx = 0; for (var f4 = 0; f4 < nf; f4++) { var best4 = -Infinity; VH.series.forEach(function (sx) { if (sx[f4] != null && sx[f4] > best4) best4 = sx[f4]; }); if (VH.series[i][f4] != null) mx = Math.max(mx, best4 - VH.series[i][f4]); } return mx; });
       var leader0 = finalRank[0], li0 = d.players.indexOf(leader0);
-      if (leader0 && deficit[li0] > 0) badges.push(['🧗', 'Biggest comeback', leader0.name, 'was ' + m(deficit[li0]) + ' behind the leader at the lowest point and is now first']);
+      if (leader0 && deficit[li0] > 0) badges.push(['🧗', 'Biggest comeback', leader0.name, 'was ' + m(deficit[li0]) + ' behind the leader at the lowest point and is now first', '']);
       var lead = {}; for (var f5 = 1; f5 < nf; f5++) { var bi = -1, bv = -Infinity; VH.series.forEach(function (sx, i) { if (sx[f5] != null && sx[f5] > bv) { bv = sx[f5]; bi = i; } }); if (bi >= 0) lead[d.players[bi].name] = (lead[d.players[bi].name] || 0) + 1; }
-      var lk = Object.keys(lead).sort(function (a, b) { return lead[b] - lead[a]; })[0]; if (lk) badges.push(['👑', 'Most time in the lead', lk, 'led in ' + lead[lk] + ' of ' + (nf - 1) + ' rounds']);
+      metricBadge('👑', 'Most time in the lead', lead, String, function (v) { return 'led in ' + v + ' of ' + (nf - 1) + ' rounds'; });
       if (AN2 && AN2.money) {
-        var dk = AN2.money.slice().sort(function (a, b) { return b.div - a.div; })[0]; if (dk && dk.div) badges.push(['💰', 'Dividend king', dk.name, 'took in ' + m(dk.div) + ' in dividends']);
-        var sk = AN2.money.slice().sort(function (a, b) { return b.sales - a.sales; })[0]; if (sk && sk.sales) badges.push(['🏦', 'Biggest seller', sk.name, 'raised ' + m(sk.sales) + ' from selling shares']);
+        var dv = {}, sl = {}; AN2.money.forEach(function (x) { dv[x.name] = x.div; sl[x.name] = x.sales; });
+        metricBadge('💰', 'Dividend king', dv, fmtM, function (v) { return 'took in ' + m(v) + ' in dividends'; });
+        metricBadge('🏦', 'Biggest seller', sl, fmtM, function (v) { return 'raised ' + m(v) + ' from selling shares'; });
       }
-      var wst = whRows.slice().sort(function (a, b) { return b.W.best - a.W.best; })[0]; if (wst && wst.W.best >= 2) badges.push(['🛑', 'Longest withhold streak', wst.pres || wst.corp, wst.corp + ' kept its revenue ' + wst.W.best + ' ORs in a row']);
-      var brun = AN2 && AN2.moments.filter(function (x) { return x.kind === 'run'; })[0]; if (brun) { var bc = brun.text.replace(/^Best single run: /, '').replace(/ earns .*/, ''); badges.push(['🚂', 'Best single run', (corpPres[bc] && corpPres[bc].president) || bc, brun.text.replace(/^Best single run: /, '')]); }
-      var spendTop = null; if (AN2 && AN2.trains) { var sp2 = {}; AN2.trains.forEach(function (x) { var c0 = corpPres[x.buyer], nm = c0 && c0.president; if (nm) sp2[nm] = (sp2[nm] || 0) + x.price; }); var ks = Object.keys(sp2).sort(function (a, b) { return sp2[b] - sp2[a]; })[0]; if (ks) spendTop = [ks, sp2[ks]]; }
-      if (spendTop) badges.push(['🔧', 'Train baron', spendTop[0], 'presiding companies spent ' + m(spendTop[1]) + ' on trains']);
-      if (badges.length) h.push('<section class="card wide"><h2>Badges</h2><p class="sub">Just for fun, worked out from this game’s data.</p><div class="badges">' + badges.map(function (b3) { return '<div class="bdg"><span class="bi">' + b3[0] + '</span><div><b>' + esc(b3[1]) + '</b><br><span class="bn">' + esc(b3[2]) + '</span><br><small style="color:var(--text-muted)">' + esc(b3[3]) + '</small></div></div>'; }).join('') + '</div></section>');
+      var wk = {}; whRows.forEach(function (x) { if (x.pres) wk[x.pres] = Math.max(wk[x.pres] || 0, x.W.best); });
+      metricBadge('🛑', 'Longest withhold streak', wk, String, function (v) { return 'kept a company’s revenue ' + v + ' ORs in a row'; });
+      var br = {}; (d.routes || []).forEach(function (R) { R.corps.forEach(function (c) { var pr = corpPres[c.corp] && corpPres[c.corp].president; if (pr && c.trains.length && c.totalN != null) br[pr] = Math.max(br[pr] || 0, c.totalN); }); });
+      metricBadge('🚂', 'Best single run', br, fmtM, function (v) { return 'one company run earned ' + m(v); });
+      var sp2 = {}; if (AN2 && AN2.trains) AN2.trains.forEach(function (x) { var nm = x.pres || (corpPres[x.buyer] && corpPres[x.buyer].president); if (nm) sp2[nm] = (sp2[nm] || 0) + x.price; });
+      metricBadge('🔧', 'Train baron', sp2, fmtM, function (v) { return 'spent ' + m(v) + ' on trains as a president'; });
+      if (badges.length) h.push('<section class="card wide"><h2>Badges</h2><p class="sub">Just for fun, worked out from this game’s data. A badge only appears when there is a clear winner.</p><div class="badges">' + badges.map(function (b3) { return '<div class="bdg"><span class="bi">' + b3[0] + '</span><div><b>' + esc(b3[1]) + '</b><br><span class="bn">' + esc(b3[2]) + '</span><br><small style="color:var(--text-muted)">' + esc(b3[3]) + (b3[4] ? '<br>' + esc(b3[4]) : '') + '</small></div></div>'; }).join('') + '</div></section>');
     }
     // Compare with another game of the same title
     if (d.valueHistory.labels.length > 1 && !d.tt) {
@@ -2147,6 +2226,8 @@
       };
       if (ST.rpPlay) rpStart();
     }
+    Array.prototype.forEach.call(doc.querySelectorAll('.cm'), function (b) { b.onclick = function () { ST.chartMode = b.getAttribute('data-cm'); rerender(); }; });
+    var kma = doc.getElementById('km-all'); if (kma) kma.onclick = function () { ST.kmAll = !ST.kmAll; rerender(); };
     // compare card
     var cmpGo = doc.getElementById('cmp-go');
     if (cmpGo) {
@@ -2295,6 +2376,7 @@
     }
     doc.getElementById('sn').onclick = function () { snapRight(w); };
     var zoomBy = function (dz) { var z = Math.min(1.5, Math.max(0.8, (parseFloat(lsGet('xxStats.zoom')) || 1) + dz)); lsSet('xxStats.zoom', String(Math.round(z * 100) / 100)); doc.body.style.zoom = String(z); };
+    var nwb = doc.getElementById('nw'); if (nwb) nwb.onclick = function () { try { localStorage.setItem('xxStats.wide', lsGet('xxStats.wide') === '1' ? '0' : '1'); } catch (e12) {} rerender(); };
     var shv = doc.getElementById('sh-v');
     if (shv) shv.onclick = function () {
       var lab = function (x) { shv.textContent = x; setTimeout(function () { shv.textContent = '🔗'; }, 1800); };
@@ -2332,8 +2414,8 @@
   // ---------- Layout: collapse and reorder sections, remembered per mode ----------------
   // Two layouts are kept in this browser: 'live' (game in progress) and 'review' (finished game).
   var DEFAULT_ORDER = {
-    live: ['now', 'what-just-happened', 'trains-phases-bank', 'routes-revenue', 'track-spending-vs-revenue', 'train-timing', 'train-purchases', 'stock-round-helper', 'stock-market', 'standings', 'score-range', 'player-value-over-time', 'key-moments', 'badges', 'compare-with-another-game', 'replay', 'stock-ticker', 'where-the-money-came-from', 'valuation', 'withholding-vs-paying-out', 'portfolios', 'corporations', 'company-revenue-per-operating-round', 'share-price', 'game-log', 'minors-private-companies', 'tile-manifest', 'game-info'],
-    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'key-moments', 'badges', 'compare-with-another-game', 'replay', 'game-log', 'company-revenue-per-operating-round', 'share-price', 'where-the-money-came-from', 'valuation', 'withholding-vs-paying-out', 'portfolios', 'corporations', 'trains-phases-bank', 'train-timing', 'train-purchases', 'routes-revenue', 'track-spending-vs-revenue', 'minors-private-companies', 'tile-manifest', 'game-info']
+    live: ['now', 'what-just-happened', 'trains-phases-bank', 'routes-revenue', 'track-spending-vs-revenue', 'train-timing', 'train-purchases', 'stock-round-helper', 'stock-market', 'standings', 'score-range', 'player-value-over-time', 'key-moments', 'badges', 'compare-with-another-game', 'replay', 'stock-ticker', 'where-the-money-came-from', 'valuation', 'withholding-vs-paying-out', 'withholds-in-detail', 'portfolios', 'corporations', 'company-revenue-per-operating-round', 'share-price', 'game-log', 'minors-private-companies', 'tile-manifest', 'game-info'],
+    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'key-moments', 'badges', 'compare-with-another-game', 'replay', 'game-log', 'company-revenue-per-operating-round', 'share-price', 'where-the-money-came-from', 'valuation', 'withholding-vs-paying-out', 'withholds-in-detail', 'portfolios', 'corporations', 'trains-phases-bank', 'train-timing', 'train-purchases', 'routes-revenue', 'track-spending-vs-revenue', 'minors-private-companies', 'tile-manifest', 'game-info']
   };
   function slug(txt) { return String(txt).toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
   function loadLayout(mode) {
@@ -2447,7 +2529,7 @@
     if (!w || w.closed) { if (ST.win && !ST.win.closed) { w = ST.win; fresh = false; } else w = window.open('', 'xx-stats', 'width=1280,height=900'); }
     if (!w) { alert('18xx-JNNstats: the popup was blocked. Allow popups for 18xx.games and click the bookmark again.'); return null; }
     w.document.open();
-    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>18xx-JNNstats v' + VERSION + '</title><style>' + CSS + '</style></head><body><p style="padding:20px">Loading game…</p><script>' + WATCHDOG + '<\/script></body></html>');
+    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>18xx-JNNstats v' + VERSION + '</title><style>' + CSS + '</style><style id="xxn">' + NARROW + '</style></head><body><p style="padding:20px">Loading game…</p><script>' + WATCHDOG + '<\/script></body></html>');
     w.document.close();
     w.__xxToken = ST.token;
     if (fresh) { var bnd = loadBounds(); if (bnd) applyBounds(w, bnd); else snapRight(w); }

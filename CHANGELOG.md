@@ -2,6 +2,21 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.19.0] - 2026-11-12
+
+### Added
+- **Key moments** now also list big share-price crashes, companies that close or merge, and each company's first token (the list shows 14 first, with *show all*).
+- **Withholds in detail:** for each withhold, what a payout would have given every shareholder, using who held shares that round.
+- **Valuation:** market value, book (treasury plus trains at list price) and value ÷ book.
+- **Score range:** three scenarios (cautious, current pace, best case) with the ranking in each.
+- **Charts:** *normal / log scale / % change* switch for Player value and Share price.
+- **Map sketch:** a *Heat* button shows which hexes were run through most over the whole game.
+- **Layout switch (▯):** turn the single-column layout for narrow windows on or off.
+
+### Changed
+- **Badges:** a badge only appears when there is a clear winner (no ties), and the runner-up is shown.
+- **Train timing:** trains are counted for whoever presided over the company when each was bought.
+
 ## [0.18.0] - 2026-11-12
 
 ### Added
