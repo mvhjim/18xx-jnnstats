@@ -2,6 +2,11 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.10.0] - 2026-11-12
+
+### Added
+- **History mode (⏱):** a slider in the header that takes the whole window back in time. Pick a round and every tile shows the game as it was at the end of that round (standings, corporations, trains and phases, bank, market grid, game log and so on). Paused and read only; *back to now* returns. The numbers at a chosen round are the same as the Player value chart's for that round (checked on a finished 1862 game).
+
 ## [0.9.3] - 2026-11-12
 
 ### Changed

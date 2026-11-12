@@ -1175,7 +1175,7 @@
         '<div style="color:var(--text-muted)">Look at another game, old or live.</div></div></details></span></div>');
     h.push('<div class="hr2"><a href="' + REPO_URL + '" target="_blank" rel="noopener" style="color:inherit">18xx-JNNstats v' + VERSION + ' by jimiste</a>' +
       (newer ? ' · <a class="upd" href="' + REPO_URL + '/blob/main/CHANGELOG.md" target="_blank" rel="noopener" title="A newer version exists. If you pinned a version, read the changelog, then update your bookmark.">⬆ v' + esc(ST.latest) + ' available</a>' : '') +
-      ' · ' + d.actions + ' actions · updated ' + d.updated.toLocaleTimeString() + ' · ' + esc(ST.statusText || '') +
+      ' · ' + d.actions + ' actions · updated ' + d.updated.toLocaleTimeString() + ' · ' + esc(d.tt ? 'viewing history' : ST.statusText || '') +
       (ST.verify ? ' · <span class="' + (ST.verify.ok ? 'st-good' : 'st-warn') + '" title="After each round the whole game is replayed from scratch and compared with the live numbers">' + (ST.verify.ok ? '✓ verified' : '⚠ corrected') + ' at ' + esc(ST.verify.at) + '</span>' : '') +
       (ST.ttOpen && ST.rounds && ST.rounds.length > 1 ? (function () {
         var tl = ST.rounds.length - 1, ti = d.tt ? d.tt.idx : tl;
