@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.19.0';
+  var VERSION = '0.20.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -189,7 +189,7 @@
     var rxPriv = new RegExp('^(.+?) collects ' + CUR + ' from ');
     var rxSell = new RegExp('^(.+?) (?:sells|shorts) .*? (?:and receives|for) ' + CUR + '\\s*$');
     // --- trains
-    var pres = {}, firstTok = {}, rxPres = /^(.+?) becomes the president of (.+)$/, rxTokHex = /^(.+?)(?: \([^)]*\))? places a token on (\S+)/;
+    var sales = [], pres = {}, firstTok = {}, rxPres = /^(.+?) becomes the president of (.+)$/, rxTokHex = /^(.+?)(?: \([^)]*\))? places a token on (\S+)/;
     var trains = [], depot = {}, rxTrain = new RegExp('^(.+?) buys an? (\\S+) train for ' + CUR + ' from (.+?)(?: \\(.*\\))?\\s*$');
     gameLog.rounds.forEach(function (rd) { rd.lines.forEach(function (ln) {
       var q = ln.msg, mm;
@@ -200,7 +200,11 @@
       if ((mm = rxTokBuy.exec(q)) && cn[mm[1]]) { getT(mm[1]).tokenCost += N(mm[3]); return; }
       if ((mm = rxDiv.exec(q))) { mm[2].split(', ').forEach(function (part) { var pp = rxPart.exec(part); if (pp && pn[pp[2]]) ms[pp[2]].div += N(pp[1]); }); return; }
       if ((mm = rxPriv.exec(q)) && pn[mm[1]]) { ms[mm[1]].priv += N(mm[2]); return; }
-      if ((mm = rxSell.exec(q)) && pn[mm[1]]) { ms[mm[1]].sales += N(mm[2]); return; }
+      if ((mm = rxSell.exec(q)) && pn[mm[1]]) {
+        ms[mm[1]].sales += N(mm[2]);
+        if (/ sells /.test(q)) { var sc = null; Object.keys(cn).forEach(function (nm) { if (!sc && (' ' + q + ' ').indexOf(' ' + nm + ' ') >= 0) sc = nm; }); var sm = /sells (\d+) shares/.exec(q), sn2 = sm ? +sm[1] : 1; if (sc) sales.push({ who: mm[1], corp: sc, n: sn2, per: N(mm[2]) / sn2, round: rd.label, id: ln.id }); }
+        return;
+      }
       if ((mm = rxTrain.exec(q))) {
         var price = N(mm[3]), from = mm[4], isDepot = /depot/i.test(from);
         if (isDepot && depot[mm[2]] == null) depot[mm[2]] = price;
@@ -245,12 +249,13 @@
     routeTable.forEach(function (R) { R.corps.forEach(function (c) { if (c.trains.length && c.totalN != null && (!best || c.totalN > best.v)) best = { v: c.totalN, corp: c.corp, label: R.label, round: R.round }; }); });
     if (best) { var bl = null; gameLog.rounds[best.round].lines.forEach(function (ln) { if (!bl && ln.id > 0 && ln.msg.indexOf(best.corp + ' runs') === 0) bl = ln.id; }); mo.push({ f: 1e9, kind: 'run', text: 'Best single run: ' + best.corp + ' earns ' + best.v + ' (' + best.label.replace(/^Operating Round/, 'OR') + ')', act: bl || 0, raw: best.v }); }
     out.moments = changes.slice(-6).concat(mo).sort(function (a, b) { return a.f - b.f; });
+    out.sales = sales;
     var mapLab = function (lab) { return String(lab).replace(/^Operating Round /, 'OR ').replace(/^Stock Round /, 'SR ').replace(/ \(of \d+\)$/, ''); };
     out.withholds = [];
     routeTable.forEach(function (R) { var lab = mapLab(R.label), sn = byLab[lab]; R.corps.forEach(function (c) {
       if (c.trains.length && /^withholds/.test(c.kind) && c.totalN > 0 && cn[c.corp]) {
-        var gets = {}; if (sn) pnames.forEach(function (n) { var hh = (sn.hold[n] || {})[c.corp]; if (hh && hh.pct) gets[n] = Math.round(c.totalN * hh.pct / 100); });
-        out.withholds.push({ corp: c.corp, label: lab, rev: c.totalN, gets: gets });
+        var gets = {}, pcts = {}, pr0 = ''; if (sn) pnames.forEach(function (n) { var hh = (sn.hold[n] || {})[c.corp]; if (hh && hh.pct) { gets[n] = Math.round(c.totalN * hh.pct / 100); pcts[n] = hh.pct; if (hh.pres) pr0 = n; } });
+        out.withholds.push({ corp: c.corp, label: lab, rev: c.totalN, gets: gets, pcts: pcts, pres: pr0 });
       }
     }); });
     // more key moments: price crashes, closures, first tokens
@@ -762,6 +767,26 @@
     // Replay frames: one per point on the value chart, with the board (tiles and tokens) at that moment
     var replay = null;
     try { var byLab = {}; snaps.forEach(function (sn2) { byLab[sn2.label] = sn2; }); replay = { labels: vh.labels.slice(), hx: vh.labels.map(function (l2) { return byLab[l2] ? byLab[l2].hx : null; }) }; if (!replay.hx.some(function (z) { return z; })) replay = null; } catch (e) { replay = null; }
+    // The moves inside each replay frame, read from the log, so the replay can step one move at a time
+    try {
+      if (replay && gameLog) {
+        var mapL = function (lab) { return String(lab).replace(/^Operating Round /, 'OR ').replace(/^Stock Round /, 'SR ').replace(/ \(of \d+\)$/, ''); };
+        replay.ev = replay.labels.map(function (lab) {
+          var evs = [];
+          gameLog.rounds.forEach(function (rd) {
+            if (mapL(rd.label) !== lab) return;
+            rd.lines.forEach(function (ln) {
+              var q = ln.msg, mm;
+              if ((mm = /^(.+?)(?: \([^)]*\))? (?:spends \D{0,3}\s?[\d,.]+ and )?lays tile #(\S+) with rotation \d+ on (\S+)/.exec(q))) evs.push({ id: ln.id, msg: q, tile: { hex: mm[3], name: mm[2] } });
+              else if ((mm = /^(.+?)(?: \([^)]*\))? places a token on (\S+)/.exec(q))) evs.push({ id: ln.id, msg: q, tok: { hex: mm[2], corp: mm[1] } });
+              else if (/ runs an? .* train for /.test(q)) evs.push({ id: ln.id, msg: q, run: q.split(' runs')[0] });
+              else if (/ buys an? \S+ train for /.test(q) || / (buys|sells) .*share/.test(q) || / pars /.test(q)) evs.push({ id: ln.id, msg: q });
+            });
+          });
+          return evs;
+        });
+      }
+    } catch (e) {}
     var routeTable = [];
     try {
       if (gameLog) gameLog.rounds.forEach(function (rd3, ri3) {
@@ -967,6 +992,7 @@
     '.zl{display:flex;flex-wrap:wrap;gap:4px 12px;margin:8px 0 0;font-size:11.5px;color:var(--text-secondary)}.zl i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1px solid var(--border)}',
     '.dq{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px}.dq .chip{font-variant-numeric:tabular-nums}.dq .chip.next{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:650}.bl{font-size:12px;color:var(--text-muted);margin:6px 0 2px}',
     '.cmt{margin-left:8px;font-size:12px}.cmt .cm.on{font-weight:700;text-decoration:none;color:var(--text-primary)}',
+    '.rpmv{margin:0 0 4px;font-size:12px;color:var(--text-secondary)}',
     '.badges{display:flex;flex-wrap:wrap;gap:10px}.bdg{display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:10px;padding:8px 12px;min-width:200px;font-size:13px}.bdg .bi{font-size:26px}.bdg .bn{font-weight:650}',
     '.pies{display:flex;flex-wrap:wrap;gap:14px 26px}.pie1{display:flex;flex-direction:column;gap:4px;min-width:150px;font-size:12px}.pie1 svg{width:110px;height:110px;flex:none}.pie1 .pl{display:flex;flex-direction:column;gap:2px}.kml{list-style:none;margin:0;padding:0}.kml li{padding:4px 0;border-bottom:1px solid var(--grid);font-size:13px}.kmi{display:inline-block;width:1.5em}',
     '.tg2{margin:0 0 10px}.tg2 .tcs{display:flex;flex-wrap:wrap;gap:4px}.tcp{border:1px solid var(--border);border-radius:6px;padding:1px 7px;font-size:12px;font-variant-numeric:tabular-nums}.tcp.z{opacity:.4;text-decoration:line-through}.tg2.na{opacity:.55}',
@@ -1494,7 +1520,7 @@
     });
     paths.forEach(function (p, i) {
       var off = (i - (paths.length - 1) / 2) * 3.2, pts = p.ids.map(function (x) { return (pos[x.id][0] + off).toFixed(1) + ',' + (pos[x.id][1] + off).toFixed(1); });
-      if (pts.length > 1) o.push('<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + p.col + '" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" opacity=".9"/>');
+      if (pts.length > 1) o.push('<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + p.col + '" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" opacity=".9"' + (p.dash ? ' stroke-dasharray="7 5"' : '') + '/>');
       p.ids.forEach(function (x, k) {
         var e = k === 0 || k === p.ids.length - 1;
         o.push('<circle cx="' + (pos[x.id][0] + off).toFixed(1) + '" cy="' + (pos[x.id][1] + off).toFixed(1) + '" r="' + (e ? 4.6 : 2.8) + '" fill="' + (x.skip ? 'var(--surface-1)' : p.col) + '" stroke="' + p.col + '" stroke-width="1.5"/>');
@@ -1503,7 +1529,13 @@
     o.push('</svg>');
     return o.join('');
   }
-  function rtMapSvg(d, R, corp) { return boardSvg(d, null, rtPaths(d, R, corp, hexPos(d, 26).pos), 760); }
+  function bestPaths(d, R, corp) {
+    var out = [], key = ST.rtShow, r = key && ST.rtBest && ST.rtBest[key]; if (!r || !r.paths) return out;
+    var act = +key.split('|')[2], pos = hexPos(d, 26).pos;
+    R.corps.forEach(function (c) { if (c.act === act && (corp === '*' || c.corp === corp)) r.paths.forEach(function (p) { out.push({ corp: c.corp, ids: p.ids.filter(function (id) { return pos[id]; }).map(function (id) { return { id: id }; }), col: '#e0a020', dash: true }); }); });
+    return out;
+  }
+  function rtMapSvg(d, R, corp) { return boardSvg(d, null, rtPaths(d, R, corp, hexPos(d, 26).pos).concat(bestPaths(d, R, corp)), 760); }
   function rtMapHtml(d, k, corp) {
     var R = d.routes[Math.min(Math.max(k, 0), d.routes.length - 1)], runners = R.corps.filter(function (c) { return c.trains.length; });
     var heat = corp === '#';
@@ -1512,13 +1544,24 @@
     var chips = ['<button class="pill rtc' + (corp === '*' ? ' cur' : '') + '" data-c="*">All</button>', '<button class="pill rtc' + (heat ? ' cur' : '') + '" data-c="#" title="Which hexes the trains ran through most, over the whole game">Heat</button>'].concat(runners.map(function (c) { return '<button class="pill rtc' + (c.corp === corp ? ' cur' : '') + '" data-c="' + esc(c.corp) + '">' + esc(c.corp) + '</button>'; })).join(' ');
     if (heat) return '<div class="tabs">' + chips + '</div>' + boardSvg(d, null, [], 760, heatCounts(d)) + '<p class="sub" style="margin-top:6px">Darker hexes were run through more often, over the whole game (each route counts a hex once). Hover a hex for the number.</p>';
     return '<div class="tabs">' + chips + ' <button id="rt-ci" class="lnk" title="Copy this map and the routes as a picture, to paste into chat">copy as image</button></div>' + rtMapSvg(d, R, corp) +
-      '<p class="sub" style="margin-top:6px">Each line joins the stops the engine logs, in order, so it shows where the train went but not the exact track. One colour per train; a hollow dot is a stop the train skips. Hex colours show the tiles on the board in the game state you are viewing, not necessarily when the route ran. ◯ city &nbsp;◆ off-board &nbsp;• town</p>';
+      '<p class="sub" style="margin-top:6px">Each line joins the stops the engine logs, in order (dashed amber: the auto-router’s best routes, after pressing <i>show on map</i>), so it shows where the train went but not the exact track. One colour per train; a hollow dot is a stop the train skips. Hex colours show the tiles on the board in the game state you are viewing, not necessarily when the route ran. ◯ city &nbsp;◆ off-board &nbsp;• town</p>';
   }
   // One frame of the replay: the board at that moment (with that round's routes), standings and prices
-  function rpFrame(d, k, dark, pal, me) {
+  function rpFrame(d, k, dark, pal, me, sub) {
     var G = hexPos(d, 26), R = null, lab = d.replay.labels[k], mm = /^OR (\d+\.\d+)$/.exec(lab);
     if (mm) d.routes.forEach(function (r) { if (r.label.indexOf('Operating Round ' + mm[1] + ' ') >= 0 || r.label.indexOf('Operating Round ' + mm[1] + ')') >= 0) R = r; });
-    var paths = R ? rtPaths(d, R, '*', G.pos) : [];
+    var paths = R ? rtPaths(d, R, '*', G.pos) : [], hxUse = d.replay.hx[k], note = '', ev = (d.replay.ev && d.replay.ev[k]) || [];
+    if (sub != null && ev.length) {
+      var base = d.replay.hx[k - 1] || d.replay.hx[k], end = d.replay.hx[k]; hxUse = {};
+      if (base) Object.keys(base).forEach(function (id) { hxUse[id] = [base[id][0], base[id][1], (base[id][2] || []).slice()]; });
+      for (var j = 0; j <= sub && j < ev.length; j++) {
+        var e = ev[j];
+        if (e.tile && hxUse[e.tile.hex]) { var en = end && end[e.tile.hex]; hxUse[e.tile.hex] = [en && String(en[1]) === e.tile.name ? en[0] : hxUse[e.tile.hex][0], e.tile.name, hxUse[e.tile.hex][2]]; }
+        if (e.tok && hxUse[e.tok.hex] && hxUse[e.tok.hex][2].indexOf(e.tok.corp) < 0) hxUse[e.tok.hex][2].push(e.tok.corp);
+      }
+      var cur = sub >= 0 ? ev[sub] : null; paths = cur && cur.run && R ? rtPaths(d, R, cur.run, G.pos) : [];
+      note = '<p class="rpmv">' + (cur ? '<b>Move ' + (sub + 1) + ' of ' + ev.length + ':</b> ' + esc(cur.msg) : '<b>Start of ' + esc(lab) + '</b> (' + ev.length + ' moves)') + '</p>';
+    }
     var rows = d.players.map(function (p, i) { return { name: p.name, v: d.valueHistory.series[i][k], col: pal[p.idx % pal.length] }; }).filter(function (r) { return r.v != null; }).sort(function (a, b) { return b.v - a.v; });
     var mx = 0; d.valueHistory.series.forEach(function (ser) { ser.forEach(function (v) { if (v != null && v > mx) mx = v; }); });
     var stand = '<table><tbody>' + rows.map(function (r, i) { return '<tr><td>' + (i + 1) + '</td><td style="text-align:left"><i class="sw" style="background:' + r.col + '"></i>' + (r.name === me ? '<b>' + esc(r.name) + '</b>' : esc(r.name)) + '</td><td>' + esc(d.money(r.v)) + '</td><td style="width:34%"><div class="bar"><i style="width:' + Math.max(2, Math.round(100 * r.v / (mx || 1))) + '%;background:' + r.col + '"></i></div></td></tr>'; }).join('') + '</tbody></table>';
@@ -1526,7 +1569,7 @@
     var prices = pr.length ? '<div class="rpp">' + pr.map(function (r) { return '<span><i class="sw" style="background:' + displayColor(r.col, dark) + '"></i>' + esc(r.name) + ' ' + esc(d.money(r.v)) + '</span>'; }).join('') + '</div>' : '';
     var vm = { labels: d.valueHistory.labels, fmt: d.money, series: d.players.map(function (p, i) { return { name: p.name, color: pal[p.idx % pal.length], values: d.valueHistory.series[i] }; }) };
     var ch = lineChart(vm, { title: 'Player value', dark: dark, height: 170, cursor: k });
-    return { map: boardSvg(d, d.replay.hx[k], paths, 600), side: '<h3 class="rph">Standings</h3>' + stand + '<h3 class="rph">Share prices</h3>' + prices + '<div class="chart" style="margin-top:8px">' + ch.svg + '</div>', routes: paths.length };
+    return { map: note + boardSvg(d, hxUse, paths, 600), side: '<h3 class="rph">Standings</h3>' + stand + '<h3 class="rph">Share prices</h3>' + prices + '<div class="chart" style="margin-top:8px">' + ch.svg + '</div>', routes: paths.length };
   }
   // Picture of one company's routes in one round (map + list) for pasting into chat
   function routeImage(d, k, corp, dark) {
@@ -1618,14 +1661,26 @@
           var router = Opal.Engine.AutoRouter.$new(g);
           router.$compute(ent, Opal.hash({ route_timeout: 6, path_timeout: 12, callback: function (routes) {
             if (done) return; done = true; clearTimeout(to);
-            try { resolve({ best: num(g.$routes_revenue(routes)), n: routes.length }); } catch (e) { reject(e); }
+            try {
+              var paths = [];
+              try { for (var ri = 0; ri < routes.length; ri++) { var hxs = routes[ri].$hexes(), ids = []; for (var qi = 0; qi < hxs.length; qi++) ids.push(s(hxs[qi].$id())); paths.push({ train: s(routes[ri].$train().$name()), ids: ids }); } } catch (e0) { paths = []; }
+              resolve({ best: num(g.$routes_revenue(routes)), n: routes.length, paths: paths });
+            } catch (e) { reject(e); }
           } }));
         } catch (e) { if (!done) { done = true; clearTimeout(to); reject(e); } }
       }, 30);
     });
   }
+  function loadRtb(d) {
+    if (ST.rtbGame === d.id) return; ST.rtbGame = d.id; ST.rtBest = ST.rtBest || {};
+    try { var o = JSON.parse(localStorage.getItem('xxStats.rtb.' + d.id) || 'null'); if (o) Object.keys(o).forEach(function (k) { if (!ST.rtBest[d.id + '|' + k]) ST.rtBest[d.id + '|' + k] = { s: 'ok', best: o[k].b, paths: o[k].p || [] }; }); } catch (e) {}
+  }
+  function saveRtb(d) {
+    try { var o = {}, pre = d.id + '|'; Object.keys(ST.rtBest || {}).forEach(function (k) { var r = ST.rtBest[k]; if (k.indexOf(pre) === 0 && r.s === 'ok') o[k.slice(pre.length)] = { b: r.best, p: r.paths || [] }; }); localStorage.setItem('xxStats.rtb.' + d.id, JSON.stringify(o)); } catch (e) {}
+  }
   function runActual(c) { return c.trains.reduce(function (a, x) { return a + (parseFloat(String(x.rev).replace(/[^\d.]/g, '')) || 0); }, 0); }
   function rtSummary(d) {
+    loadRtb(d);
     var o = { tot: 0, n: 0, gap: 0, short: 0 };
     d.routes.forEach(function (R) { R.corps.forEach(function (c) {
       if (!c.act || !c.trains.length) return; o.tot++;
@@ -1641,7 +1696,8 @@
     if (r.s === 'run') return ' <small class="st-same">checking…</small>';
     if (r.s === 'err') return ' <small class="st-same" title="' + esc(r.msg || '') + '">could not check</small>';
     var actual = runActual(c);
-    return r.best > actual ? ' <small class="st-warn" title="The auto-router\'s best routes at that moment. It may not be the true maximum, and it ignores what you might have wanted to leave for other trains.">best found ' + r.best + ' (+' + (r.best - actual) + ', ran ' + Math.round(actual / r.best * 100) + '%)</small>' : ' <small class="st-good">✓ matched the best found (' + r.best + ')</small>';
+    var showB = r.best > actual && r.paths && r.paths.length ? ' <button class="lnk rt-show" data-k="' + esc(key) + '" data-c="' + esc(c.corp) + '">show on map</button>' : '';
+    return r.best > actual ? showB + ' <small class="st-warn" title="The auto-router\'s best routes at that moment. It may not be the true maximum, and it ignores what you might have wanted to leave for other trains.">best found ' + r.best + ' (+' + (r.best - actual) + ', ran ' + Math.round(actual / r.best * 100) + '%)</small>' : ' <small class="st-good">✓ matched the best found (' + r.best + ')</small>';
   }
   function rtBody(d, k, col) {
     var R = d.routes[Math.min(Math.max(k, 0), d.routes.length - 1)], rows = '';
@@ -2011,7 +2067,7 @@
       }
       if (AN.moments.length) {
         h.push('<section class="card wide"><h2>Key moments</h2><p class="sub">Lead changes, the biggest swings in player value, price crashes, closures, each company’s first token and the best single run. ↗ opens the game at that moment.</p><ul class="kml">' +
-          AN.moments.slice(0, ST.kmAll ? 999 : 14).map(function (x) { return '<li><span class="kmi">' + ({ lead: '👑', gain: '📈', loss: '📉', run: '🚂', crash: '💥', close: '🔚', token: '🔘' }[x.kind] || '•') + '</span> ' + esc(x.text) + lnk(x.act) + '</li>'; }).join('') + '</ul>' + (AN.moments.length > 14 ? '<button class="lnk" id="km-all">' + (ST.kmAll ? 'show fewer' : 'show all ' + AN.moments.length) + '</button>' : '') + '</section>');
+          AN.moments.slice(0, ST.kmAll ? 999 : 14).map(function (x) { return '<li><span class="kmi">' + ({ lead: '👑', gain: '📈', loss: '📉', run: '🚂', crash: '💥', close: '🔚', token: '🔘' }[x.kind] || '•') + '</span> ' + esc(x.text) + lnk(x.act) + (d.replay && x.f >= 0 && x.f < d.replay.labels.length ? ' <button class="lnk km-rp" data-f="' + x.f + '" title="Show this moment in the Replay">▶ replay</button>' : '') + '</li>'; }).join('') + '</ul>' + (AN.moments.length > 14 ? '<button class="lnk" id="km-all">' + (ST.kmAll ? 'show fewer' : 'show all ' + AN.moments.length) + '</button>' : '') + '</section>');
       }
       if (AN.range) {
         var RG = AN.range, cellR = function (v, r) { return esc(m(Math.round(v))) + ' <small style="color:var(--text-muted)">#' + r + '</small>'; };
@@ -2096,6 +2152,56 @@
       var sp2 = {}; if (AN2 && AN2.trains) AN2.trains.forEach(function (x) { var nm = x.pres || (corpPres[x.buyer] && corpPres[x.buyer].president); if (nm) sp2[nm] = (sp2[nm] || 0) + x.price; });
       metricBadge('🔧', 'Train baron', sp2, fmtM, function (v) { return 'spent ' + m(v) + ' on trains as a president'; });
       if (badges.length) h.push('<section class="card wide"><h2>Badges</h2><p class="sub">Just for fun, worked out from this game’s data. A badge only appears when there is a clear winner.</p><div class="badges">' + badges.map(function (b3) { return '<div class="bdg"><span class="bi">' + b3[0] + '</span><div><b>' + esc(b3[1]) + '</b><br><span class="bn">' + esc(b3[2]) + '</span><br><small style="color:var(--text-muted)">' + esc(b3[3]) + (b3[4] ? '<br>' + esc(b3[4]) : '') + '</small></div></div>'; }).join('') + '</div></section>');
+      // dividend decisions in hindsight (an estimate)
+      if (AN && AN.withholds && AN.withholds.length) {
+        var pmean = {}; whRows.forEach(function (x) { pmean[x.corp] = avg(x.P.mv); });
+        var hs = AN.withholds.map(function (x) {
+          var c = corpPres[x.corp], ps = null; d.prices.series.forEach(function (sx) { if (sx.name === x.corp) ps = sx; });
+          var i = d.prices.labels.indexOf(x.label), mv = ps && i > 0 && ps.values[i] != null && ps.values[i - 1] != null ? ps.values[i] - ps.values[i - 1] : null;
+          var pm = pmean[x.corp], pc = x.pres && x.pcts[x.pres], shares = c && pc ? pc / (c.sharePct || 10) : 0;
+          var eff = mv != null && pm != null && shares ? Math.round(shares * (mv - pm) - (x.gets[x.pres] || 0)) : null;
+          return { x: x, mv: mv, pm: pm, eff: eff };
+        }).filter(function (r) { return r.eff != null; });
+        if (hs.length) h.push('<section class="card wide"><h2>Dividend decisions in hindsight</h2><p class="sub">An estimate for each withhold: what the president gave up in dividends, against how much better the share price did than it typically did when that company paid out. A positive number suggests withholding paid off. It assumes the price would have moved as it usually did after a payout, so treat it as a hint.</p><div class="tw"><table><thead><tr><th>When</th><th>Company</th><th>President</th><th>Kept</th><th>Price move</th><th>Usual move after a payout</th><th>Estimated effect for the president</th></tr></thead><tbody>' +
+          hs.slice().reverse().map(function (r) { return '<tr><td style="text-align:left">' + esc(r.x.label) + '</td><td>' + cs(tkCol[r.x.corp]) + '<b>' + esc(r.x.corp) + '</b></td><td>' + esc(r.x.pres) + '</td><td>' + esc(m(r.x.rev)) + '</td><td>' + sgn(r.mv) + '</td><td>' + sgn(r.pm) + '</td><td><span class="' + (r.eff >= 0 ? 'st-good' : 'st-warn') + '">' + sgn(r.eff) + '</span></td></tr>'; }).join('') + '</tbody></table></div></section>');
+      }
+      // share-sale timing
+      if (AN && AN.sales && AN.sales.length) {
+        var lastF = d.prices.labels.length - 1, sRows = [], sPl = {};
+        AN.sales.forEach(function (x) {
+          var ps = null; d.prices.series.forEach(function (sx) { if (sx.name === x.corp) ps = sx; });
+          var i = d.prices.labels.indexOf(mapLab(x.round)); if (!ps || i < 0) return;
+          var j = Math.min(i + 6, lastF), later = ps.values[j]; if (later == null) return;
+          var diff = Math.round((later - x.per) * x.n); sRows.push({ x: x, later: later, lab: d.prices.labels[j], diff: diff }); sPl[x.who] = (sPl[x.who] || 0) + diff;
+        });
+        if (sRows.length) h.push('<section class="card wide"><h2>Share-sale timing</h2><p class="sub">Each sale: what you got per share, and the price six rounds later (or at the end if sooner). A positive difference means the shares were worth more later, so selling early cost you that much (a negative one means the sale was well timed). Proceeds are what the engine logged, after any price drop.</p>' +
+          '<div class="tw"><table><thead><tr><th>Player</th><th>Net over all sales</th></tr></thead><tbody>' + Object.keys(sPl).sort(function (a, b) { return sPl[a] - sPl[b]; }).map(function (n) { return '<tr' + (me && n === me ? ' class="merow"' : '') + '><td><b>' + esc(n) + '</b></td><td><span class="' + (sPl[n] <= 0 ? 'st-good' : 'st-warn') + '">' + sgn(sPl[n]) + '</span> <small style="color:var(--text-muted)">' + (sPl[n] <= 0 ? 'sold well' : 'sold too early') + '</small></td></tr>'; }).join('') + '</tbody></table></div>' +
+          '<div class="tw" style="margin-top:10px;max-height:340px;overflow-y:auto"><table><thead><tr><th>When</th><th>Player</th><th>Company</th><th>Shares</th><th>Sold at (per share)</th><th>Price later</th><th>Difference</th></tr></thead><tbody>' +
+          sRows.slice().reverse().map(function (r) { return '<tr><td style="text-align:left">' + esc(mapLab(r.x.round)) + '</td><td><b>' + esc(r.x.who) + '</b></td><td>' + cs(tkCol[r.x.corp]) + esc(r.x.corp) + '</td><td>' + r.x.n + '</td><td>' + esc(m(Math.round(r.x.per))) + '</td><td>' + esc(m(r.later)) + ' <small style="color:var(--text-muted)">' + esc(r.lab) + '</small></td><td><span class="' + (r.diff <= 0 ? 'st-good' : 'st-warn') + '">' + sgn(r.diff) + '</span></td></tr>'; }).join('') + '</tbody></table></div></section>');
+      }
+      // route mistakes (needs the route checks in Routes & revenue)
+      if (d.routes && d.routes.length) {
+        var SMr = rtSummary(d), mist = {};
+        d.routes.forEach(function (R) { R.corps.forEach(function (c) {
+          if (!c.act || !c.trains.length) return; var r = ST.rtBest && ST.rtBest[d.id + '|' + c.corp + '|' + c.act]; if (!r || r.s !== 'ok') return;
+          var act = runActual(c), pr = corpPres[c.corp] && corpPres[c.corp].president; if (!pr) return; var o = mist[pr] || (mist[pr] = { runs: 0, gap: 0, short: 0, worst: null });
+          o.runs++; if (r.best > act) { o.short++; o.gap += r.best - act; if (!o.worst || r.best - act > o.worst.gap) o.worst = { gap: r.best - act, corp: c.corp, label: R.label.replace(/^Operating Round /, 'OR ').replace(/ \(of \d+\)$/, '') }; }
+        }); });
+        h.push('<section class="card wide"><h2>Route mistakes</h2>' + (SMr.n ? '<p class="sub">Runs that earned less than the best the engine’s auto-router found, per player (for whoever presides over the company now). ' + SMr.n + ' of ' + SMr.tot + ' runs checked.</p><div class="tw"><table><thead><tr><th>Player</th><th>Runs checked</th><th>Below the best</th><th>Money missed</th><th>Worst miss</th></tr></thead><tbody>' +
+          Object.keys(mist).sort(function (a, b) { return mist[b].gap - mist[a].gap; }).map(function (n) { var o = mist[n]; return '<tr' + (me && n === me ? ' class="merow"' : '') + '><td><b>' + esc(n) + '</b></td><td>' + o.runs + '</td><td>' + o.short + '</td><td>' + (o.gap ? '<span class="st-warn">' + esc(m(o.gap)) + '</span>' : '—') + '</td><td>' + (o.worst ? esc(o.worst.corp) + ' ' + esc(o.worst.label) + ' (−' + esc(m(o.worst.gap)) + ')' : '—') + '</td></tr>'; }).join('') + '</tbody></table></div>'
+          : '<p class="sub">No runs checked yet. Open <b>Routes &amp; revenue</b> and press <i>check the whole game</i>; the results then show up here per player.</p>') + '</section>');
+      }
+      // post-game report
+      var rp = [], standL = finalRank.map(function (p, i) { return (i + 1) + '. ' + p.name + ' ' + m(p.value); });
+      var lc = 0, prevLd = -1; for (var f6 = 0; f6 < nf; f6++) { var bj = -1, bw = -Infinity; VH.series.forEach(function (sx, i) { if (sx[f6] != null && sx[f6] > bw) { bw = sx[f6]; bj = i; } }); if (prevLd >= 0 && bj !== prevLd) lc++; prevLd = bj; }
+      rp.push(d.title + ' #' + d.id + (d.finished ? ' (finished)' : ' (' + d.roundLabel + ')'));
+      if (finalRank.length > 1) rp.push((d.finished ? finalRank[0].name + ' won with ' : finalRank[0].name + ' leads with ') + m(finalRank[0].value) + ', ' + m(finalRank[0].value - finalRank[1].value) + ' ahead of ' + finalRank[1].name + '.');
+      rp.push('Standings: ' + standL.join(', '));
+      rp.push('The lead changed hands ' + lc + ' time' + (lc === 1 ? '' : 's') + '.');
+      if (AN && AN.moments) { var sw = AN.moments.filter(function (x) { return x.kind === 'gain'; }).sort(function (a, b) { return b.amt - a.amt; })[0]; if (sw) rp.push('Biggest swing: ' + sw.text + '.'); }
+      badges.forEach(function (b4) { rp.push(b4[0] + ' ' + b4[1] + ': ' + b4[2] + ' (' + b4[3] + ')'); });
+      h.push('<section class="card wide"><h2>Post-game report</h2><p class="sub">A short summary you can paste into chat.</p><ul class="kml">' + rp.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul><button class="lnk" id="pg-copy">copy as text</button></section>');
+      ST.reportText = rp.join('\n') + '\n(18xx-JNNstats)';
     }
     // Compare with another game of the same title
     if (d.valueHistory.labels.length > 1 && !d.tt) {
@@ -2137,9 +2243,9 @@
     }
     // Replay
     if (d.replay && d.replay.labels.length > 1) {
-      var rpLast = d.replay.labels.length - 1, rpK = ST.rpIdx != null && ST.rpGame === d.id && ST.rpIdx <= rpLast ? ST.rpIdx : rpLast, rf = rpFrame(d, rpK, dark, pal, me);
-      h.push('<section class="card wide"><h2>Replay</h2><p class="sub">Watch the game unfold round by round: tiles and tokens on the board, who runs where in operating rounds, standings, prices.</p>' +
-        '<div class="gslide"><button id="rp-play" title="Play or pause">' + (ST.rpPlay ? '⏸' : '▶') + '</button><button id="rp-p" title="Previous">◀</button><input type="range" id="rp-i" min="0" max="' + rpLast + '" value="' + rpK + '"><button id="rp-n" title="Next">▶</button>' +
+      var rpLast = d.replay.labels.length - 1, rpK = ST.rpIdx != null && ST.rpGame === d.id && ST.rpIdx <= rpLast ? ST.rpIdx : rpLast, rf = rpFrame(d, rpK, dark, pal, me, ST.rpGame === d.id ? ST.rpSub : null);
+      h.push('<section class="card wide"><h2>Replay</h2><p class="sub">Watch the game unfold round by round, or one move at a time with the move buttons: tiles and tokens on the board, who runs where in operating rounds, standings, prices.</p>' +
+        '<div class="gslide"><button id="rp-play" title="Play or pause">' + (ST.rpPlay ? '⏸' : '▶') + '</button><button id="rp-p" title="Previous">◀</button><input type="range" id="rp-i" min="0" max="' + rpLast + '" value="' + rpK + '"><button id="rp-n" title="Next">▶</button><button id="rp-mp" title="Back one move">◂ move</button><button id="rp-mn" title="Forward one move">move ▸</button>' +
         '<b id="rp-l">' + esc(d.replay.labels[rpK]) + '</b><select id="rp-sp" title="Speed"><option value="0.5">slow</option><option value="1" selected>normal</option><option value="2">fast</option></select></div>' +
         '<div class="rpb"><div id="rp-map" class="rpm">' + rf.map + '</div><div id="rp-side" class="rps">' + rf.side + '</div></div></section>');
     }
@@ -2203,9 +2309,9 @@
     if (ST.rpTimer) { clearInterval(ST.rpTimer); ST.rpTimer = null; }
     var rpi = doc.getElementById('rp-i');
     if (rpi && d.replay) {
-      var rpSet = function (v) {
-        v = Math.min(Math.max(v, 0), d.replay.labels.length - 1); rpi.value = v; ST.rpIdx = v; ST.rpGame = d.id;
-        var fr = rpFrame(d, v, dark, pal, me); doc.getElementById('rp-l').textContent = d.replay.labels[v];
+      var rpSet = function (v, sub) {
+        v = Math.min(Math.max(v, 0), d.replay.labels.length - 1); rpi.value = v; ST.rpIdx = v; ST.rpGame = d.id; ST.rpSub = sub == null ? null : sub;
+        var fr = rpFrame(d, v, dark, pal, me, ST.rpSub); doc.getElementById('rp-l').textContent = d.replay.labels[v];
         doc.getElementById('rp-map').innerHTML = fr.map; doc.getElementById('rp-side').innerHTML = fr.side;
       };
       var rpStart = function () {
@@ -2219,6 +2325,17 @@
       rpi.oninput = function () { rpSet(+rpi.value); };
       doc.getElementById('rp-p').onclick = function () { rpSet(+rpi.value - 1); };
       doc.getElementById('rp-n').onclick = function () { rpSet(+rpi.value + 1); };
+      var evOf = function (k) { return (d.replay.ev && d.replay.ev[k]) || []; };
+      doc.getElementById('rp-mn').onclick = function () {
+        ST.rpPlay = false; if (ST.rpTimer) { clearInterval(ST.rpTimer); ST.rpTimer = null; } doc.getElementById('rp-play').textContent = '▶';
+        var k = +rpi.value, n = evOf(k).length, s = ST.rpSub == null ? n - 1 : ST.rpSub;
+        if (s < n - 1) rpSet(k, s + 1); else if (k < d.replay.labels.length - 1) rpSet(k + 1, evOf(k + 1).length ? -1 : null);
+      };
+      doc.getElementById('rp-mp').onclick = function () {
+        ST.rpPlay = false; if (ST.rpTimer) { clearInterval(ST.rpTimer); ST.rpTimer = null; } doc.getElementById('rp-play').textContent = '▶';
+        var k = +rpi.value, n = evOf(k).length, s = ST.rpSub == null ? n - 1 : ST.rpSub;
+        if (s > 0) rpSet(k, s - 1); else if (s === 0) rpSet(k, -1); else if (k > 0) { var pn = evOf(k - 1).length; rpSet(k - 1, pn ? pn - 1 : null); }
+      };
       doc.getElementById('rp-sp').onchange = function () { if (ST.rpPlay) rpStart(); };
       doc.getElementById('rp-play').onclick = function () {
         ST.rpPlay = !ST.rpPlay; this.textContent = ST.rpPlay ? '⏸' : '▶';
@@ -2227,6 +2344,11 @@
       if (ST.rpPlay) rpStart();
     }
     Array.prototype.forEach.call(doc.querySelectorAll('.cm'), function (b) { b.onclick = function () { ST.chartMode = b.getAttribute('data-cm'); rerender(); }; });
+    Array.prototype.forEach.call(doc.querySelectorAll('.km-rp'), function (b) { b.onclick = function () {
+      ST.rpIdx = +b.getAttribute('data-f'); ST.rpGame = d.id; ST.rpSub = null; ST.rpPlay = false; rerender();
+      try { var rs = w.document.querySelector('section[data-key="replay"]'); if (rs) { if (rs.classList.contains('collapsed')) { var tg = rs.querySelector('.tg'); if (tg) tg.click(); } rs.scrollIntoView({ block: 'start' }); } } catch (e13) {}
+    }; });
+    var pgc = doc.getElementById('pg-copy'); if (pgc) pgc.onclick = function () { var ok = function () { pgc.textContent = 'copied ✓'; setTimeout(function () { pgc.textContent = 'copy as text'; }, 1800); }; try { w.navigator.clipboard.writeText(ST.reportText).then(ok, function () { w.prompt('Copy this text', ST.reportText); }); } catch (e14) { w.prompt('Copy this text', ST.reportText); } };
     var kma = doc.getElementById('km-all'); if (kma) kma.onclick = function () { ST.kmAll = !ST.kmAll; rerender(); };
     // compare card
     var cmpGo = doc.getElementById('cmp-go');
@@ -2262,6 +2384,8 @@
       if (rtmb) rtmb.onclick = function () { ST.rtMap = !ST.rtMap; rtmb.textContent = ST.rtMap ? '▾ Hide the map sketch' : '🗺 Show the routes on a map sketch'; rtMapDraw(); };
       var rtb = doc.getElementById('rt-b');
       if (rtb) rtb.onclick = function (e) {
+        var showBtn = e.target && e.target.closest ? e.target.closest('.rt-show') : null;
+        if (showBtn) { ST.rtShow = showBtn.getAttribute('data-k'); ST.rtMap = true; ST.rtCorp = showBtn.getAttribute('data-c'); var mb2 = doc.getElementById('rt-mb'); if (mb2) mb2.textContent = '▾ Hide the map sketch'; rtSet(+rts.value); return; }
         var stopB = e.target && e.target.closest ? e.target.closest('.rt-stop') : null;
         if (stopB) { if (ST.rtAll) ST.rtAll.stop = true; return; }
         var gameB = e.target && e.target.closest ? e.target.closest('.rt-game') : null;
@@ -2272,7 +2396,7 @@
             if (i >= q2.length || ST.rtAll.stop || !ST.game || !ST.game.raw) { ST.rtAll.running = false; try { rtSet(+rts.value); } catch (e6) {} return; }
             var k3 = d.id + '|' + q2[i][0] + '|' + q2[i][1]; if (ST.rtBest[k3] && ST.rtBest[k3].s !== 'err') return st2(i + 1);
             ST.rtBest[k3] = { s: 'run' };
-            bestRun(ST.game.raw, q2[i][0], q2[i][1]).then(function (r) { ST.rtBest[k3] = { s: 'ok', best: r.best }; }, function (err) { ST.rtBest[k3] = { s: 'err', msg: String(err && err.message || err) }; })
+            bestRun(ST.game.raw, q2[i][0], q2[i][1]).then(function (r) { ST.rtBest[k3] = { s: 'ok', best: r.best, paths: r.paths }; saveRtb(d); }, function (err) { ST.rtBest[k3] = { s: 'err', msg: String(err && err.message || err) }; })
               .then(function () { try { rtSet(+rts.value); } catch (e7) {} setTimeout(function () { st2(i + 1); }, 20); });
           };
           try { rtSet(+rts.value); } catch (e8) {} st2(0); return;
@@ -2280,13 +2404,13 @@
         var all = e.target && e.target.closest ? e.target.closest('.rt-all') : null;
         if (all) { var qs = Array.prototype.map.call(rtb.querySelectorAll('.rt-chk'), function (x) { return [x.getAttribute('data-c'), +x.getAttribute('data-a')]; }); ST.rtBest = ST.rtBest || {};
           var step = function (i) { if (i >= qs.length || !ST.game || !ST.game.raw) return; var k2 = d.id + '|' + qs[i][0] + '|' + qs[i][1]; if (ST.rtBest[k2]) return step(i + 1); ST.rtBest[k2] = { s: 'run' }; try { rtSet(+rts.value); } catch (e3) {}
-            bestRun(ST.game.raw, qs[i][0], qs[i][1]).then(function (r) { ST.rtBest[k2] = { s: 'ok', best: r.best }; }, function (err) { ST.rtBest[k2] = { s: 'err', msg: String(err && err.message || err) }; }).then(function () { try { rtSet(+rts.value); } catch (e4) {} step(i + 1); }); };
+            bestRun(ST.game.raw, qs[i][0], qs[i][1]).then(function (r) { ST.rtBest[k2] = { s: 'ok', best: r.best, paths: r.paths }; saveRtb(d); }, function (err) { ST.rtBest[k2] = { s: 'err', msg: String(err && err.message || err) }; }).then(function () { try { rtSet(+rts.value); } catch (e4) {} step(i + 1); }); };
           step(0); return; }
         var b = e.target && e.target.closest ? e.target.closest('.rt-chk') : null; if (!b) return;
         var corp = b.getAttribute('data-c'), act = +b.getAttribute('data-a'), key = d.id + '|' + corp + '|' + act;
         ST.rtBest = ST.rtBest || {}; if (ST.rtBest[key] || !ST.game || !ST.game.raw) return;
         ST.rtBest[key] = { s: 'run' }; rtSet(+rts.value);
-        bestRun(ST.game.raw, corp, act).then(function (r) { ST.rtBest[key] = { s: 'ok', best: r.best }; }, function (err) { ST.rtBest[key] = { s: 'err', msg: String(err && err.message || err) }; })
+        bestRun(ST.game.raw, corp, act).then(function (r) { ST.rtBest[key] = { s: 'ok', best: r.best, paths: r.paths }; saveRtb(d); }, function (err) { ST.rtBest[key] = { s: 'err', msg: String(err && err.message || err) }; })
           .then(function () { try { rtSet(+rts.value); } catch (e2) {} });
       };
       rtMapDraw();
@@ -2414,8 +2538,8 @@
   // ---------- Layout: collapse and reorder sections, remembered per mode ----------------
   // Two layouts are kept in this browser: 'live' (game in progress) and 'review' (finished game).
   var DEFAULT_ORDER = {
-    live: ['now', 'what-just-happened', 'trains-phases-bank', 'routes-revenue', 'track-spending-vs-revenue', 'train-timing', 'train-purchases', 'stock-round-helper', 'stock-market', 'standings', 'score-range', 'player-value-over-time', 'key-moments', 'badges', 'compare-with-another-game', 'replay', 'stock-ticker', 'where-the-money-came-from', 'valuation', 'withholding-vs-paying-out', 'withholds-in-detail', 'portfolios', 'corporations', 'company-revenue-per-operating-round', 'share-price', 'game-log', 'minors-private-companies', 'tile-manifest', 'game-info'],
-    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'key-moments', 'badges', 'compare-with-another-game', 'replay', 'game-log', 'company-revenue-per-operating-round', 'share-price', 'where-the-money-came-from', 'valuation', 'withholding-vs-paying-out', 'withholds-in-detail', 'portfolios', 'corporations', 'trains-phases-bank', 'train-timing', 'train-purchases', 'routes-revenue', 'track-spending-vs-revenue', 'minors-private-companies', 'tile-manifest', 'game-info']
+    live: ['now', 'what-just-happened', 'trains-phases-bank', 'routes-revenue', 'track-spending-vs-revenue', 'train-timing', 'train-purchases', 'stock-round-helper', 'stock-market', 'standings', 'score-range', 'player-value-over-time', 'key-moments', 'post-game-report', 'badges', 'route-mistakes', 'dividend-decisions-in-hindsight', 'share-sale-timing', 'compare-with-another-game', 'replay', 'stock-ticker', 'where-the-money-came-from', 'valuation', 'withholding-vs-paying-out', 'withholds-in-detail', 'portfolios', 'corporations', 'company-revenue-per-operating-round', 'share-price', 'game-log', 'minors-private-companies', 'tile-manifest', 'game-info'],
+    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'key-moments', 'post-game-report', 'badges', 'route-mistakes', 'dividend-decisions-in-hindsight', 'share-sale-timing', 'compare-with-another-game', 'replay', 'game-log', 'company-revenue-per-operating-round', 'share-price', 'where-the-money-came-from', 'valuation', 'withholding-vs-paying-out', 'withholds-in-detail', 'portfolios', 'corporations', 'trains-phases-bank', 'train-timing', 'train-purchases', 'routes-revenue', 'track-spending-vs-revenue', 'minors-private-companies', 'tile-manifest', 'game-info']
   };
   function slug(txt) { return String(txt).toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
   function loadLayout(mode) {

@@ -2,6 +2,18 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.20.0] - 2026-11-12
+
+### Added
+- **Replay, move by move:** *◂ move* and *move ▸* step through each round one move at a time (tiles laid, tokens placed, train buys, share trades, route runs), with the board built up as it happened and the move shown above the map.
+- **Key moments → Replay:** *▶ replay* on a moment jumps the Replay to that round.
+- **Route checks are kept:** results of *check best* and *check the whole game* are saved in your browser per game, so they survive a reload.
+- **Better route on the map:** when a run missed money, *show on map* draws the auto-router's best routes as dashed amber lines.
+- **Route mistakes:** per player, how many checked runs were below the best, the money missed and the worst miss.
+- **Dividend decisions in hindsight:** an estimate for each withhold of what the president gave up against how the price moved compared with the usual move after a payout.
+- **Share-sale timing:** each sale against the price six rounds later, with a net per player.
+- **Post-game report:** a short summary (result, lead changes, biggest swing, badges) with a *copy as text* button for chat.
+
 ## [0.19.0] - 2026-11-12
 
 ### Added
