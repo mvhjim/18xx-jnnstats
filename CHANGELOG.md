@@ -2,6 +2,14 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.24.1] - 2026-11-13
+
+### Changed
+- **Who holds what is interactive:** hover (or tap) a player or a company to light up its connections, dim the rest and show the percentages.
+- **Triangles explained:** a key under Player value, Share price and Revenue says what they mean (blue: a new phase begins; red: a company closed or merged). The triangles are back on the new charts, with the event on hover.
+- **Bigger chart text** on all charts, so axes stay readable on a laptop.
+- **Train colours:** in games with train classes (1862) the Train purchases list and the Corporations trains column use the same Express / Freight / Local colours as Routes & revenue.
+
 ## [0.24.0] - 2026-11-13
 
 ### Changed

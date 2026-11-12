@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.24.0';
+  var VERSION = '0.24.1';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -1013,7 +1013,7 @@
     '.gslide{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--text-secondary)}.gslide input{flex:1;min-width:80px}',
     '.zl{display:flex;flex-wrap:wrap;gap:4px 12px;margin:8px 0 0;font-size:11.5px;color:var(--text-secondary)}.zl i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1px solid var(--border)}',
     '.dq{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px}.dq .chip{font-variant-numeric:tabular-nums}.dq .chip.next{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:650}.bl{font-size:12px;color:var(--text-muted);margin:6px 0 2px}',
-    '.take{margin:2px 0 8px;font-size:12.5px;color:var(--text-secondary)}.take b{color:var(--text-primary)}.pvt{margin-left:8px;font-size:12px}.pvt .on{font-weight:700;text-decoration:none;color:var(--text-primary)}.cmt{margin-left:8px;font-size:12px}.cmt .cm.on{font-weight:700;text-decoration:none;color:var(--text-primary)}',
+    '.evk{font-size:11.5px}.take{margin:2px 0 8px;font-size:12.5px;color:var(--text-secondary)}.take b{color:var(--text-primary)}.pvt{margin-left:8px;font-size:12px}.pvt .on{font-weight:700;text-decoration:none;color:var(--text-primary)}.cmt{margin-left:8px;font-size:12px}.cmt .cm.on{font-weight:700;text-decoration:none;color:var(--text-primary)}',
     '.rpmv{margin:0 0 4px;font-size:12px;color:var(--text-secondary)}',
     '.badges{display:flex;flex-wrap:wrap;gap:10px}.bdg{display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:10px;padding:8px 12px;min-width:200px;font-size:13px}.bdg .bi{font-size:26px}.bdg .bn{font-weight:650}',
     '.mbars{display:grid;gap:5px}.mb{display:grid;grid-template-columns:92px 1fr auto;gap:2px 10px;align-items:center;font-size:12.5px}.mbt{height:16px}.mbf{display:flex;height:100%;gap:2px;border-radius:0 4px 4px 0;overflow:hidden}.mbf i{display:block;min-width:2px}.mbn{font-weight:600}.mbd{grid-column:2/4;color:var(--text-muted);font-size:11.5px;margin:-2px 0 4px}.pies{display:flex;flex-wrap:wrap;gap:14px 26px}.pie1{display:flex;flex-direction:column;gap:4px;min-width:150px;font-size:12px}.pie1 svg{width:110px;height:110px;flex:none}.pie1 .pl{display:flex;flex-direction:column;gap:2px}.kml{list-style:none;margin:0;padding:0}.kml li{padding:4px 0;border-bottom:1px solid var(--grid);font-size:13px}.kmi{display:inline-block;width:1.5em}',
@@ -1166,7 +1166,7 @@
     for (var i = 0; i < gs.length; i++) if (gs[i].sym === name || (gs[i].names || []).indexOf(name) >= 0) return TRAIN_COLORS[i % TRAIN_COLORS.length];
     return '#999';
   }
-  function trSw(d, name) { return '<i class="sw" style="background:' + trainColor(d, name) + ';border-radius:2px" title="train type"></i>'; }
+  function trSw(d, name) { if (CONFIG[d.title] && CONFIG[d.title].trainClass) { var g = trainGlyph(d.title, name); if (g) return g; } return '<i class="sw" style="background:' + trainColor(d, name) + ';border-radius:2px" title="train type"></i>'; }
   // ---- ECharts (loaded from jsDelivr with a pinned version and an integrity hash; the plain SVG charts remain as the fallback)
   var EC_URL = 'https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js', EC_SRI = 'sha384-Mx5lkUEQPM1pOJCwFtUICyX45KNojXbkWdYhkKUKsbv391mavbfoAmONbzkgYPzR';
   function ensureEcharts(w) {
@@ -1216,19 +1216,21 @@
       });
       var so = { name: s.name, type: 'line', data: data, color: col, symbol: 'circle', symbolSize: s.kinds ? 6 : 5, showSymbol: !!s.kinds, connectNulls: false,
         lineStyle: { width: s.bold ? 3 : 2, type: s.dashed ? 'dashed' : 'solid' }, emphasis: { focus: 'series', lineStyle: { width: 3 } },
-        endLabel: { show: model.series.length <= 12, formatter: '{a}', color: C.ink, fontSize: 10.5, distance: 5 }, labelLayout: { moveOverlap: 'shiftY' } };
-      if (i === 0 && bands.length) so.markArea = { silent: true, label: { position: 'insideTop', color: C.mut, fontSize: 9 }, data: bands };
+        endLabel: { show: model.series.length <= 12, formatter: '{a}', color: C.ink, fontSize: 11.5, distance: 5 }, labelLayout: { moveOverlap: 'shiftY' } };
+      if (i === 0 && bands.length) so.markArea = { silent: true, label: { position: 'insideTop', color: C.mut, fontSize: 10.5 }, data: bands };
       var pts = (o.marks || []).filter(function (mk) { return mk.series === s.name && s.values[mk.idx] != null; });
       if (pts.length) so.markPoint = { symbol: 'circle', symbolSize: 9, label: { show: false }, itemStyle: { color: col, borderColor: C.surf, borderWidth: 2 }, tooltip: { formatter: function (p) { return esc(p.name); } },
         data: pts.map(function (mk) { return { name: mk.text, coord: [labels[mk.idx], s.values[mk.idx]] }; }) };
       return so;
     });
+    var evPts = (o.events || []).filter(function (e) { return labels.indexOf(e.label) >= 0; }).map(function (e) { var cl = e.kind === 'close'; return { name: e.text, xAxis: e.label, y: (o.height || 300) - 30, symbol: 'triangle', symbolSize: 11, itemStyle: { color: cl ? '#e34948' : (dark ? '#3987e5' : '#2a78d6'), borderColor: C.surf, borderWidth: 1.5 } }; });
+    if (evPts.length) series.push({ type: 'line', name: '', data: [], silent: false, tooltip: { show: false }, markPoint: { label: { show: false }, tooltip: { show: true, trigger: 'item', formatter: function (p) { return esc(p.name); } }, data: evPts } });
     ch.setOption({
       animationDuration: 450, textStyle: { fontFamily: 'inherit' }, aria: { enabled: true },
       grid: { left: 50, right: model.series.length <= 12 ? 78 : 16, top: 14, bottom: 26 },
       tooltip: { trigger: 'axis', axisPointer: { type: 'line', lineStyle: { color: C.mut, type: 'dashed' } }, backgroundColor: C.surf, borderColor: C.grid, textStyle: { color: C.ink, fontSize: 12 }, formatter: ecTip(model, o.extra), confine: true },
-      xAxis: { type: 'category', data: labels, boundaryGap: false, axisLine: { lineStyle: { color: C.grid } }, axisTick: { show: false }, axisLabel: { color: C.mut, fontSize: 10, hideOverlap: true } },
-      yAxis: { type: o.log ? 'log' : 'value', splitLine: { lineStyle: { color: C.grid } }, axisLabel: { color: C.mut, fontSize: 10, formatter: function (v) { return model.fmt(v); } }, scale: ST.chartMode === 'pct' },
+      xAxis: { type: 'category', data: labels, boundaryGap: false, axisLine: { lineStyle: { color: C.grid } }, axisTick: { show: false }, axisLabel: { color: C.mut, fontSize: 11.5, hideOverlap: true } },
+      yAxis: { type: o.log ? 'log' : 'value', splitLine: { lineStyle: { color: C.grid } }, axisLabel: { color: C.mut, fontSize: 11.5, formatter: function (v) { return model.fmt(v); } }, scale: ST.chartMode === 'pct' },
       dataZoom: [{ type: 'inside', zoomOnMouseWheel: 'ctrl', moveOnMouseMove: true, moveOnMouseWheel: false }],
       series: series
     });
@@ -1240,11 +1242,11 @@
     var kinds = [['Trains', 'trn'], ['Tiles', 'tile'], ['Tokens', 'tok']];
     ch.setOption({
       animationDuration: 450, textStyle: { fontFamily: 'inherit' }, aria: { enabled: true },
-      legend: { top: 0, textStyle: { color: C.ink, fontSize: 11 }, itemWidth: 10, itemHeight: 10, data: ['Trains', 'Tiles', 'Tokens', 'Revenue'] },
+      legend: { top: 0, textStyle: { color: C.ink, fontSize: 12 }, itemWidth: 10, itemHeight: 10, data: ['Trains', 'Tiles', 'Tokens', 'Revenue'] },
       grid: { left: 64, right: 24, top: 30, bottom: 22 },
       tooltip: { trigger: 'item', backgroundColor: C.surf, borderColor: C.grid, textStyle: { color: C.ink, fontSize: 12 }, confine: true, formatter: function (p) { var v = Array.isArray(p.value) ? p.value[0] : p.value; return esc(p.name || p.value[1]) + ' · ' + esc(p.seriesName) + ': <b>' + esc(m(v)) + '</b>'; } },
       yAxis: { type: 'category', data: names, inverse: true, axisTick: { show: false }, axisLine: { show: false }, axisLabel: { color: C.ink, fontSize: 11.5 } },
-      xAxis: { type: 'value', splitLine: { lineStyle: { color: C.grid } }, axisLabel: { color: C.mut, fontSize: 10, formatter: function (v) { return m(v); } } },
+      xAxis: { type: 'value', splitLine: { lineStyle: { color: C.grid } }, axisLabel: { color: C.mut, fontSize: 11.5, formatter: function (v) { return m(v); } } },
       series: kinds.map(function (k, i) { return { name: k[0], type: 'bar', stack: 's', barWidth: 18, color: kc[i], data: rows.map(function (r) { return r[k[1]]; }), itemStyle: { borderColor: C.surf, borderWidth: 2, borderRadius: i === 2 ? [0, 4, 4, 0] : 0 }, emphasis: { focus: 'series' } }; })
         .concat([{ name: 'Revenue', type: 'scatter', symbol: 'diamond', symbolSize: 11, color: C.strong, itemStyle: { borderColor: C.surf, borderWidth: 2 }, z: 5, data: rows.map(function (r) { return { value: [r.rev, r.corp], name: r.corp }; }) }])
     });
@@ -1258,7 +1260,7 @@
       animationDuration: 450, textStyle: { fontFamily: 'inherit' }, aria: { enabled: true },
       grid: { left: 80, right: 14, top: 8, bottom: 40 },
       tooltip: { backgroundColor: C.surf, borderColor: C.grid, textStyle: { color: C.ink, fontSize: 12 }, confine: true, formatter: function (p) { var q = p.value[3]; return esc(labs[p.value[0]]) + ' · <b>' + esc(players[p.value[1]].name) + '</b><br>net ' + (p.value[2] >= 0 ? '+' : '−') + esc(m(Math.abs(p.value[2]))) + '<br><span style="color:#898781">dividends ' + esc(m(q.div)) + ', privates ' + esc(m(q.priv)) + ', sales ' + esc(m(q.sales)) + ', bought ' + esc(m(q.buys)) + '</span>'; } },
-      xAxis: { type: 'category', data: labs, splitArea: { show: false }, axisTick: { show: false }, axisLine: { show: false }, axisLabel: { color: C.mut, fontSize: 9.5, hideOverlap: true } },
+      xAxis: { type: 'category', data: labs, splitArea: { show: false }, axisTick: { show: false }, axisLine: { show: false }, axisLabel: { color: C.mut, fontSize: 10.5, hideOverlap: true } },
       yAxis: { type: 'category', data: players.map(function (p) { return p.name; }), inverse: true, axisTick: { show: false }, axisLine: { show: false }, axisLabel: { color: C.ink, fontSize: 11.5 } },
       visualMap: { show: false, min: -mx, max: mx, inRange: { color: [dark ? '#d95926' : '#eb6834', dark ? '#383835' : '#f0efec', dark ? '#3987e5' : '#2a78d6'] } },
       series: [{ type: 'heatmap', data: data, itemStyle: { borderColor: C.surf, borderWidth: 2, borderRadius: 3 }, emphasis: { itemStyle: { borderColor: C.strong } } }]
@@ -1314,11 +1316,11 @@
     var out = ['<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(opts.title || '') + '">'];
     ticks.forEach(function (v) {
       out.push('<line x1="' + L + '" x2="' + (L + pw) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="var(--grid)" stroke-width="1"/>');
-      out.push('<text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="10" fill="var(--text-muted)">' + esc(model.fmt(v)) + '</text>');
+      out.push('<text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="11.5" fill="var(--text-muted)">' + esc(model.fmt(v)) + '</text>');
     });
     var every = Math.max(1, Math.ceil(n / 12));
     model.labels.forEach(function (lab, i) {
-      if ((i % every === 0 && (n - 1 - i >= every || i === n - 1)) || i === n - 1) out.push('<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="middle" font-size="10" fill="var(--text-muted)">' + esc(lab) + '</text>');
+      if ((i % every === 0 && (n - 1 - i >= every || i === n - 1)) || i === n - 1) out.push('<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="middle" font-size="11.5" fill="var(--text-muted)">' + esc(lab) + '</text>');
     });
     var ends = [];
     model.series.forEach(function (ser, si) {
@@ -1346,7 +1348,7 @@
     if (model.series.length <= 8) {
       ends.sort(function (a, b) { return a.y - b.y; });
       for (var e = 1; e < ends.length; e++) if (ends[e].y - ends[e - 1].y < 13) ends[e].y = ends[e - 1].y + 13;
-      ends.forEach(function (en) { out.push('<text class="enl" data-si="' + en.si + '" x="' + (en.x + 7) + '" y="' + (en.y + 4) + '" font-size="10.5" fill="var(--text-secondary)" font-weight="600">' + esc(en.name) + '</text>'); });
+      ends.forEach(function (en) { out.push('<text class="enl" data-si="' + en.si + '" x="' + (en.x + 7) + '" y="' + (en.y + 4) + '" font-size="11.5" fill="var(--text-secondary)" font-weight="600">' + esc(en.name) + '</text>'); });
     }
     out.push('<line class="xh" x1="0" x2="0" y1="' + T + '" y2="' + (T + ph) + '" stroke="var(--text-muted)" stroke-dasharray="3 3" visibility="hidden"/>');
     out.push('<rect class="hit" x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '" fill="transparent"/>');
@@ -1408,11 +1410,11 @@
     var out = ['<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(opts.title || '') + '">'];
     for (var v = min; v <= max + 1e-9; v += step) {
       out.push('<line x1="' + L + '" x2="' + (L + pw) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="var(--grid)"/>');
-      out.push('<text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="10" fill="var(--text-muted)">' + esc(model.fmt(v)) + '</text>');
+      out.push('<text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="11.5" fill="var(--text-muted)">' + esc(model.fmt(v)) + '</text>');
     }
     var every = Math.max(1, Math.ceil(n / 12));
     model.labels.forEach(function (lab, i) {
-      if ((i % every === 0 && (n - 1 - i >= every || i === n - 1)) || i === n - 1) out.push('<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="middle" font-size="10" fill="var(--text-muted)">' + esc(lab) + '</text>');
+      if ((i % every === 0 && (n - 1 - i >= every || i === n - 1)) || i === n - 1) out.push('<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="middle" font-size="11.5" fill="var(--text-muted)">' + esc(lab) + '</text>');
     });
     layers.forEach(function (ly) {
       var top = ly.hi.map(function (v, i) { return x(i).toFixed(1) + ' ' + y(v).toFixed(1); });
@@ -1426,7 +1428,7 @@
     var li = n - 1, lab = [];
     layers.forEach(function (ly) { var hgt = Math.abs(ly.hi[li] - ly.lo[li]); if (hgt > (max - min) * 0.06) lab.push({ y: y((ly.hi[li] + ly.lo[li]) / 2), name: ly.ser.name }); });
     lab.sort(function (a, b) { return a.y - b.y; }); for (var e = 1; e < lab.length; e++) if (lab[e].y - lab[e - 1].y < 13) lab[e].y = lab[e - 1].y + 13;
-    lab.forEach(function (lb) { out.push('<text x="' + (x(li) + 7) + '" y="' + (lb.y + 4) + '" font-size="10.5" font-weight="600" fill="var(--text-secondary)">' + esc(lb.name) + '</text>'); });
+    lab.forEach(function (lb) { out.push('<text x="' + (x(li) + 7) + '" y="' + (lb.y + 4) + '" font-size="11.5" font-weight="600" fill="var(--text-secondary)">' + esc(lb.name) + '</text>'); });
     out.push('<line class="xh" x1="0" x2="0" y1="' + T + '" y2="' + (T + ph) + '" stroke="var(--text-muted)" stroke-dasharray="3 3" visibility="hidden"/>');
     out.push('<rect class="hit" x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '" fill="transparent"/></svg>');
     return { svg: out.join(''), geom: { W: W, L: L, pw: pw, n: n, x: x } };
@@ -2058,13 +2060,14 @@
     vModel.labels.forEach(function (lb, k) { var bi = -1, bv = -Infinity; vModel.series.forEach(function (s, i) { var v = s.values[k]; if (v != null && v > bv) { bv = v; bi = i; } }); if (prevLead >= 0 && bi >= 0 && bi !== prevLead) lm.push({ series: vModel.series[bi].name, idx: k, text: vModel.series[bi].name + ' takes the lead' }); if (bi >= 0) prevLead = bi; });
     var vTake = '';
     try { var vr = d.players.slice().sort(function (a, b) { return b.value - a.value; }); if (vr.length > 1) vTake = '<p class="take"><b>' + esc(vr[0].name) + '</b> ' + (d.finished ? 'won' : 'leads') + ' by <b>' + esc(m(vr[0].value - vr[1].value)) + '</b> · ' + (lm.length ? lm.length + (lm.length === 1 ? ' lead change' : ' lead changes') : 'no lead changes') + '</p>'; } catch (eT) {}
+    var evKey = (d.events || []).length ? '<span class="evk"><span style="color:var(--accent)">▲</span> phase begins &nbsp;<span style="color:var(--crit)">▲</span> company closed or merged &nbsp;(hover a triangle)</span>' : '';
     var vChart = lineChart(vModel, { title: 'Player value over time', dark: dark, events: d.events, log: ST.chartMode === 'log', snap: ST.chartMode === 'pct' });
-    h.push('<section class="card"><h2>Player value over time</h2><p class="sub">Value at the end of each round ' + modeBar() + '</p>' + vTake + legend(vModel.series) + '<div class="chart" id="c-value">' + vChart.svg + '<div class="tip"></div></div></section>');
+    h.push('<section class="card"><h2>Player value over time</h2><p class="sub">Value at the end of each round ' + modeBar() + '<br>' + evKey + '</p>' + vTake + legend(vModel.series) + '<div class="chart" id="c-value">' + vChart.svg + '<div class="tip"></div></div></section>');
 
     // Revenue
     var rModel = { labels: d.revenue.labels, fmt: m, series: d.revenue.series };
     var rChart = lineChart(rModel, { title: 'Company revenue per OR', dark: dark, events: d.events });
-    h.push('<section class="card"><h2>Company revenue per operating round</h2><p class="sub">● paid out &nbsp;◉ half &nbsp;○ withheld / no run &nbsp;┄ minor</p>' + legend(rModel.series, dark) + '<div class="chart" id="c-rev">' + rChart.svg + '<div class="tip"></div></div></section>');
+    h.push('<section class="card"><h2>Company revenue per operating round</h2><p class="sub">● paid out &nbsp;◉ half &nbsp;○ withheld / no run &nbsp;┄ minor<br>' + evKey + '</p>' + legend(rModel.series, dark) + '<div class="chart" id="c-rev">' + rChart.svg + '<div class="tip"></div></div></section>');
     if (d.routes && d.routes.length) {
       var rtCol = {}; d.ticker.forEach(function (t) { rtCol[t.name] = displayColor(t.color, dark); });
       var rtLast = d.routes.length - 1, rtIdx = ST.rtIdx != null && ST.rtGame === d.id && ST.rtIdx <= rtLast ? ST.rtIdx : rtLast;
@@ -2079,7 +2082,7 @@
     var pTake = '';
     try { var pg = d.prices.series.map(function (s) { var vs = s.values.filter(function (v) { return v != null; }); return { n: s.name, a: vs[0], b: vs[vs.length - 1], hi: Math.max.apply(null, vs) }; }).filter(function (x) { return x.a > 0; }); if (pg.length) { pg.sort(function (a, b) { return b.b / b.a - a.b / a.a; }); var up = pg[0]; pTake = '<p class="take">Biggest climb: <b>' + esc(up.n) + '</b> ' + esc(m(up.a)) + ' → ' + esc(m(up.b)) + (up.hi > up.b ? ' (peak ' + esc(m(up.hi)) + ')' : '') + '</p>'; } } catch (eP) {}
     var pChart = lineChart(pModel, { title: 'Share price', dark: dark, events: d.events, log: ST.chartMode === 'log', snap: ST.chartMode === 'pct' });
-    h.push('<section class="card"><h2>Share price</h2><p class="sub">Market price at the end of each round ' + modeBar() + '</p>' + pTake + legend(pModel.series, dark) + '<div class="chart" id="c-price">' + pChart.svg + '<div class="tip"></div></div></section>');
+    h.push('<section class="card"><h2>Share price</h2><p class="sub">Market price at the end of each round ' + modeBar() + '<br>' + evKey + '</p>' + pTake + legend(pModel.series, dark) + '<div class="chart" id="c-price">' + pChart.svg + '<div class="tip"></div></div></section>');
 
     // Portfolio
     var meIdx = d.players.map(function (p) { return p.name; }).indexOf(me);
@@ -2174,7 +2177,7 @@
         : '<span class="st-good">✓ safe</span>';
       if (obsSoon.length) status += ' <span class="st-warn" title="Obsolete is not rusted: the train is on its way out under this title\'s rules">◔ ' + obsSoon.length + ' obsolete ' + buysTxt(Math.min.apply(null, obsSoon)) + '</span>';
       h.push('<tr data-corp="' + esc(c.name) + '" data-crow="' + esc(c.name) + '"' + (!d.finished && L && L.current === c.name && L.isOR ? ' class="actrow"' : '') + '><td>' + (!d.finished && L && L.current === c.name && L.isOR ? '<span class="act" title="operating now">▶</span> ' : '') + '<i class="sw" style="background:' + displayColor(c.color, dark) + '"></i><b>' + esc(c.name) + '</b></td><td>' + esc(c.president) + '</td><td>' + (c.price != null ? esc(m(c.price)) : '—') + '</td><td data-f="ct:' + esc(c.name) + '">' + esc(m(c.cash)) + '</td><td>' + can + '</td>');
-      h.push('<td>' + esc(c.trains.map(function (t) { return t.name; }).join(', ') || '—') + '</td><td>' + status + '</td><td>' + (c.tokensTotal ? c.tokensLeft + '/' + c.tokensTotal : '—') + '</td>' + (anyLoans ? '<td>' + (c.loans ? c.loans + (c.maxLoans ? '/' + c.maxLoans : '') : '') + '</td><td>' + (c.interestOwed ? esc(m(c.interestOwed)) : '') + '</td>' : ''));
+      h.push('<td>' + (c.trains.map(function (t) { return trainGlyph(d.title, t.name) + esc(t.name); }).join(', ') || '—') + '</td><td>' + status + '</td><td>' + (c.tokensTotal ? c.tokensLeft + '/' + c.tokensTotal : '—') + '</td>' + (anyLoans ? '<td>' + (c.loans ? c.loans + (c.maxLoans ? '/' + c.maxLoans : '') : '') + '</td><td>' + (c.interestOwed ? esc(m(c.interestOwed)) : '') + '</td>' : ''));
       h.push('<td>' + (last ? esc(m(last.revenue)) + (last.kind && last.kind !== 'payout' ? ' <small style="color:var(--text-muted)">' + esc(last.kind) + '</small>' : '') : '—') + '</td><td>' + (avg != null ? esc(m(avg)) : '—') + '</td></tr>');
     });
     h.push('</tbody></table></div>');
@@ -2483,8 +2486,8 @@
             cum = hi;
           });
           var ax = '', xt = Math.max(1, Math.ceil(nF / 8));
-          [0, 50, 100].forEach(function (v) { ax += '<line x1="' + L0 + '" x2="' + (W - R0) + '" y1="' + ys(v).toFixed(1) + '" y2="' + ys(v).toFixed(1) + '" stroke="var(--grid)" stroke-width="1"/><text x="' + (L0 - 5) + '" y="' + (ys(v) + 3).toFixed(1) + '" text-anchor="end" font-size="9" fill="var(--text-muted)">' + v + '%</text>'; });
-          for (var oi = 0; oi < nF; oi += xt) ax += '<text x="' + xs(oi).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="9" fill="var(--text-muted)">' + esc(OW.labels[oi]) + '</text>';
+          [0, 50, 100].forEach(function (v) { ax += '<line x1="' + L0 + '" x2="' + (W - R0) + '" y1="' + ys(v).toFixed(1) + '" y2="' + ys(v).toFixed(1) + '" stroke="var(--grid)" stroke-width="1"/><text x="' + (L0 - 5) + '" y="' + (ys(v) + 3).toFixed(1) + '" text-anchor="end" font-size="10.5" fill="var(--text-muted)">' + v + '%</text>'; });
+          for (var oi = 0; oi < nF; oi += xt) ax += '<text x="' + xs(oi).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="10.5" fill="var(--text-muted)">' + esc(OW.labels[oi]) + '</text>';
           h.push('<section class="card wide"><h2>Ownership over time</h2><p class="sub">Who held how much of a company, round by round. The empty space above the colours is the part held by the bank (initial offering and market).</p>' +
             '<div class="tabs" id="own-tabs">' + ocs.map(function (nm) { return '<button data-c="' + esc(nm) + '"' + (nm === oc ? ' class="on"' : '') + '>' + c21(tk21[nm]) + esc(nm) + '</button>'; }).join('') + '</div>' +
             '<div class="chart"><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Ownership of ' + esc(oc) + ' over time" style="width:100%;max-width:720px">' + ax + polys + '</svg></div>' +
@@ -2501,11 +2504,11 @@
           var rowH = 39, nR = Math.max(hcs.length, d.players.length), HH = nR * rowH + 16, WW = 640, lx = 120, rx = WW - 120, ln = '', tx = '';
           var py = function (i) { return 14 + i * (HH - 16) / Math.max(d.players.length, 1) + (HH - 16) / Math.max(d.players.length, 1) / 2 - 7; }, cy = function (i) { return 14 + i * (HH - 16) / hcs.length + (HH - 16) / hcs.length / 2 - 7; };
           d.players.forEach(function (p, pi) {
-            hcs.forEach(function (nm, ci) { var v = AN2.own.corps[nm][p.name][lastI]; if (v > 0) ln += '<line x1="' + lx + '" y1="' + py(pi).toFixed(1) + '" x2="' + rx + '" y2="' + cy(ci).toFixed(1) + '" stroke="' + pc21[p.name] + '" stroke-opacity=".6" stroke-width="' + (0.8 + v / 100 * 12).toFixed(1) + '" stroke-linecap="round"><title>' + esc(p.name + ' holds ' + v + '% of ' + nm) + '</title></line>'; });
-            tx += '<text x="' + (lx - 8) + '" y="' + (py(pi) + 4).toFixed(1) + '" text-anchor="end" font-size="11" fill="var(--text-primary)">' + esc(p.name) + '</text>';
+            hcs.forEach(function (nm, ci) { var v = AN2.own.corps[nm][p.name][lastI]; if (v > 0) ln += '<line class="hl" data-p="' + esc(p.name) + '" data-c="' + esc(nm) + '" x1="' + lx + '" y1="' + py(pi).toFixed(1) + '" x2="' + rx + '" y2="' + cy(ci).toFixed(1) + '" stroke="' + pc21[p.name] + '" stroke-opacity=".6" stroke-width="' + (0.8 + v / 100 * 12).toFixed(1) + '" stroke-linecap="round"><title>' + esc(p.name + ' holds ' + v + '% of ' + nm) + '</title></line>' + '<text class="hv hvc" data-p="' + esc(p.name) + '" data-c="' + esc(nm) + '" x="' + (rx - 6) + '" y="' + (cy(ci) - 5).toFixed(1) + '" text-anchor="end" font-size="11.5" font-weight="700" fill="var(--text-primary)" style="display:none">' + v + '%</text><text class="hv hvp" data-p="' + esc(p.name) + '" data-c="' + esc(nm) + '" x="' + (lx + 6) + '" y="' + (py(pi) - 5).toFixed(1) + '" font-size="11.5" font-weight="700" fill="var(--text-primary)" style="display:none">' + v + '%</text>'; });
+            tx += '<text class="hn" data-p="' + esc(p.name) + '" style="cursor:pointer" x="' + (lx - 8) + '" y="' + (py(pi) + 4).toFixed(1) + '" text-anchor="end" font-size="12" fill="var(--text-primary)">' + esc(p.name) + '</text>';
           });
-          hcs.forEach(function (nm, ci) { tx += '<circle cx="' + (rx + 10) + '" cy="' + cy(ci).toFixed(1) + '" r="5" fill="' + displayColor(tk21[nm] || '#999', dark) + '"/><text x="' + (rx + 20) + '" y="' + (cy(ci) + 4).toFixed(1) + '" font-size="11" fill="var(--text-primary)">' + esc(nm) + '</text>'; });
-          h.push('<section class="card wide"><h2>Who holds what</h2><p class="sub">Each line joins a player to a company they hold shares in; the thicker the line, the bigger the stake. Hover a line for the exact percentage.</p><div class="chart"><svg viewBox="0 0 ' + WW + ' ' + HH + '" role="img" aria-label="Who holds which company" style="width:100%;max-width:720px">' + ln + tx + '</svg></div></section>');
+          hcs.forEach(function (nm, ci) { tx += '<g class="hn" data-c="' + esc(nm) + '" style="cursor:pointer"><circle cx="' + (rx + 10) + '" cy="' + cy(ci).toFixed(1) + '" r="5" fill="' + displayColor(tk21[nm] || '#999', dark) + '"/><text x="' + (rx + 20) + '" y="' + (cy(ci) + 4).toFixed(1) + '" font-size="12" fill="var(--text-primary)">' + esc(nm) + '</text></g>'; });
+          h.push('<section class="card wide"><h2>Who holds what</h2><p class="sub">Each line joins a player to a company they hold shares in; the thicker the line, the bigger the stake. Hover (or tap) a player or a company to light up its connections and see the percentages.</p><div class="chart"><svg id="hw" viewBox="0 0 ' + WW + ' ' + HH + '" role="img" aria-label="Who holds which company" style="width:100%;max-width:720px">' + ln + tx + '</svg></div></section>');
         }
       }
       // tile-lay history map
@@ -2627,15 +2630,32 @@
     });
     attachHover(doc, doc.getElementById('c-rev'), rModel, rChart);
     attachHover(doc, doc.getElementById('c-price'), pModel, pChart);
+    var hwS = doc.getElementById('hw');
+    if (hwS) {
+      var hwSel = null, hwApply = function (k, v) {
+        var all = hwS.querySelectorAll('.hl,.hn,.hv'); Array.prototype.forEach.call(all, function (e) { e.style.opacity = ''; if (e.classList.contains('hv')) e.style.display = 'none'; });
+        if (!k) return;
+        var ps = {}, cs = {};
+        Array.prototype.forEach.call(hwS.querySelectorAll('.hl'), function (l) { if (l.getAttribute('data-' + k) === v) { ps[l.getAttribute('data-p')] = 1; cs[l.getAttribute('data-c')] = 1; } else l.style.opacity = '.07'; });
+        Array.prototype.forEach.call(hwS.querySelectorAll('.hn'), function (n) { var pp = n.getAttribute('data-p'), cc = n.getAttribute('data-c'); if (!((pp && (pp === v && k === 'p' || ps[pp] && k === 'c')) || (cc && (cc === v && k === 'c' || cs[cc] && k === 'p')))) n.style.opacity = '.25'; });
+        Array.prototype.forEach.call(hwS.querySelectorAll('.hv'), function (x) { if (x.getAttribute('data-' + k) === v && x.classList.contains(k === 'p' ? 'hvc' : 'hvp')) x.style.display = ''; });
+      };
+      Array.prototype.forEach.call(hwS.querySelectorAll('.hn'), function (n) {
+        var k = n.getAttribute('data-p') ? 'p' : 'c', v = n.getAttribute('data-' + k);
+        n.onmouseenter = function () { if (!hwSel) hwApply(k, v); };
+        n.onmouseleave = function () { if (!hwSel) hwApply(); };
+        n.onclick = function () { if (hwSel === k + v) { hwSel = null; hwApply(); } else { hwSel = k + v; hwApply(k, v); } };
+      });
+    }
     // ECharts layer: replaces the three SVG line charts when the library is available (pinned + integrity-checked); the SVG versions stay as the fallback
     if (w.echarts) {
       try {
         var phs = (d.events || []).filter(function (e) { return e.kind === 'phase'; }).map(function (e) { return { label: e.label, name: e.text.replace(/ begins$/, '') }; });
         var ecOpt = { dark: dark, log: ST.chartMode === 'log', phases: phs };
         var ev = doc.getElementById('c-value'), er = doc.getElementById('c-rev'), ep = doc.getElementById('c-price');
-        if (ev) { ecLine(w, ev, vModel, { dark: dark, log: ecOpt.log, phases: phs, marks: lm, height: 320, extra: function (i) { var vs = vModel.series.map(function (s) { return s.values[i]; }).filter(function (v) { return v != null; }); return vs.length > 1 ? '<div style="margin-top:3px;color:#898781">spread ' + esc(m(Math.max.apply(null, vs) - Math.min.apply(null, vs))) + '</div>' : ''; } }); var lg = ev.parentNode.querySelector('.legend'); if (lg) lg.style.display = 'none'; }
-        if (er) { ecLine(w, er, rModel, { dark: dark, phases: phs, height: 300 }); var lg2 = er.parentNode.querySelector('.legend'); if (lg2) lg2.style.display = 'none'; }
-        if (ep) { ecLine(w, ep, pModel, { dark: dark, log: ecOpt.log, phases: phs, height: 300 }); var lg3 = ep.parentNode.querySelector('.legend'); if (lg3) lg3.style.display = 'none'; }
+        if (ev) { ecLine(w, ev, vModel, { dark: dark, log: ecOpt.log, phases: phs, events: d.events, marks: lm, height: 320, extra: function (i) { var vs = vModel.series.map(function (s) { return s.values[i]; }).filter(function (v) { return v != null; }); return vs.length > 1 ? '<div style="margin-top:3px;color:#898781">spread ' + esc(m(Math.max.apply(null, vs) - Math.min.apply(null, vs))) + '</div>' : ''; } }); var lg = ev.parentNode.querySelector('.legend'); if (lg) lg.style.display = 'none'; }
+        if (er) { ecLine(w, er, rModel, { dark: dark, phases: phs, events: d.events, height: 300 }); var lg2 = er.parentNode.querySelector('.legend'); if (lg2) lg2.style.display = 'none'; }
+        if (ep) { ecLine(w, ep, pModel, { dark: dark, log: ecOpt.log, phases: phs, events: d.events, height: 300 }); var lg3 = ep.parentNode.querySelector('.legend'); if (lg3) lg3.style.display = 'none'; }
         var epl = doc.getElementById('c-pl'); if (epl && typeof plRows !== 'undefined') ecPL(w, epl, plRows, { dark: dark, m: m });
         var ecs = doc.getElementById('c-cash'); if (ecs && d.analysis && d.analysis.cash) ecHeat(w, ecs, d.analysis.cash, d.players, { dark: dark, m: m });
       } catch (eEc) { console.warn('18xx-JNNstats: chart library failed, using plain charts', eEc); }
