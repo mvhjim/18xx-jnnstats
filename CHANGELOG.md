@@ -2,6 +2,13 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.9.3] - 2026-11-12
+
+### Changed
+- **Stock ticker:** a closed company now says what became of it: "merged into X" (X is the survivor) or "acquired by X", read from the game's own log. Plain "closed" stays when nothing absorbed it. Checked on 1862 and 1817 games.
+- **Standings** and **Player value over time** have the same height when side by side (and grow together if there are many players). The same goes for any two sections in a row.
+- **Trains & phases:** bank cash joins the row of tiles (bank cash, trains left, next train, next phase, next rust), and the trains still to come, the initial offering and the market shares sit side by side below it.
+
 ## [0.9.2] - 2026-11-12
 
 ### Changed
