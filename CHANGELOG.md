@@ -2,6 +2,14 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.24.2] - 2026-11-13
+
+### Fixed
+- **Cash flow heat grid** drew no coloured cells; it does now.
+
+### Changed
+- **Company profit and loss chart:** revenue ◆ is pink instead of white and shows its amount; company names carry the same colour dots as the other company cards.
+
 ## [0.24.1] - 2026-11-13
 
 ### Changed

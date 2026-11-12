@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.24.1';
+  var VERSION = '0.24.2';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -1243,12 +1243,12 @@
     ch.setOption({
       animationDuration: 450, textStyle: { fontFamily: 'inherit' }, aria: { enabled: true },
       legend: { top: 0, textStyle: { color: C.ink, fontSize: 12 }, itemWidth: 10, itemHeight: 10, data: ['Trains', 'Tiles', 'Tokens', 'Revenue'] },
-      grid: { left: 64, right: 24, top: 30, bottom: 22 },
+      grid: { left: 78, right: 40, top: 30, bottom: 22 },
       tooltip: { trigger: 'item', backgroundColor: C.surf, borderColor: C.grid, textStyle: { color: C.ink, fontSize: 12 }, confine: true, formatter: function (p) { var v = Array.isArray(p.value) ? p.value[0] : p.value; return esc(p.name || p.value[1]) + ' · ' + esc(p.seriesName) + ': <b>' + esc(m(v)) + '</b>'; } },
-      yAxis: { type: 'category', data: names, inverse: true, axisTick: { show: false }, axisLine: { show: false }, axisLabel: { color: C.ink, fontSize: 11.5 } },
+      yAxis: { type: 'category', data: names, inverse: true, axisTick: { show: false }, axisLine: { show: false }, axisLabel: { color: C.ink, fontSize: 12, formatter: function (v, i) { return '{c' + i + '|●} ' + v; }, rich: (function () { var r = {}; names.forEach(function (n, i) { r['c' + i] = { color: (o.cols && o.cols[n]) || '#999', fontSize: 13 }; }); return r; })() } },
       xAxis: { type: 'value', splitLine: { lineStyle: { color: C.grid } }, axisLabel: { color: C.mut, fontSize: 11.5, formatter: function (v) { return m(v); } } },
       series: kinds.map(function (k, i) { return { name: k[0], type: 'bar', stack: 's', barWidth: 18, color: kc[i], data: rows.map(function (r) { return r[k[1]]; }), itemStyle: { borderColor: C.surf, borderWidth: 2, borderRadius: i === 2 ? [0, 4, 4, 0] : 0 }, emphasis: { focus: 'series' } }; })
-        .concat([{ name: 'Revenue', type: 'scatter', symbol: 'diamond', symbolSize: 11, color: C.strong, itemStyle: { borderColor: C.surf, borderWidth: 2 }, z: 5, data: rows.map(function (r) { return { value: [r.rev, r.corp], name: r.corp }; }) }])
+        .concat([{ name: 'Revenue', type: 'scatter', symbol: 'diamond', symbolSize: 13, color: dark ? '#d55181' : '#d6336c', itemStyle: { borderColor: C.surf, borderWidth: 2 }, z: 5, label: { show: true, position: 'top', distance: 6, color: C.ink, fontSize: 11, fontWeight: 600, formatter: function (p) { return m(p.value[0]); } }, data: rows.map(function (r) { return { value: [r.rev, r.corp], name: r.corp }; }) }])
     });
     return ch;
   }
@@ -1262,7 +1262,7 @@
       tooltip: { backgroundColor: C.surf, borderColor: C.grid, textStyle: { color: C.ink, fontSize: 12 }, confine: true, formatter: function (p) { var q = p.value[3]; return esc(labs[p.value[0]]) + ' · <b>' + esc(players[p.value[1]].name) + '</b><br>net ' + (p.value[2] >= 0 ? '+' : '−') + esc(m(Math.abs(p.value[2]))) + '<br><span style="color:#898781">dividends ' + esc(m(q.div)) + ', privates ' + esc(m(q.priv)) + ', sales ' + esc(m(q.sales)) + ', bought ' + esc(m(q.buys)) + '</span>'; } },
       xAxis: { type: 'category', data: labs, splitArea: { show: false }, axisTick: { show: false }, axisLine: { show: false }, axisLabel: { color: C.mut, fontSize: 10.5, hideOverlap: true } },
       yAxis: { type: 'category', data: players.map(function (p) { return p.name; }), inverse: true, axisTick: { show: false }, axisLine: { show: false }, axisLabel: { color: C.ink, fontSize: 11.5 } },
-      visualMap: { show: false, min: -mx, max: mx, inRange: { color: [dark ? '#d95926' : '#eb6834', dark ? '#383835' : '#f0efec', dark ? '#3987e5' : '#2a78d6'] } },
+      visualMap: { show: false, dimension: 2, min: -mx, max: mx, inRange: { color: [dark ? '#d95926' : '#eb6834', dark ? '#383835' : '#f0efec', dark ? '#3987e5' : '#2a78d6'] } },
       series: [{ type: 'heatmap', data: data, itemStyle: { borderColor: C.surf, borderWidth: 2, borderRadius: 3 }, emphasis: { itemStyle: { borderColor: C.strong } } }]
     });
     return ch;
@@ -2656,7 +2656,7 @@
         if (ev) { ecLine(w, ev, vModel, { dark: dark, log: ecOpt.log, phases: phs, events: d.events, marks: lm, height: 320, extra: function (i) { var vs = vModel.series.map(function (s) { return s.values[i]; }).filter(function (v) { return v != null; }); return vs.length > 1 ? '<div style="margin-top:3px;color:#898781">spread ' + esc(m(Math.max.apply(null, vs) - Math.min.apply(null, vs))) + '</div>' : ''; } }); var lg = ev.parentNode.querySelector('.legend'); if (lg) lg.style.display = 'none'; }
         if (er) { ecLine(w, er, rModel, { dark: dark, phases: phs, events: d.events, height: 300 }); var lg2 = er.parentNode.querySelector('.legend'); if (lg2) lg2.style.display = 'none'; }
         if (ep) { ecLine(w, ep, pModel, { dark: dark, log: ecOpt.log, phases: phs, events: d.events, height: 300 }); var lg3 = ep.parentNode.querySelector('.legend'); if (lg3) lg3.style.display = 'none'; }
-        var epl = doc.getElementById('c-pl'); if (epl && typeof plRows !== 'undefined') ecPL(w, epl, plRows, { dark: dark, m: m });
+        var epl = doc.getElementById('c-pl'); if (epl && typeof plRows !== 'undefined') ecPL(w, epl, plRows, { dark: dark, m: m, cols: (function () { var cc = {}; plRows.forEach(function (r) { cc[r.corp] = displayColor(tk21[r.corp] || '#999', dark); }); return cc; })() });
         var ecs = doc.getElementById('c-cash'); if (ecs && d.analysis && d.analysis.cash) ecHeat(w, ecs, d.analysis.cash, d.players, { dark: dark, m: m });
       } catch (eEc) { console.warn('18xx-JNNstats: chart library failed, using plain charts', eEc); }
     } else if (!w.__ecFail) {
