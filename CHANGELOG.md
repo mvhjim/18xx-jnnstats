@@ -2,6 +2,18 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.9.1] - 2026-11-12
+
+### Added
+- **copy as image** in Standings: the ranking and the Player value chart as a picture, to paste into Discord or similar (saves a PNG file instead if the browser blocks the clipboard).
+- **Game log** lines carry the acting player's colour and name in a column on the left; your own lines are highlighted.
+
+### Changed
+- *Player value over time* now sits beside *Standings* by default, and sections wrap two to a row on narrower windows too.
+
+### Fixed
+- **Reset layout** no longer doubles the ▾ and ⠿ icons on the section headers.
+
 ## [0.9.0] - 2026-11-12
 
 ### Added
