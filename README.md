@@ -93,6 +93,10 @@ You are asked to run code from the internet on a page where you are logged in, s
 - **The one trust point is the loader.** The bookmark downloads `stats.js` from this GitHub repository through the jsDelivr CDN. Code running on a page can in principle see everything on that page, so you are trusting this repository and that CDN, as with any bookmarklet. An extension bundled in your browser does not update itself from the web; this does, unless you pin it.
 - **How to stay in control:** read [stats.js](stats.js) (it is one readable file, GPL-licensed), read the [changelog](CHANGELOG.md) before updating, and **pin the bookmark to a commit** you have reviewed by replacing `@main` in the bookmark's address with `@` and the short commit hash from GitHub. A pinned address never changes, so nothing can be swapped in later. Switch back to `@main` when you want updates.
 
+## Support
+
+If 18xx-JNNstats is useful to you, you can buy me a coffee on [Ko-fi](https://ko-fi.com/jimiste). It is entirely optional; the tool stays free.
+
 ## Contributing
 
 Ideas and fixes are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Changes are listed in [CHANGELOG.md](CHANGELOG.md).
