@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.12.0';
+  var VERSION = '0.12.1';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -854,13 +854,23 @@
     if (ST.latestAt && Date.now() - ST.latestAt < 6 * 3600 * 1000) return;
     ST.latestAt = Date.now();
     try {
-      window.__xxLatest = null;
+      window.__xxLatest = null; window.__xxSha = null;
       var sc = document.createElement('script');
       sc.src = 'https://cdn.jsdelivr.net/gh/mvhjim/18xx-jnnstats@main/version.js?t=' + Date.now();
-      sc.onload = function () { ST.latest = String(window.__xxLatest || ''); sc.remove(); rerender(); };
+      sc.onload = function () { ST.latest = String(window.__xxLatest || ''); ST.latestSha = /^[0-9a-f]{7,40}$/.test(String(window.__xxSha || '')) ? String(window.__xxSha) : ''; sc.remove(); rerender(); };
       sc.onerror = function () { sc.remove(); };
       document.head.appendChild(sc);
     } catch (e) {}
+  }
+  // One-click update: load the newest build by its commit hash (a hash is never cached stale, unlike @main). Lasts until the game page is reloaded; the bookmark itself is not changed.
+  function updateNow(el) {
+    if (!ST.latestSha) return;
+    el.textContent = 'updating…';
+    var sc = document.createElement('script');
+    sc.src = 'https://cdn.jsdelivr.net/gh/mvhjim/18xx-jnnstats@' + ST.latestSha + '/stats.js';
+    sc.onload = function () { sc.remove(); };
+    sc.onerror = function () { sc.remove(); el.textContent = 'update failed, click the bookmark again'; };
+    document.head.appendChild(sc);
   }
   function loadBounds() { try { var b = JSON.parse(lsGet('xxStats.bounds') || 'null'); if (b && b.w > 300 && b.h > 300) return b; } catch (e) {} return null; }
   function applyBounds(w, b) {
@@ -1296,7 +1306,8 @@
         '<form id="gf" style="display:flex;gap:6px"><input id="gi" placeholder="game # or link" size="14" value="' + esc(ST.giVal || '') + '"><button>Open</button></form>' +
         '<div style="color:var(--text-muted)">Look at another game, old or live.</div></div></details></span></div>');
     h.push('<div class="hr2"><a href="' + REPO_URL + '" target="_blank" rel="noopener" style="color:inherit">18xx-JNNstats v' + VERSION + ' by jimiste</a>' +
-      (newer ? ' · <a class="upd" href="' + REPO_URL + '/blob/main/CHANGELOG.md" target="_blank" rel="noopener" title="A newer version exists. If you pinned a version, read the changelog, then update your bookmark.">⬆ v' + esc(ST.latest) + ' available</a>' : '') +
+      (newer ? (ST.latestSha ? ' · <a class="upd" id="upd" href="#" title="Load the newest version now. It lasts until you reload the game page; the bookmark itself is not changed.">⬆ v' + esc(ST.latest) + ' available, click to update</a> <a class="upd" style="font-weight:400" href="' + REPO_URL + '/blob/main/CHANGELOG.md" target="_blank" rel="noopener">what is new</a>'
+        : ' · <a class="upd" href="' + REPO_URL + '/blob/main/CHANGELOG.md" target="_blank" rel="noopener" title="A newer version exists. If you pinned a version, read the changelog, then update your bookmark.">⬆ v' + esc(ST.latest) + ' available</a>') : '') +
       ' · ' + d.actions + ' actions · updated ' + d.updated.toLocaleTimeString() + ' · ' + esc(d.tt ? 'viewing history' : ST.statusText || '') +
       (d.pin ? ' · <span class="st-warn" title="The site froze this game to an older version of the rules after a design change. The numbers here are replayed with that older version.">📌 pinned to version ' + esc(d.pin) + '</span>' : '') +
       (ST.verify ? ' · <span class="' + (ST.verify.ok ? 'st-good' : 'st-warn') + '" title="After each round the whole game is replayed from scratch and compared with the live numbers">' + (ST.verify.ok ? '✓ verified' : '⚠ corrected') + ' at ' + esc(ST.verify.at) + '</span>' : '') +
@@ -1695,6 +1706,7 @@
       var ttx = doc.getElementById('tt-x'); if (ttx) ttx.onclick = function () { ttExit(); };
     }
     doc.getElementById('sn').onclick = function () { snapRight(w); };
+    var updA = doc.getElementById('upd'); if (updA) updA.onclick = function (ev) { ev.preventDefault(); updateNow(updA); };
     doc.getElementById('gf').onsubmit = function (ev) { ev.preventDefault(); ST.giVal = ''; ST.menuOpen = false; var mm = String(doc.getElementById('gi').value).match(/(\d{3,})/); if (mm) { ST.gameId = mm[1]; ST.pfPlayer = null; w.document.body.innerHTML = '<p style="padding:20px">Loading game ' + mm[1] + '…</p>'; refresh(true); } };
     function drawPf(i) {
       ST.pfPlayer = i;

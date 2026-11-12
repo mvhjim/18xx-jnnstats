@@ -32,7 +32,8 @@ The [tests/](tests/) folder has two console scripts that automate this: `regress
 
 1. Update `VERSION` at the top of `stats.js`, and the same number in `version.js` (the stats window reads it to tell people when a newer version exists).
 2. Add an entry to `CHANGELOG.md`.
-3. Push to `main`.
+3. Commit and push to `main`.
+3b. Then make a second, tiny commit that sets `window.__xxSha` in `version.js` to the short hash of the commit from step 3, and push it. The "click to update" link in the stats window loads the new version by that hash, which is never cached stale.
 4. Expect the update to reach bookmarks within about 12 hours. jsDelivr remembers which commit `main` points to for up to 12 hours, and its servers do not all refresh at the same moment, so for a while different people can get different versions (even an older one than before).
    Purging (`https://purge.jsdelivr.net/gh/mvhjim/18xx-jnnstats@main/stats.js`) sometimes speeds this up but is not reliable, and is rate-limited.
 5. To use or test a new version straight away, pin the bookmark to the commit: replace `@main` in the bookmark's URL with `@` followed by the short commit hash from GitHub (for example `@a4b8b56`). A pinned address never changes, so switch back to `@main` afterwards to keep getting updates.

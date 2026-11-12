@@ -2,6 +2,11 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.12.1] - 2026-11-12
+
+### Added
+- **One-click update:** when a newer version exists, the note in the header reads "⬆ vX available, click to update". Clicking loads that version into the same window straight away, without waiting for the 12-hour cache. It lasts until you reload the game page; the bookmark itself is not changed. (The click only works from this version on; older versions still link to the changelog.)
+
 ## [0.12.0] - 2026-11-12
 
 ### Added
