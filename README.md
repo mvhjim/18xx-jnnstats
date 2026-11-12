@@ -7,11 +7,25 @@ A live stats window for [18xx.games](https://18xx.games). Click a bookmark while
 It replays the game with **18xx.games' own rules engine**, so the numbers follow each title's real rules and match the site exactly. In testing, every finished game's replayed final scores matched the official result to the dollar.
 
 
-![The stats window: stock market, standings and player value chart](docs/screenshot-overview.png)
+![Slideshow: live game, history slider, overview and game log](docs/slideshow.gif)
 
-![The game log, one colour per player](docs/screenshot-game-log.png)
+*The slideshow cycles through the four views below (GitHub has no carousel). Players are shown as Player 1–4.*
 
-*Screenshots from a finished game, with the players shown as Player 1–4.*
+**During a live game**: who is to act, the train rush, the bank, and what just happened.
+
+![Live game view](docs/screenshot-live.png)
+
+**History mode**: drag the slider to see the game as it stood after any round.
+
+![History mode](docs/screenshot-history.png)
+
+**Finished game**: stock market, standings and player value over time.
+
+![Overview of a finished game](docs/screenshot-overview.png)
+
+**Game log**: one colour per player.
+
+![The game log](docs/screenshot-game-log.png)
 
 ## Install (once, about a minute)
 
