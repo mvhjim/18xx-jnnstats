@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.22.0';
+  var VERSION = '0.23.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -964,7 +964,10 @@
     '.menu{position:relative}.mp2{position:absolute;right:0;top:calc(100% + 6px);z-index:10;min-width:240px;background:var(--surface-1);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.3);padding:8px;display:flex;flex-direction:column;gap:8px;font-size:12px}',
     '.mp2 button{font:inherit;font-size:12px;padding:4px 9px;border:1px solid var(--border);background:var(--surface-0);color:var(--text-primary);border-radius:6px;cursor:pointer}.mp2 input{font:inherit;font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface-0);color:var(--text-primary)}',
     '.upd{color:var(--warn);font-weight:600}@media (max-width:1000px){.kv.opt{display:none}}',
-    'main{padding:10px 12px;display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(440px,100%),1fr));align-items:stretch}.card.collapsed{align-self:start}',
+    'main{padding:10px 12px}.gb{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(440px,100%),1fr));align-items:stretch}.card.collapsed{align-self:start}',
+    '.grp{margin:0 0 14px}.gh{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;letter-spacing:.02em;color:var(--text-primary);padding:6px 4px;margin:0 0 6px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;scroll-margin-top:84px}.gh .gn{font-weight:400;color:var(--text-muted)}.gh:hover{color:var(--accent)}.grp.gcol>.gb{display:none}',
+    '#jump{display:flex;align-items:center;gap:6px 14px;margin:6px 0 0;overflow-x:auto;white-space:nowrap;padding-bottom:2px}#jump .sb{font-size:12px;display:inline-flex;align-items:center;gap:4px}#jump .sb b{font-variant-numeric:tabular-nums}#jump .jg{margin-left:auto;display:inline-flex;gap:4px}#jump .jg button{font:inherit;font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:none;color:var(--text-secondary);cursor:pointer}#jump .jg button:hover{border-color:var(--accent);color:var(--accent)}',
+    'body{font-variant-numeric:tabular-nums}.tw thead th{position:sticky;top:0;background:var(--surface-1);z-index:1}.mtabs{margin:0 0 8px}.mp[hidden]{display:none}.sinfo{font-size:11px}',
     '.card{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:12px 14px;min-width:0}.card.wide{grid-column:1/-1}',
     '.tw{overflow-x:auto}.card h2{font-size:13px;margin:0 0 2px;font-weight:650}.card .sub{color:var(--text-muted);font-size:12px;margin:0 0 8px}',
     'table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}th,td{padding:4px 8px;text-align:right;border-bottom:1px solid var(--grid);white-space:nowrap}th{font-weight:600;color:var(--text-secondary);font-size:12px}th:first-child,td:first-child{text-align:left}',
@@ -1815,6 +1818,12 @@
         var tl = ST.rounds.length - 1, ti = d.tt ? d.tt.idx : tl;
         return '<div class="hr3' + (d.tt ? ' on' : '') + '"><span>⏱ History</span><button class="ib" id="tt-p" title="Previous round">◀</button><input type="range" id="tt-i" min="0" max="' + tl + '" value="' + ti + '"><button class="ib" id="tt-n" title="Next round">▶</button><b id="tt-l">' + (d.tt ? 'the game after ' + esc(d.tt.label) : 'Now') + '</b>' + (d.tt ? ' <span class="tt-note">paused, read only</span> <button class="lnk" id="tt-x">back to now</button>' : '') + '</div>';
       })() : '') +
+      (function () {
+        var Lh = d.valueHistory.labels.length - 1, rows = d.players.map(function (p, i) { var sr = d.valueHistory.series[i], cur = sr[Lh], prev = Lh > 0 ? sr[Lh - 1] : null; return { name: p.name, col: pal[p.idx % pal.length], v: p.value, dv: cur != null && prev != null ? cur - prev : null }; }).sort(function (a, b) { return b.v - a.v; });
+        var GR = GROUPS[d.finished ? 'review' : 'live'];
+        return '<nav id="jump" aria-label="Scoreboard and sections">' + rows.map(function (r) { return '<span class="sb"><i class="sw" style="background:' + r.col + ';border-radius:50%"></i>' + (me && r.name === me ? '<span class="mename">' + esc(r.name) + '</span>' : esc(r.name)) + ' <b>' + esc(m(r.v)) + '</b>' + (r.dv ? ' <small class="' + (r.dv > 0 ? 'st-good' : 'st-warn') + '">' + (r.dv > 0 ? '▲' : '▼') + esc(m(Math.abs(r.dv))) + '</small>' : '') + '</span>'; }).join('') +
+          '<span class="jg">' + GR.map(function (g) { return '<button data-g="' + g.id + '">' + esc(g.title) + '</button>'; }).join('') + '</span></nav>';
+      })() +
       '</header><main>');
 
     // ---------- Live sections: Now, What just happened, Stock round helper -----------------
@@ -2487,6 +2496,7 @@
     var scrollY = w.scrollY || 0;
     doc.body.innerHTML = h.join('');
     applyLayout(w, d.finished ? 'review' : 'live');
+    try { decorateNames(doc, d, pal, dark); } catch (eDn) {}
     w.scrollTo(0, scrollY);
     attachHover(doc, doc.getElementById('c-value'), vModel, vChart, function (i) {
       var vals = vModel.series.map(function (s) { return s.values[i]; }).filter(function (v) { return v != null; });
@@ -2777,29 +2787,87 @@
   // ---------- Window + refresh loop -------------------------------------------------------
   // ---------- Layout: collapse and reorder sections, remembered per mode ----------------
   // Two layouts are kept in this browser: 'live' (game in progress) and 'review' (finished game).
-  var DEFAULT_ORDER = {
-    live: ['now', 'what-just-happened', 'trains-phases-bank', 'routes-revenue', 'track-spending-vs-revenue', 'train-timing', 'train-purchases', 'stock-round-helper', 'stock-market', 'standings', 'score-range', 'player-value-over-time', 'key-moments', 'post-game-report', 'badges', 'route-mistakes', 'dividend-decisions-in-hindsight', 'share-sale-timing', 'company-profit-and-loss', 'cash-flow-per-player', 'ownership-over-time', 'who-holds-what', 'president-changes', 'priority-deal-tracker', 'rust-and-obsolescence-radar', 'game-end-clock', 'tile-lay-map', 'market-movement', 'compare-with-another-game', 'friends-over-time', 'replay', 'stock-ticker', 'where-the-money-came-from', 'valuation', 'withholding-vs-paying-out', 'withholds-in-detail', 'portfolios', 'corporations', 'company-revenue-per-operating-round', 'share-price', 'game-log', 'minors-private-companies', 'tile-manifest', 'game-info'],
-    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'key-moments', 'post-game-report', 'badges', 'route-mistakes', 'dividend-decisions-in-hindsight', 'share-sale-timing', 'company-profit-and-loss', 'cash-flow-per-player', 'ownership-over-time', 'who-holds-what', 'president-changes', 'priority-deal-tracker', 'tile-lay-map', 'market-movement', 'compare-with-another-game', 'friends-over-time', 'replay', 'game-log', 'company-revenue-per-operating-round', 'share-price', 'where-the-money-came-from', 'valuation', 'withholding-vs-paying-out', 'withholds-in-detail', 'portfolios', 'corporations', 'trains-phases-bank', 'train-timing', 'train-purchases', 'routes-revenue', 'track-spending-vs-revenue', 'minors-private-companies', 'tile-manifest', 'game-info']
+  // Cards live in sections. Related cards are merged into one card with tabs, and sections are shown in groups.
+  var MERGES = [
+    { title: { live: 'Standings', review: 'Result' }, parts: [['standings', 'Standings'], ['score-range', 'Score range'], ['badges', 'Badges'], ['post-game-report', 'Report']] },
+    { title: 'Decisions review', parts: [['withholding-vs-paying-out', 'Payout or withhold'], ['withholds-in-detail', 'Withholds in detail'], ['dividend-decisions-in-hindsight', 'Hindsight'], ['share-sale-timing', 'Share sales'], ['route-mistakes', 'Route mistakes']] },
+    { title: 'Train history', parts: [['train-timing', 'Timing'], ['train-purchases', 'Purchases']] },
+    { title: 'Compare', parts: [['compare-with-another-game', 'Another game'], ['friends-over-time', 'Friends']] },
+    { title: 'Board and replay', parts: [['replay', 'Replay'], ['tile-lay-map', 'Tile-lay map']] },
+    { title: 'Company profit and loss', parts: [['company-profit-and-loss', 'Profit and loss'], ['track-spending-vs-revenue', 'Track spending']] },
+    { title: 'Stock market', parts: [['stock-market', 'Price grid'], ['market-movement', 'Last round']] }
+  ];
+  var GROUPS = {
+    live: [
+      { id: 'now', title: 'Now', keys: ['now', 'what-just-happened', 'standings', 'stock-round-helper', 'game-end-clock'] },
+      { id: 'companies', title: 'Companies', keys: ['stock-ticker', 'stock-market', 'corporations', 'share-price', 'company-revenue-per-operating-round', 'ownership-over-time', 'who-holds-what', 'valuation', 'minors-private-companies'] },
+      { id: 'trains', title: 'Trains & board', keys: ['trains-phases-bank', 'routes-revenue', 'train-history', 'tile-manifest'] },
+      { id: 'money', title: 'Money', keys: ['company-profit-and-loss', 'cash-flow-per-player', 'where-the-money-came-from', 'portfolios'] },
+      { id: 'history', title: 'Players & history', keys: ['player-value-over-time', 'key-moments', 'board-and-replay', 'game-log', 'president-changes', 'priority-deal-tracker'] },
+      { id: 'analysis', title: 'Analysis', keys: ['decisions-review', 'compare', 'game-info'] }
+    ],
+    review: [
+      { id: 'now', title: 'Result', keys: ['result', 'player-value-over-time', 'key-moments'] },
+      { id: 'history', title: 'Players & history', keys: ['board-and-replay', 'game-log', 'president-changes', 'priority-deal-tracker'] },
+      { id: 'analysis', title: 'Analysis', keys: ['decisions-review', 'compare'] },
+      { id: 'money', title: 'Money', keys: ['company-profit-and-loss', 'cash-flow-per-player', 'where-the-money-came-from', 'portfolios', 'valuation'] },
+      { id: 'companies', title: 'Companies', keys: ['stock-ticker', 'stock-market', 'corporations', 'share-price', 'company-revenue-per-operating-round', 'ownership-over-time', 'who-holds-what', 'minors-private-companies'] },
+      { id: 'trains', title: 'Trains & board', keys: ['trains-phases-bank', 'routes-revenue', 'train-history', 'tile-manifest', 'game-info'] }
+    ]
   };
+  var DEFAULT_GC = { live: ['money', 'history', 'analysis'], review: ['money', 'companies', 'trains'] };
   function slug(txt) { return String(txt).toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+  function layoutKeys(mode) { var o = []; GROUPS[mode].forEach(function (g) { g.keys.forEach(function (k) { o.push(k); }); }); return o; }
   function loadLayout(mode) {
     try {
-      var v = JSON.parse(localStorage.getItem('xxStats.layout.' + mode) || 'null');
-      if (v && v.order) { // sections added in newer versions slot in at their default place
-        ['order', 'collapsed'].forEach(function (kk) { if (v[kk]) v[kk] = v[kk].map(function (x) { return x === 'trains-phases' ? 'trains-phases-bank' : x; }); });
-        if (!v.m11 && v.order.indexOf('routes-revenue') >= 0 && v.order.indexOf('trains-phases-bank') >= 0) { // 0.11.1: Routes & revenue moved to sit right after Trains, phases & Bank (once)
-          v.order.splice(v.order.indexOf('routes-revenue'), 1); v.order.splice(v.order.indexOf('trains-phases-bank') + 1, 0, 'routes-revenue'); v.m11 = 1;
-        }
-        DEFAULT_ORDER[mode].forEach(function (k, i) { if (v.order.indexOf(k) < 0) { v.order.splice(Math.min(i, v.order.length), 0, k); if (k === 'tile-manifest' || k === 'minors-private-companies' || k === 'game-info') (v.collapsed = v.collapsed || []).push(k); } });
-        return v;
-      }
+      var v = JSON.parse(localStorage.getItem('xxStats.layout2.' + mode) || 'null');
+      if (v && v.order) { layoutKeys(mode).forEach(function (k) { if (v.order.indexOf(k) < 0) v.order.push(k); }); v.collapsed = v.collapsed || []; v.gc = v.gc || []; return v; }
     } catch (e) {}
-    return { order: DEFAULT_ORDER[mode].slice(), collapsed: ['minors-private-companies', 'tile-manifest', 'game-info'] };
+    return { order: layoutKeys(mode), collapsed: ['minors-private-companies', 'tile-manifest', 'game-info'], gc: DEFAULT_GC[mode].slice() };
   }
-  function saveLayout(mode, lay) { try { localStorage.setItem('xxStats.layout.' + mode, JSON.stringify(lay)); } catch (e) {} }
+  function saveLayout(mode, lay) { try { localStorage.setItem('xxStats.layout2.' + mode, JSON.stringify(lay)); } catch (e) {} }
+  // One colour per entity everywhere: a company name in a table cell gets its swatch, a player name gets the player's dot
+  function decorateNames(doc, d, pal, dark) {
+    var comp = {}, pl = {}; d.ticker.forEach(function (t) { comp[t.name] = t.color; }); d.players.forEach(function (p) { pl[p.name] = pal[p.idx % pal.length]; });
+    Array.prototype.forEach.call(doc.querySelectorAll('td, th'), function (c) {
+      if (c.querySelector('.sw,.cp,svg')) return;
+      var kids = c.children, txt = c.textContent.trim(); if (!txt || txt.length > 30) return;
+      if (kids.length > 1 || (kids.length === 1 && !/^(B|A|STRONG)$/.test(kids[0].tagName))) return;
+      var sw = null;
+      if (Object.prototype.hasOwnProperty.call(comp, txt)) sw = '<i class="sw" style="background:' + displayColor(comp[txt] || '#999', dark) + '"></i>';
+      else if (Object.prototype.hasOwnProperty.call(pl, txt)) sw = '<i class="sw" style="background:' + pl[txt] + ';border-radius:50%"></i>';
+      if (sw) c.insertAdjacentHTML('afterbegin', sw);
+    });
+  }
   function applyLayout(w, mode) {
     var doc = w.document, main = doc.querySelector('main'); if (!main) return;
-    var lay = loadLayout(mode);
+    var lay = loadLayout(mode), groups = GROUPS[mode];
+    var secKey = function (sec) { var h2 = sec.querySelector('h2'); return h2 ? slug(h2.textContent) : ''; };
+    var bySlug = function () { var o = {}; Array.prototype.forEach.call(main.children, function (el) { if (el.tagName === 'SECTION') o[secKey(el)] = el; }); return o; };
+    // merge related cards into one card with tabs
+    ST.mt = ST.mt || {};
+    MERGES.forEach(function (mg) {
+      var all = bySlug(), have = mg.parts.filter(function (p) { return all[p[0]]; });
+      if (!have.length) return;
+      var title = typeof mg.title === 'string' ? mg.title : mg.title[mode], key = slug(title);
+      var host = doc.createElement('section'); host.className = 'card wide merged'; host.setAttribute('data-merged', key);
+      var cur = ST.mt[key] && have.some(function (p) { return p[0] === ST.mt[key]; }) ? ST.mt[key] : have[0][0];
+      var tabs = have.length > 1 ? '<div class="tabs mtabs">' + have.map(function (p) { return '<button class="pill mtb' + (p[0] === cur ? ' cur' : '') + '" data-p="' + p[0] + '">' + p[1] + '</button>'; }).join('') + '</div>' : '';
+      host.innerHTML = '<h2>' + title + '</h2>' + tabs;
+      var first = all[have[0][0]]; first.parentNode.insertBefore(host, first);
+      have.forEach(function (p) {
+        var src = all[p[0]], pane = doc.createElement('div'); pane.className = 'mp'; pane.setAttribute('data-p', p[0]); if (p[0] !== cur) pane.hidden = true;
+        Array.prototype.slice.call(src.children).forEach(function (ch) { if (ch.tagName !== 'H2') pane.appendChild(ch); });
+        host.appendChild(pane); src.parentNode.removeChild(src);
+      });
+      Array.prototype.forEach.call(host.querySelectorAll('.mtb'), function (b) {
+        b.onclick = function () {
+          var k = b.getAttribute('data-p'); ST.mt[key] = k;
+          Array.prototype.forEach.call(host.querySelectorAll('.mtb'), function (x) { x.classList.toggle('cur', x === b); });
+          Array.prototype.forEach.call(host.querySelectorAll('.mp'), function (x) { x.hidden = x.getAttribute('data-p') !== k; });
+        };
+      });
+    });
     var secs = Array.prototype.slice.call(main.children).filter(function (el) { return el.tagName === 'SECTION'; });
     secs.forEach(function (sec) {
       var h2 = sec.querySelector('h2'); if (!h2) return;
@@ -2809,16 +2877,48 @@
       h2.innerHTML = '<span class="grip" title="Drag to move">⠿</span><button class="tg" title="Collapse / expand" aria-expanded="true">▾</button><span class="st">' + title + '</span>' +
         '<span class="mv"><button data-mv="-1" title="Move up">▲</button><button data-mv="1" title="Move down">▼</button></span>';
       if (lay.collapsed.indexOf(key) >= 0) { sec.classList.add('collapsed'); h2.querySelector('.tg').textContent = '▸'; h2.querySelector('.tg').setAttribute('aria-expanded', 'false'); }
+      // long introductions fold behind a small "i" button
+      Array.prototype.forEach.call(sec.querySelectorAll(':scope > p.sub, :scope > .mp > p.sub:first-child'), function (sub) {
+      if (sub.textContent.length > 120 && !sub.querySelector('*')) {
+        var txt = sub.textContent, cut = txt.indexOf('. '), short = cut > 20 && cut < 160 ? txt.slice(0, cut + 1) : txt.slice(0, 110).replace(/\s+\S*$/, '') + '…';
+        sub.innerHTML = '<span class="sfull" hidden></span><span class="sshort"></span> <button class="lnk sinfo" title="Show or hide the full explanation">more</button>';
+        sub.querySelector('.sfull').textContent = txt; sub.querySelector('.sshort').textContent = short;
+        sub.querySelector('.sinfo').onclick = function () { var f = sub.querySelector('.sfull'), s = sub.querySelector('.sshort'); f.hidden = !f.hidden; s.hidden = !f.hidden; this.textContent = f.hidden ? 'more' : 'less'; };
+      }
+      });
     });
-    // order: known keys in saved order, unknown (new) sections keep their place at the end
+    // build the groups
     var rank = function (k) { var i = lay.order.indexOf(k); return i < 0 ? 999 : i; };
-    secs.slice().sort(function (a, b) { return rank(a.getAttribute('data-key')) - rank(b.getAttribute('data-key')); }).forEach(function (sec) { main.appendChild(sec); });
+    var gOf = {}; groups.forEach(function (g) { g.keys.forEach(function (k) { gOf[k] = g.id; }); });
+    var bodies = {};
+    groups.forEach(function (g) {
+      var wrap = doc.createElement('div'); wrap.className = 'grp'; wrap.setAttribute('data-g', g.id);
+      var col = lay.gc.indexOf(g.id) >= 0; if (col) wrap.classList.add('gcol');
+      wrap.innerHTML = '<div class="gh" role="button" tabindex="0" aria-expanded="' + (!col) + '"><span class="gt">' + (col ? '▸' : '▾') + '</span> ' + g.title + ' <small class="gn"></small></div><div class="gb"></div>';
+      main.appendChild(wrap); bodies[g.id] = wrap.querySelector('.gb');
+    });
+    secs.slice().sort(function (a, b) { return rank(a.getAttribute('data-key')) - rank(b.getAttribute('data-key')); }).forEach(function (sec) {
+      var gid = gOf[sec.getAttribute('data-key')] || groups[groups.length - 1].id; bodies[gid].appendChild(sec);
+    });
+    groups.forEach(function (g) {
+      var wrap = main.querySelector('.grp[data-g="' + g.id + '"]'), n = bodies[g.id].children.length;
+      if (!n) wrap.parentNode.removeChild(wrap); else wrap.querySelector('.gn').textContent = n + (n === 1 ? ' card' : ' cards');
+    });
     function persist() {
       var cur = Array.prototype.map.call(main.querySelectorAll('section[data-key]'), function (s) { return s.getAttribute('data-key'); });
       lay.order = cur.concat(lay.order.filter(function (k) { return cur.indexOf(k) < 0; }));
-      lay.collapsed = Array.prototype.filter.call(main.querySelectorAll('section.collapsed'), function () { return true; }).map(function (s) { return s.getAttribute('data-key'); });
+      lay.collapsed = Array.prototype.map.call(main.querySelectorAll('section.collapsed'), function (s) { return s.getAttribute('data-key'); });
+      lay.gc = Array.prototype.map.call(main.querySelectorAll('.grp.gcol'), function (g2) { return g2.getAttribute('data-g'); });
       saveLayout(mode, lay);
     }
+    var setGroup = function (wrap, open) { wrap.classList.toggle('gcol', !open); var gh = wrap.querySelector('.gh'); gh.setAttribute('aria-expanded', String(open)); gh.querySelector('.gt').textContent = open ? '▾' : '▸'; };
+    Array.prototype.forEach.call(main.querySelectorAll('.gh'), function (gh) {
+      var toggle = function () { var wrap = gh.parentNode; setGroup(wrap, wrap.classList.contains('gcol')); persist(); };
+      gh.onclick = toggle; gh.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } };
+    });
+    Array.prototype.forEach.call(doc.querySelectorAll('#jump [data-g]'), function (b) {
+      b.onclick = function () { var wrap = main.querySelector('.grp[data-g="' + b.getAttribute('data-g') + '"]'); if (!wrap) return; if (wrap.classList.contains('gcol')) { setGroup(wrap, true); persist(); } try { wrap.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { wrap.scrollIntoView(); } };
+    });
     main.onclick = function (ev) {
       var b = ev.target.closest('button'); if (!b) return;
       var sec = b.closest('section'); if (!sec || !b.closest('h2.sh')) return;
@@ -2826,11 +2926,11 @@
         var c = sec.classList.toggle('collapsed'); b.textContent = c ? '▸' : '▾'; b.setAttribute('aria-expanded', String(!c));
       } else if (b.getAttribute('data-mv')) {
         var dir = +b.getAttribute('data-mv'), sib = dir < 0 ? sec.previousElementSibling : sec.nextElementSibling;
-        if (sib) { if (dir < 0) main.insertBefore(sec, sib); else main.insertBefore(sib, sec); }
+        if (sib) { if (dir < 0) sec.parentNode.insertBefore(sec, sib); else sec.parentNode.insertBefore(sib, sec); }
       }
       persist();
     };
-    // drag and drop by the grip
+    // drag and drop by the grip (within the same group)
     var dragging = null;
     secs.forEach(function (sec) {
       var grip = sec.querySelector('.grip'); if (!grip) return;
@@ -2839,13 +2939,13 @@
       sec.ondragstart = function (ev) { dragging = sec; sec.classList.add('dragging'); try { ev.dataTransfer.setData('text/plain', sec.getAttribute('data-key')); ev.dataTransfer.effectAllowed = 'move'; } catch (e) {} };
       sec.ondragend = function () { sec.draggable = false; sec.classList.remove('dragging'); dragging = null; persist(); };
       sec.ondragover = function (ev) {
-        if (!dragging || dragging === sec) return; ev.preventDefault();
+        if (!dragging || dragging === sec || dragging.parentNode !== sec.parentNode) return; ev.preventDefault();
         var r = sec.getBoundingClientRect(), after = ev.clientY > r.top + r.height / 2;
-        main.insertBefore(dragging, after ? sec.nextSibling : sec);
+        sec.parentNode.insertBefore(dragging, after ? sec.nextSibling : sec);
       };
     });
     var reset = doc.getElementById('lr');
-    if (reset) reset.onclick = function () { try { localStorage.removeItem('xxStats.layout.' + mode); } catch (e) {} applyLayout(w, mode); };
+    if (reset) reset.onclick = function () { try { localStorage.removeItem('xxStats.layout2.' + mode); } catch (e) {} ST.mt = {}; rerender(); };
     var ml = doc.getElementById('lm'); if (ml) ml.textContent = mode === 'live' ? 'live-game layout' : 'review layout';
   }
 

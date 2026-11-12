@@ -81,6 +81,7 @@ Always:
 - **Replay move by move**, plus a post-game report, route mistakes, share-sale timing and dividend hindsight cards.
 - **Company profit and loss, cash flow per player, ownership over time, who holds what, president changes, tile-lay map, market movement, rust radar, priority deal tracker and game-end clock** cards, plus a *Rules now* row in Game info.
 - **Compare up to four games** and **Friends over time** (head-to-head, same-players history, progress chart and pace benchmark, from the public profile pages).
+- **Sections and tabs:** cards are grouped into sections with a sticky scoreboard and jump bar, and related cards share one card with tabs.
 - **Charts and map:** log or % change on the value and price charts, and a heat map of the hexes trains ran through most.
 - **More cards:** withholding vs paying out, train timing, and a few just-for-fun badges. The 🔗 button copies a link that reopens the game with your card layout.
 - **Route efficiency, whole game:** check every run against the engine's auto-router, with a summary of what was left on the table.

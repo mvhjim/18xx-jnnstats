@@ -2,6 +2,17 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.23.0] - 2026-11-13
+
+### Changed
+- **Cards are grouped into sections** (Now, Companies, Trains & board, Money, Players & history, Analysis; a finished game opens with Result first). Sections collapse and remember it; cards still move and collapse inside their section.
+- **Related cards are merged into one card with tabs:** Standings (with Score range, Badges, Report; called Result when the game is over), Decisions review (payout or withhold, withholds in detail, hindsight, share sales, route mistakes), Train history, Compare (another game, friends), Board and replay (with the tile-lay map), Company profit and loss (with track spending) and Stock market (with last round's moves).
+- **New card order** for live games (what you need on your turn first, analysis last) and for finished games (the result and the story first).
+- **Sticky scoreboard and section bar** in the header: every player's value with the change since the last round, and one-tap jumps to each section.
+- **Long introductions fold** behind a *more* link, leaving one sentence per card.
+- **Colour and type:** company names in tables always get their company swatch, player names their dot; figures use tabular digits; long tables keep their header row in view.
+- Your saved card order from earlier versions is reset once (the structure changed); *reset layout* restores the defaults.
+
 ## [0.22.0] - 2026-11-12
 
 ### Added
