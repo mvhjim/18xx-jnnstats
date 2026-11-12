@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.12.2';
+  var VERSION = '0.13.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -60,6 +60,7 @@
     var snap = { label: short + ' ' + s(g.$turn()) + (short === 'OR' ? '.' + s(call(rd, 'round_num')) : ''), prices: {}, hold: {}, cash: {}, priv: {}, value: {}, minors: {}, companies: {}, corpCash: {}, pos: {} };
     var corps = g.$corporations();
     snap.bank = num(call(call(g, 'bank'), 'cash'));
+    try { var ph0 = call(g, 'phase'); snap.phase = ph0 ? s(ph0.$name()) : ''; } catch (e0) { snap.phase = ''; }
     snap.certLimit = num(call(g, 'cert_limit', g.$players()[0]) || call(g, 'cert_limit'));
     corps.forEach(function (c) {
       var sp = call(c, 'share_price');
@@ -89,7 +90,7 @@
       snap.minors[s(m.$name())] = { full: s(call(m, 'full_name')), color: s(call(m, 'color')), owner: nameOf(call(m, 'owner')), closed: bool(call(m, 'closed?')), oh: oh };
     });
     (call(g, 'companies') || []).forEach(function (c) {
-      var cc = { name: s(c.$name()), owner: nameOf(call(c, 'owner')), closed: bool(call(c, 'closed?')), value: num(call(c, 'value')), revenue: num(call(c, 'revenue')) };
+      var cc = { name: s(c.$name()), owner: nameOf(call(c, 'owner')), closed: bool(call(c, 'closed?')), value: num(call(c, 'value')), revenue: num(call(c, 'revenue')), desc: s(call(c, 'desc') || '') };
       snap.companies[s(call(c, 'sym')) || s(c.$name())] = cc;
       if (!cc.closed && snap.cash[cc.owner] != null) snap.priv[cc.owner] = (snap.priv[cc.owner] || 0) + cc.value;
     });
@@ -293,6 +294,13 @@
     var snapsU = [];
     snaps.forEach(function (sn) { if (snapsU.length && snapsU[snapsU.length - 1].label === sn.label) snapsU[snapsU.length - 1] = sn; else snapsU.push(sn); });
     snaps = snapsU;
+    // Events along the time axis: phase changes and companies that disappear from the market
+    var events = [];
+    snaps.forEach(function (sn, k) {
+      if (!k) return; var pv = snaps[k - 1];
+      if (sn.phase && pv.phase && sn.phase !== pv.phase) events.push({ label: sn.label, text: 'Phase ' + sn.phase + ' begins', kind: 'phase' });
+      Object.keys(pv.prices).forEach(function (n) { if (sn.prices[n] == null) events.push({ label: sn.label, text: n + ' closed or merged', kind: 'close' }); });
+    });
     if (snaps.length > 1) {
       var allCorpNames = {};
       snaps.forEach(function (sn) { Object.keys(sn.prices).forEach(function (k) { allCorpNames[k] = 1; }); });
@@ -369,7 +377,7 @@
       var state = c.closed ? 'closed' : (c.owner || 'bank');
       if (!ci.timeline.length || ci.timeline[ci.timeline.length - 1].owner !== state) ci.timeline.push({ owner: state, at: sn.label });
       if (c.closed && !ci.closedAt) ci.closedAt = sn.label;
-      ci.value = c.value; ci.revenue = c.revenue;
+      ci.value = c.value; ci.revenue = c.revenue; ci.desc = c.desc || ci.desc || '';
     }); });
     var companyList = Object.keys(compInfo).map(function (k) { return compInfo[k]; });
 
@@ -624,6 +632,13 @@
       }
       if (hl.length) hexMap = { layout: lay, hexes: hl };
     } catch (e) { hexMap = null; }
+    // Game info for the bottom card
+    var info = null;
+    try {
+      var cfg0 = raw.settings || {}, opt = cfg0.optional_rules;
+      info = { stage: '', rules: Array.isArray(opt) ? opt.map(String) : (opt ? String(opt).split(',') : []), players: (raw.players || []).length, async: !!cfg0.is_async, auto: cfg0.auto_routing ? String(cfg0.auto_routing) : '', pin: cfg0.pin ? String(cfg0.pin) : '' };
+      try { info.stage = s(g.$class().$const_get('DEV_STAGE')); } catch (e6) {}
+    } catch (e) { info = null; }
     var routeTable = [];
     try {
       if (gameLog) gameLog.rounds.forEach(function (rd3, ri3) {
@@ -645,6 +660,19 @@
         });
         if (order.length) routeTable.push({ round: ri3, label: rd3.label, corps: order.map(function (n) { return byCorp[n]; }) });
       });
+      // compare with the same company's previous run: same route again? more or less revenue?
+      var lastRun = {}, numOf = function (t) { var m2 = String(t || '').replace(/,/g, '').match(/-?\d+(\.\d+)?/); return m2 ? parseFloat(m2[0]) : null; };
+      routeTable.forEach(function (R2) { R2.corps.forEach(function (c) {
+        c.totalN = numOf(c.total);
+        if (!c.trains.length) return;
+        var pv = lastRun[c.corp];
+        if (pv) {
+          c.delta = c.totalN != null && pv.totalN != null ? c.totalN - pv.totalN : null;
+          var keys = {}; pv.trains.forEach(function (t) { keys[t.train + '|' + t.stops] = 1; });
+          c.trains.forEach(function (t) { t.same = !!keys[t.train + '|' + t.stops]; });
+        }
+        lastRun[c.corp] = c;
+      }); });
     } catch (e) { routeTable = []; }
 
     // Which company a closed one went into: read from the engine's own log lines
@@ -700,6 +728,7 @@
       var trig = call(g, 'game_end_check');
       if (trig && trig.length) endInfo.triggered = { reason: s(trig[0]).replace(/_/g, ' '), timing: s(trig[1]).replace(/_/g, ' ').replace(/\bor\b/g, 'OR') };
     } catch (e) {}
+    if (info) info.ends = endInfo.conditions.map(function (c4) { return (c4.text || c4.reason) + ' (' + c4.timing + ')'; });
     var orSnaps = snaps.filter(function (sn) { return /^OR /.test(sn.label) && sn.bank != null; });
     if (orSnaps.length >= 2 && endInfo.conditions.some(function (c) { return c.reason === 'bank'; })) {
       var k0 = Math.max(0, orSnaps.length - 3), span = orSnaps.length - 1 - k0;
@@ -745,7 +774,7 @@
       ticker: ticker, portfolio: portfolio, holdings: holdings, minors: minorList, companies: companyList, snapErr: SNAP && SNAP.err,
       nextTrain: nextTrain ? { name: s(nextTrain.$name()), sym: s(call(nextTrain, 'sym')), price: num(nextTrain.$price()) } : null,
       upcomingCount: upcoming.length, notes: notes, updated: new Date(), live: live, feed: feed, certNote: certNote, loanInfo: loanInfo, cheapest: cheapest,
-      grid: grid, gridHist: gridHist, bank2: bankInfo, tiles: tileInfo, recap: recap, gameLog: gameLog, routes: routeTable, hexMap: hexMap, pin: (raw.settings && raw.settings.pin) ? String(raw.settings.pin) : ''
+      events: events, info: info, grid: grid, gridHist: gridHist, bank2: bankInfo, tiles: tileInfo, recap: recap, gameLog: gameLog, routes: routeTable, hexMap: hexMap, pin: (raw.settings && raw.settings.pin) ? String(raw.settings.pin) : ''
     };
   }
 
@@ -796,6 +825,8 @@
     'h2.sh button{font:inherit;font-size:11px;line-height:1;padding:3px 5px;border:1px solid transparent;border-radius:5px;background:none;color:var(--text-muted);cursor:pointer}h2.sh button:hover{border-color:var(--border);color:var(--text-primary)}',
     'h2.sh .tg{font-size:13px;width:22px}.grip{cursor:grab;color:var(--text-muted);user-select:none;padding:0 2px}.mv{opacity:0;transition:opacity .15s}.card:hover .mv,.card:focus-within .mv{opacity:1}',
     'section.collapsed>*:not(.sh){display:none!important}section.collapsed h2.sh{margin-bottom:-4px!important}section.dragging{opacity:.4}',
+    '.cdesc{white-space:normal;max-width:420px;color:var(--text-muted);font-size:11.5px;line-height:1.35;margin-top:2px}',
+    '@media (max-width:720px){main{padding:8px;gap:8px}header{padding:6px 8px}.card{padding:9px 10px}.hr1 h1{font-size:15px}.hr3{flex-wrap:wrap}.rtsel,.gltools,.gslide{flex-wrap:wrap}.tabs{flex-wrap:nowrap;overflow-x:auto}.feed li.gl{grid-template-columns:64px 1fr}.tile{flex-basis:46%}.cdesc{max-width:260px}}',
     '@media (max-width:1100px){.card{padding:10px 12px}th,td{padding:3px 6px}.tile .v{font-size:17px}}',
     '.ticker{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}.tk{flex:0 0 auto;border:1px solid var(--grid);border-radius:8px;padding:6px 10px;min-width:150px;display:grid;grid-template-columns:auto auto;gap:0 10px;align-items:center}',
     '.tk .nm{font-weight:700}.tk .px{font-size:18px;font-weight:650;font-variant-numeric:tabular-nums}.tk .ch{font-size:12px;font-variant-numeric:tabular-nums}.tk svg{grid-row:1/3;grid-column:2}.tk.closed{opacity:.5}',
@@ -805,7 +836,7 @@
     '.mk{display:grid;grid-template-columns:repeat(var(--cols),minmax(34px,1fr));gap:2px;overflow-x:auto}',
     '.mc{border:1px solid var(--grid);border-radius:5px;padding:2px 3px;min-height:40px;font-size:11px;min-width:0}.mc.empty{border-color:transparent}.mp{color:var(--text-secondary);font-variant-numeric:tabular-nums;font-size:10.5px}',
     '.cp{display:block;border-radius:4px;padding:0 3px;margin-top:2px;font-size:10.5px;font-weight:700;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default}.cp.mine{outline:2px solid var(--accent);outline-offset:1px}.cp.gh{background:transparent!important;border:1.5px dashed;font-weight:600}',
-    '.bankrow{display:flex;flex-wrap:wrap;gap:6px 22px;margin:0 0 10px}.bankrow .bb{flex:1 1 200px;min-width:0}.bankrow .bb:first-child{flex:2 1 260px}.bankrow .bl{margin-top:0}.feed.gl{max-height:420px}.feed li.gl{display:grid;grid-template-columns:92px 1fr;gap:8px;padding-left:0;border-left:4px solid var(--pc,transparent)}.feed li.gl .gu{padding-left:6px;color:var(--text-secondary);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.feed li.gl.me{background:color-mix(in srgb,var(--pc) 14%,transparent)}.feed li.gl.me .gu{color:var(--text);font-weight:700}.feed li.gl.head{border-left-color:transparent}.feed li.mine .gm{font-weight:600;color:var(--accent)}.glr{color:var(--text-muted);font-size:10.5px}.gla{color:var(--text-muted);text-decoration:none;font-size:11px;margin-left:4px;opacity:.55}.gla:hover{opacity:1;color:var(--accent)}.rt td,.rt th{padding:3px 8px;text-align:left;vertical-align:top;white-space:normal}.rt td.n{text-align:right;white-space:nowrap}.rt .stp{color:var(--text-secondary);font-size:11.5px;word-break:break-word}#rt-map svg{width:100%;height:auto;display:block}#rt-map .tabs{margin:0 0 6px}.rtsel{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--text-secondary)}.rt tr.tot td{border-top:1px solid var(--border);font-weight:600}.gltools{display:flex;gap:8px;align-items:center;margin:0 0 8px}.gltools input{flex:1;min-width:80px}',
+    '.bankrow{display:flex;flex-wrap:wrap;gap:6px 22px;margin:0 0 10px}.bankrow .bb{flex:1 1 200px;min-width:0}.bankrow .bb:first-child{flex:2 1 260px}.bankrow .bl{margin-top:0}.feed.gl{max-height:420px}.feed li.gl{display:grid;grid-template-columns:92px 1fr;gap:8px;padding-left:0;border-left:4px solid var(--pc,transparent)}.feed li.gl .gu{padding-left:6px;color:var(--text-secondary);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.feed li.gl.me{background:color-mix(in srgb,var(--pc) 14%,transparent)}.feed li.gl.me .gu{color:var(--text);font-weight:700}.feed li.gl.head{border-left-color:transparent}.feed li.mine .gm{font-weight:600;color:var(--accent)}.glr{color:var(--text-muted);font-size:10.5px}.gla{color:var(--text-muted);text-decoration:none;font-size:11px;margin-left:4px;opacity:.55}.gla:hover{opacity:1;color:var(--accent)}.rt td,.rt th{padding:3px 8px;text-align:left;vertical-align:top;white-space:normal}.rt td.n{text-align:right;white-space:nowrap}.rt .stp{color:var(--text-secondary);font-size:11.5px;word-break:break-word}#rt-map svg{width:100%;height:auto;display:block}#rt-map .tabs{margin:0 0 6px}.chart.iso .ser,.chart.iso .enl{opacity:.12}.chart.iso .ser.on,.chart.iso .enl.on{opacity:1}.legend span{cursor:pointer}.legend span.off{opacity:.4}.st-same{color:var(--text-muted)}.rtsel{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--text-secondary)}.rt tr.tot td{border-top:1px solid var(--border);font-weight:600}.gltools{display:flex;gap:8px;align-items:center;margin:0 0 8px}.gltools input{flex:1;min-width:80px}',
     '.gslide{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--text-secondary)}.gslide input{flex:1;min-width:80px}',
     '.zl{display:flex;flex-wrap:wrap;gap:4px 12px;margin:8px 0 0;font-size:11.5px;color:var(--text-secondary)}.zl i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1px solid var(--border)}',
     '.dq{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px}.dq .chip{font-variant-numeric:tabular-nums}.dq .chip.next{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:650}.bl{font-size:12px;color:var(--text-muted);margin:6px 0 2px}',
@@ -974,6 +1005,7 @@
       ser.values.forEach(function (val, i) { if (val == null) { pen = false; return; } d += (pen ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(val).toFixed(1); pen = true; });
       var col = displayColor(ser.color, opts.dark);
       var halo = !opts.dark && luminance(col) > 0.6;
+      out.push('<g class="ser" data-si="' + si + '">');
       if (halo) out.push('<path d="' + d + '" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>');
       out.push('<path data-s="' + si + '" d="' + d + '" fill="none" stroke="' + col + '" stroke-width="' + (ser.bold ? 4 : 2) + '" stroke-linejoin="round" stroke-linecap="round"' + (ser.dashed ? ' stroke-dasharray="5 4"' : '') + '/>');
       if (ser.kinds) ser.values.forEach(function (val, i) {
@@ -986,16 +1018,25 @@
           out.push('<circle cx="' + x(i) + '" cy="' + y(val) + '" r="3.5" fill="' + (hollow ? 'var(--surface-1)' : col) + '" stroke="' + ring + '" stroke-width="1.6"/>');
         }
       });
-      for (var li = ser.values.length - 1; li >= 0; li--) if (ser.values[li] != null) { ends.push({ y: y(ser.values[li]), x: x(li), name: ser.name, color: ser.color }); break; }
+      out.push('</g>');
+      for (var li = ser.values.length - 1; li >= 0; li--) if (ser.values[li] != null) { ends.push({ y: y(ser.values[li]), x: x(li), name: ser.name, color: ser.color, si: si }); break; }
     });
     // direct labels at line ends, de-collided
     if (model.series.length <= 8) {
       ends.sort(function (a, b) { return a.y - b.y; });
       for (var e = 1; e < ends.length; e++) if (ends[e].y - ends[e - 1].y < 13) ends[e].y = ends[e - 1].y + 13;
-      ends.forEach(function (en) { out.push('<text x="' + (en.x + 7) + '" y="' + (en.y + 4) + '" font-size="13" fill="var(--text-secondary)" font-weight="600">' + esc(en.name) + '</text>'); });
+      ends.forEach(function (en) { out.push('<text class="enl" data-si="' + en.si + '" x="' + (en.x + 7) + '" y="' + (en.y + 4) + '" font-size="13" fill="var(--text-secondary)" font-weight="600">' + esc(en.name) + '</text>'); });
     }
     out.push('<line class="xh" x1="0" x2="0" y1="' + T + '" y2="' + (T + ph) + '" stroke="var(--text-muted)" stroke-dasharray="3 3" visibility="hidden"/>');
     out.push('<rect class="hit" x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '" fill="transparent"/>');
+    // events on the time axis (drawn last so their tooltips work): phase changes and closures
+    var evAt = {};
+    (opts.events || []).forEach(function (ev) { var ix = model.labels.indexOf(ev.label); if (ix >= 0) (evAt[ix] = evAt[ix] || []).push(ev); });
+    Object.keys(evAt).forEach(function (ix) {
+      var xx = x(+ix), evs = evAt[ix], bad = evs.some(function (e) { return e.kind === 'close'; });
+      out.push('<g class="ev"><line x1="' + xx + '" x2="' + xx + '" y1="' + T + '" y2="' + (T + ph) + '" stroke="' + (bad ? 'var(--crit)' : 'var(--accent)') + '" stroke-opacity=".28" stroke-dasharray="2 3"/>' +
+        '<path d="M' + (xx - 5) + ' ' + (T + ph) + 'L' + (xx + 5) + ' ' + (T + ph) + 'L' + xx + ' ' + (T + ph - 9) + 'Z" fill="' + (bad ? 'var(--crit)' : 'var(--accent)') + '"><title>' + esc(evs.map(function (e) { return e.text; }).join(' · ')) + '</title></path></g>');
+    });
     out.push('</svg>');
     return { svg: out.join(''), geom: { W: W, L: L, pw: pw, n: n, x: x } };
   }
@@ -1071,7 +1112,7 @@
     return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
   }
   function legend(series, dark) {
-    return '<div class="legend">' + series.map(function (s) { return '<span><i class="sw" style="background:' + displayColor(s.color, dark) + '"></i>' + esc(s.name) + '</span>'; }).join('') + '</div>';
+    return '<div class="legend">' + series.map(function (s, si) { return '<span data-si="' + si + '" title="Click to show only this one"><i class="sw" style="background:' + displayColor(s.color, dark) + '"></i>' + esc(s.name) + '</span>'; }).join('') + '</div>';
   }
   function attachHover(doc, el, model, chart, extra, skipZero) {
     var svg = el.querySelector('svg'), tip = el.querySelector('.tip'), xh = svg.querySelector('.xh'), hit = svg.querySelector('.hit');
@@ -1193,6 +1234,17 @@
     });
     gone.forEach(function (g3) { if (n >= 8) return; var el = q('tr[data-crow="' + g3.corp + '"]'); if (el) { glideChip(w, el, el, g3.name + ' rusted', '#c62828'); n++; } });
   }
+  // Game log filters: what kind of line, and which company
+  var GL_KIND = { stock: [/\b(buys|sells|pars|shares?|presidency|short|shorts|certificates?|exchanges)\b/i, /\btrains?\b/i], revenue: [/\b(runs|pays out|withholds|receives|earns|collects|share price moves)\b/i], track: [/\b(lays|upgrades|token|tile)\b/i], trains: [/\b(trains?|phase|rusts?|obsolete)\b/i], auction: [/\b(bids?|auction|wins)\b/i] };
+  var GL_NAMES = { stock: 'Stock', revenue: 'Revenue', track: 'Track', trains: 'Trains', auction: 'Auctions' };
+  function glOk(d, f) {
+    var k = ST.glGame === d.id ? ST.glKind : null, co = ST.glGame === d.id ? ST.glCo : null;
+    if (!k && !co) return true;
+    if (f.head) return false;
+    if (k) { var kk = GL_KIND[k]; if (!kk[0].test(f.msg) || (kk[1] && kk[1].test(f.msg))) return false; }
+    if (co) { try { if (!new RegExp('(^|[^A-Za-z0-9])' + co.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^A-Za-z0-9]|$)').test(f.msg)) return false; } catch (e) { return false; } }
+    return true;
+  }
   // Body of the Game log section: one round's lines, or search hits across the whole log
   function glBody(d, idx, q, col, me) {
     var G = d.gameLog; if (!G) return '';
@@ -1205,11 +1257,12 @@
     q = (q || '').trim().toLowerCase();
     if (q) {
       var out = [], total = 0;
-      G.rounds.forEach(function (r) { r.lines.forEach(function (f) { if (f.msg.toLowerCase().indexOf(q) >= 0) { total++; if (out.length < 300) out.push(li(f, r.label, false)); } }); });
+      G.rounds.forEach(function (r) { r.lines.forEach(function (f) { if (f.msg.toLowerCase().indexOf(q) >= 0 && glOk(d, f)) { total++; if (out.length < 300) out.push(li(f, r.label, false)); } }); });
       return (out.length ? out.join('') : '<li class="head">No lines match.</li>') + (total > 300 ? '<li class="head">… and ' + (total - 300) + ' more, narrow the search</li>' : '');
     }
     var rr = G.rounds[Math.min(Math.max(idx, 0), G.rounds.length - 1)];
-    return rr.lines.length ? rr.lines.map(function (f) { return li(f, '', true); }).join('') : '<li class="head">Nothing logged in this round.</li>';
+    var shown = rr.lines.filter(function (f) { return glOk(d, f); });
+    return shown.length ? shown.map(function (f) { return li(f, '', true); }).join('') : '<li class="head">' + (shown.length === rr.lines.length ? 'Nothing logged in this round.' : 'No lines match the filter in this round.') + '</li>';
   }
   // 1862 train classes (and any later title that sets trainClass in CONFIG): a coloured glyph before the train name
   function trainGlyph(title, name) {
@@ -1257,8 +1310,51 @@
     if (!runners.length) return '<p class="sub">Nobody ran trains in this round.</p>';
     if (!runners.some(function (c) { return c.corp === corp; })) corp = runners[0].corp;
     var chips = runners.map(function (c) { return '<button class="pill rtc' + (c.corp === corp ? ' cur' : '') + '" data-c="' + esc(c.corp) + '">' + esc(c.corp) + '</button>'; }).join(' ');
-    return '<div class="tabs">' + chips + '</div>' + rtMapSvg(d, R, corp) +
+    return '<div class="tabs">' + chips + ' <button id="rt-ci" class="lnk" title="Copy this map and the routes as a picture, to paste into chat">copy as image</button></div>' + rtMapSvg(d, R, corp) +
       '<p class="sub" style="margin-top:6px">Each line joins the stops the engine logs, in order, so it shows where the train went but not the exact track. One colour per train; a hollow dot is a stop the train skips. Hex colours show the tiles on the board in the game state you are viewing, not necessarily when the route ran. ◯ city &nbsp;◆ off-board &nbsp;• town</p>';
+  }
+  // Picture of one company's routes in one round (map + list) for pasting into chat
+  function routeImage(d, k, corp, dark) {
+    var R = d.routes[k], C = R.corps.filter(function (c) { return c.corp === corp; })[0], M = d.hexMap;
+    var th = dark ? { bg: '#14181d', tx: '#e8eaed', t2: '#a9b0b8', gr: '#3a424c' } : { bg: '#f1f0e7', tx: '#1b1f24', t2: '#5b636c', gr: '#b9b8ac' };
+    var u = 26, flat = M.layout !== 'pointy', tx = flat ? 1.5 * u : Math.sqrt(3) / 2 * u, ty = flat ? Math.sqrt(3) / 2 * u : 1.5 * u, minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9, pos = {};
+    M.hexes.forEach(function (h) { minx = Math.min(minx, h.x); miny = Math.min(miny, h.y); maxx = Math.max(maxx, h.x); maxy = Math.max(maxy, h.y); });
+    M.hexes.forEach(function (h) { pos[h.id] = [tx * (h.x - minx) + u, ty * (h.y - miny) + u]; });
+    var mw = tx * (maxx - minx) + 2 * u, mh = ty * (maxy - miny) + 2 * u, sc = 560 / mw, S = 2, W = 900, top = 56, H = Math.max(mh * sc, 40 + C.trains.length * 46 + 60) + top + 16;
+    var cv = document.createElement('canvas'); cv.width = W * S; cv.height = H * S; var x = cv.getContext('2d'); x.scale(S, S);
+    var F = function (sz, wt) { x.font = (wt || '400') + ' ' + sz + 'px system-ui,-apple-system,Segoe UI,Roboto,sans-serif'; };
+    x.fillStyle = th.bg; x.fillRect(0, 0, W, H); x.textBaseline = 'alphabetic';
+    F(17, '700'); x.fillStyle = th.tx; x.fillText(d.title + ' · ' + R.label + ' · ' + corp, 16, 30);
+    F(12); x.fillStyle = th.t2; x.fillText('Routes as the engine logs them · 18xx-JNNstats', 16, 47);
+    var ox = 16, oy = top;
+    var hexPath = function (cx, cy, r) { x.beginPath(); for (var a = 0; a < 6; a++) { var rad = ((flat ? 0 : 30) + a * 60) * Math.PI / 180, px = ox + (cx + r * Math.cos(rad)) * sc, py = oy + (cy + r * Math.sin(rad)) * sc; if (a) x.lineTo(px, py); else x.moveTo(px, py); } x.closePath(); };
+    var on = {}, paths = C.trains.map(function (t, i) {
+      var ids = t.stops.split('-').map(function (q) { return { id: q.replace(/[\[\]()]/g, '').split(' + ')[0].trim(), skip: /^\[/.test(q) }; }).filter(function (q) { return pos[q.id]; });
+      var cm = CONFIG[d.title] && CONFIG[d.title].trainClass ? /([A-Z])\*?$/.exec(t.train) : null;
+      ids.forEach(function (q) { on[q.id] = 1; });
+      return { t: t, ids: ids, col: cm && RT_CLS[cm[1]] ? RT_CLS[cm[1]] : RT_PAL[i % RT_PAL.length] };
+    });
+    M.hexes.forEach(function (h) {
+      var c = pos[h.id]; hexPath(c[0], c[1], u - 1);
+      x.globalAlpha = h.c === 'white' ? 0.22 : 0.65; x.fillStyle = TILE_FILL[h.c] || TILE_FILL.white; x.fill(); x.globalAlpha = 1; x.strokeStyle = th.gr; x.lineWidth = 1; x.stroke();
+      if (h.city || h.off || h.town) { x.beginPath(); x.arc(ox + c[0] * sc, oy + c[1] * sc, (h.town && !h.city && !h.off ? 3 : 6) * sc, 0, 7); x.fillStyle = h.town && !h.city && !h.off ? th.t2 : th.bg; x.fill(); if (!h.town || h.city || h.off) { x.strokeStyle = th.t2; x.stroke(); } }
+      F(on[h.id] ? 10 : 8, on[h.id] ? '700' : '400'); x.fillStyle = on[h.id] ? th.tx : th.t2; x.textAlign = 'center'; x.fillText(h.id, ox + c[0] * sc, oy + (c[1] + u * 0.66) * sc); x.textAlign = 'left';
+    });
+    paths.forEach(function (p, i) {
+      var off = (i - (paths.length - 1) / 2) * 4; x.strokeStyle = p.col; x.lineWidth = 3.5; x.lineJoin = 'round'; x.lineCap = 'round'; x.beginPath();
+      p.ids.forEach(function (q, j) { var px = ox + (pos[q.id][0] + off) * sc, py = oy + (pos[q.id][1] + off) * sc; if (j) x.lineTo(px, py); else x.moveTo(px, py); }); x.stroke();
+      p.ids.forEach(function (q, j) { var e = j === 0 || j === p.ids.length - 1; x.beginPath(); x.arc(ox + (pos[q.id][0] + off) * sc, oy + (pos[q.id][1] + off) * sc, e ? 5 : 3, 0, 7); x.fillStyle = q.skip ? th.bg : p.col; x.fill(); x.strokeStyle = p.col; x.lineWidth = 1.5; x.stroke(); });
+    });
+    var lx = 16 + 560 + 24, ly = top + 14;
+    paths.forEach(function (p) {
+      x.fillStyle = p.col; x.beginPath(); x.arc(lx + 6, ly - 4, 6, 0, 7); x.fill();
+      F(14, '700'); x.fillStyle = th.tx; x.fillText(p.t.train + '   ' + p.t.rev, lx + 20, ly);
+      F(11); x.fillStyle = th.t2; var words = p.t.stops.split('-'), line = '', yy = ly + 16;
+      words.forEach(function (wd) { var t2 = line ? line + '-' + wd : wd; if (x.measureText(t2).width > W - lx - 20 - 16) { x.fillText(line, lx + 20, yy); yy += 14; line = wd; } else line = t2; });
+      x.fillText(line, lx + 20, yy); ly = yy + 30;
+    });
+    F(14, '700'); x.fillStyle = th.tx; x.fillText('Total ' + (C.total || '') + (C.kind ? ' · ' + C.kind : ''), lx, ly + 4);
+    return cv;
   }
   // Body of the Routes & revenue card: one operating round, a row per train
   function rtBody(d, k, col) {
@@ -1267,9 +1363,9 @@
       var sw = col[c.corp] ? '<i class="sw" style="background:' + col[c.corp] + '"></i>' : '';
       if (!c.trains.length) { rows += '<tr class="tot"><td>' + sw + esc(c.corp) + '</td><td colspan="3">' + esc(c.kind || 'did not run') + '</td></tr>'; return; }
       c.trains.forEach(function (t, i) {
-        rows += '<tr><td>' + (i === 0 ? sw + '<b>' + esc(c.corp) + '</b>' : '') + '</td><td>' + trainGlyph(d.title, t.train) + esc(t.train) + '</td><td class="n">' + esc(t.rev) + '</td><td class="stp">' + esc(t.stops) + '</td></tr>';
+        rows += '<tr><td>' + (i === 0 ? sw + '<b>' + esc(c.corp) + '</b>' : '') + '</td><td>' + trainGlyph(d.title, t.train) + esc(t.train) + '</td><td class="n">' + esc(t.rev) + '</td><td class="stp">' + esc(t.stops) + (t.same ? ' <small class="st-same" title="The same train ran the same stops as in this company\'s previous run">= same</small>' : '') + '</td></tr>';
       });
-      rows += '<tr class="tot"><td></td><td>total' + (c.extra.length ? ' (+ ' + esc(c.extra.join(', ')) + ' extra)' : '') + '</td><td class="n">' + esc(c.total || '') + '</td><td>' + esc(c.kind || '') + '</td></tr>';
+      rows += '<tr class="tot"><td></td><td>total' + (c.extra.length ? ' (+ ' + esc(c.extra.join(', ')) + ' extra)' : '') + '</td><td class="n">' + esc(c.total || '') + (c.delta ? ' <small class="' + (c.delta < 0 ? 'st-warn' : 'st-good') + '" title="Compared with this company\'s previous run">' + (c.delta < 0 ? '▼ ' : '▲ ') + esc(String(Math.abs(c.delta))) + '</small>' : '') + '</td><td>' + esc(c.kind || '') + '</td></tr>';
     });
     return '<table class="rt"><thead><tr><th>Company</th><th>Train</th><th>Revenue</th><th>Stops (as the engine logs them)</th></tr></thead><tbody>' + rows + '</tbody></table>';
   }
@@ -1303,6 +1399,7 @@
       '<button class="ib" id="th" title="Switch between dark and light">' + (dark ? '🌙' : '☀') + '</button>' +
       '<details class="menu" id="mn"' + (ST.menuOpen ? ' open' : '') + '><summary class="ib" title="More">⋯</summary><div class="mp2">' +
         '<button id="lr" title="Restore the default order and expand all sections">Reset <span id="lm">layout</span></button>' +
+        '<span style="display:flex;gap:6px;align-items:center">Text size <button id="zo" title="Smaller text">A−</button><button id="zi" title="Larger text">A+</button></span>' +
         '<form id="gf" style="display:flex;gap:6px"><input id="gi" placeholder="game # or link" size="14" value="' + esc(ST.giVal || '') + '"><button>Open</button></form>' +
         '<div style="color:var(--text-muted)">Look at another game, old or live.</div></div></details></span></div>');
     h.push('<div class="hr2"><a href="' + REPO_URL + '" target="_blank" rel="noopener" style="color:inherit">18xx-JNNstats v' + VERSION + ' by jimiste</a>' +
@@ -1404,6 +1501,8 @@
       h.push('<section class="card wide"><h2>Game log</h2><p class="sub">Drag the slider (or use ◀ ▶ and the arrow keys) to read the game round by round. Search looks through the whole game.</p>' +
         '<div class="gslide"><span>Round</span><button id="gl-p" title="Previous round">◀</button><input type="range" id="gl-i" min="0" max="' + glLast + '" value="' + glIdx + '"><button id="gl-n" title="Next round">▶</button><b id="gl-l">' + esc(GL.rounds[glIdx].label) + '</b></div>' +
         '<div class="gltools"><input type="search" id="gl-q" placeholder="Search the whole log…" value="' + esc(ST.glQ || '') + '">' + (me && GL.meRound >= 0 ? ' <button id="gl-me" class="lnk">jump to my last move</button>' : '') + '</div>' +
+        '<div class="tabs" id="gl-k">' + Object.keys(GL_NAMES).map(function (k) { return '<button class="pill' + (ST.glGame === d.id && ST.glKind === k ? ' cur' : '') + '" data-k="' + k + '">' + GL_NAMES[k] + '</button>'; }).join(' ') +
+        ' <select id="gl-c"><option value="">All companies</option>' + d.ticker.map(function (t) { return '<option' + (ST.glGame === d.id && ST.glCo === t.name ? ' selected' : '') + '>' + esc(t.name) + '</option>'; }).join('') + '</select></div>' +
         '<ul class="feed gl" id="gl-b">' + glBody(d, glIdx, ST.glQ, glCol, me) + '</ul></section>');
     }
 
@@ -1434,12 +1533,12 @@
 
     // Value history
     var vModel = { labels: d.valueHistory.labels, fmt: m, series: d.players.map(function (p, i) { return { name: p.name, color: pal[p.idx % pal.length], values: d.valueHistory.series[i], bold: p.name === me }; }) };
-    var vChart = lineChart(vModel, { title: 'Player value over time', dark: dark });
+    var vChart = lineChart(vModel, { title: 'Player value over time', dark: dark, events: d.events });
     h.push('<section class="card"><h2>Player value over time</h2><p class="sub">Value at the end of each round</p>' + legend(vModel.series) + '<div class="chart" id="c-value">' + vChart.svg + '<div class="tip"></div></div></section>');
 
     // Revenue
     var rModel = { labels: d.revenue.labels, fmt: m, series: d.revenue.series };
-    var rChart = lineChart(rModel, { title: 'Company revenue per OR', dark: dark });
+    var rChart = lineChart(rModel, { title: 'Company revenue per OR', dark: dark, events: d.events });
     h.push('<section class="card"><h2>Company revenue per operating round</h2><p class="sub">● paid out &nbsp;◉ half &nbsp;○ withheld / no run &nbsp;┄ minor</p>' + legend(rModel.series, dark) + '<div class="chart" id="c-rev">' + rChart.svg + '<div class="tip"></div></div></section>');
     if (d.routes && d.routes.length) {
       var rtCol = {}; d.ticker.forEach(function (t) { rtCol[t.name] = displayColor(t.color, dark); });
@@ -1452,7 +1551,7 @@
 
     // Share prices
     var pModel = { labels: d.prices.labels, fmt: m, series: d.prices.series };
-    var pChart = lineChart(pModel, { title: 'Share price', dark: dark });
+    var pChart = lineChart(pModel, { title: 'Share price', dark: dark, events: d.events });
     h.push('<section class="card"><h2>Share price</h2><p class="sub">Market price at the end of each round</p>' + legend(pModel.series, dark) + '<div class="chart" id="c-price">' + pChart.svg + '<div class="tip"></div></div></section>');
 
     // Portfolio
@@ -1565,7 +1664,7 @@
         h.push('<tr><td><i class="sw" style="background:' + displayColor(mi.color || '#999', dark) + '"></i><b>' + esc(mi.name) + '</b> <small style="color:var(--text-muted)">' + esc(mi.full) + '</small></td><td>minor</td><td>—</td><td>' + (ohs.length ? esc(m(tr)) + ' <small style="color:var(--text-muted)">over ' + ohs.length + ' ORs</small>' : '—') + '</td><td style="text-align:left">' + tl(mi.owners) + '</td><td>' + (mi.closed ? '<span class="flat">closed after ' + esc(mi.lastSeen) + '</span>' : '<span class="st-good">active</span>') + '</td></tr>');
       });
       (d.companies || []).forEach(function (c) {
-        h.push('<tr><td><b>' + esc(c.sym) + '</b> <small style="color:var(--text-muted)">' + esc(c.name) + '</small></td><td>private</td><td>' + esc(m(c.value)) + '</td><td>' + (c.revenue ? esc(m(c.revenue)) + '/OR' : '—') + '</td><td style="text-align:left">' + tl(c.timeline.filter(function (x) { return x.owner !== 'closed'; })) + '</td><td>' + (c.closedAt ? '<span class="flat">closed ' + esc(c.closedAt) + '</span>' : '<span class="st-good">open</span>') + '</td></tr>');
+        h.push('<tr><td><b>' + esc(c.sym) + '</b> <small style="color:var(--text-muted)">' + esc(c.name) + '</small>' + (c.desc ? '<div class="cdesc">' + esc(c.desc.length > 260 ? c.desc.slice(0, 257) + '…' : c.desc) + '</div>' : '') + '</td><td>private</td><td>' + esc(m(c.value)) + '</td><td>' + (c.revenue ? esc(m(c.revenue)) + '/OR' : '—') + '</td><td style="text-align:left">' + tl(c.timeline.filter(function (x) { return x.owner !== 'closed'; })) + '</td><td>' + (c.closedAt ? '<span class="flat">closed ' + esc(c.closedAt) + '</span>' : '<span class="st-good">open</span>') + '</td></tr>');
       });
       h.push('</tbody></table></div><p class="sub" style="margin-top:6px">Minors also appear as dashed lines in the revenue chart.</p></section>');
     }
@@ -1577,6 +1676,16 @@
         return '<div class="tg2' + (gr.available ? '' : ' na') + '"><div class="bl"><i class="sw" style="background:' + (TC[gr.color] || '#999') + '"></i><b>' + esc(gr.color) + '</b> · ' + gr.left + ' left' + (gr.available ? '' : ' · not yet available') + '</div><div class="tcs">' +
           gr.items.map(function (o) { return '<span class="tcp' + (!o.unl && o.left === 0 ? ' z' : '') + '" title="' + esc('tile ' + o.name + ': ' + (o.unl ? 'unlimited' : o.left + ' of ' + o.total + ' left')) + '">#' + esc(o.name) + ' <small style="color:var(--text-muted)">' + (o.unl ? '∞' : o.left + '/' + o.total) + '</small></span>'; }).join('') + '</div></div>';
       }).join('') + '</section>');
+    }
+    // Game info
+    if (d.info) {
+      var I = d.info, row = function (k, v) { return v ? '<tr><td style="color:var(--text-secondary)">' + esc(k) + '</td><td style="text-align:left;white-space:normal">' + v + '</td></tr>' : ''; };
+      h.push('<section class="card wide"><h2>Game info</h2><p class="sub">How this game is set up</p><div class="tw"><table><tbody>' +
+        row('Title', esc(d.title)) + row('Players', String(I.players)) +
+        row('Development stage', I.stage ? esc(I.stage) + (/alpha|beta/i.test(I.stage) ? ' <small class="st-warn">still in development on 18xx.games, rules may change</small>' : '') : '') +
+        row('Optional rules', I.rules.length ? esc(I.rules.join(', ')) : 'none') + row('Play style', I.async ? 'asynchronous (correspondence)' : 'live') +
+        row('Auto routing', esc(I.auto)) + row('Pinned version', esc(I.pin)) +
+        row('The game ends when', I.ends && I.ends.length ? I.ends.map(esc).join('<br>') : '') + '</tbody></table></div></section>');
     }
     h.push('</main>');
 
@@ -1611,6 +1720,19 @@
       doc.getElementById('gr-b').innerHTML = gridBody(d, dark, me, iv, m);
       if (ST.hlCorp) hlSet(ST.hlCorp);
     };
+    // chart legends: click a name to show only that line (click again to show all)
+    Array.prototype.forEach.call(doc.querySelectorAll('.legend'), function (lg) {
+      var card = lg.closest('section'), ch = card && card.querySelector('.chart'); if (!ch || !ch.querySelector('.ser')) return;
+      var key = (card.querySelector('h2') || {}).textContent || '';
+      var apply = function (sel) {
+        ST.iso = ST.iso || {}; ST.iso[key] = sel;
+        ch.classList.toggle('iso', sel != null);
+        Array.prototype.forEach.call(ch.querySelectorAll('.ser,.enl'), function (e) { e.classList.toggle('on', sel != null && e.getAttribute('data-si') === String(sel)); });
+        Array.prototype.forEach.call(lg.querySelectorAll('span'), function (sp) { sp.classList.toggle('off', sel != null && sp.getAttribute('data-si') !== String(sel)); });
+      };
+      Array.prototype.forEach.call(lg.querySelectorAll('span'), function (sp) { sp.onclick = function () { var si = sp.getAttribute('data-si'); apply(ST.iso && ST.iso[key] === si ? null : si); }; });
+      if (ST.iso && ST.iso[key] != null) apply(ST.iso[key]);
+    });
     // routes card: round picker
     var rts = doc.getElementById('rt-s');
     if (rts && d.routes) {
@@ -1619,6 +1741,16 @@
         var box = doc.getElementById('rt-map'); if (!box) return;
         box.innerHTML = ST.rtMap ? rtMapHtml(d, +rts.value, ST.rtCorp) : '';
         Array.prototype.forEach.call(box.querySelectorAll('.rtc'), function (b) { b.onclick = function () { ST.rtCorp = b.getAttribute('data-c'); rtMapDraw(); }; });
+        var rci = doc.getElementById('rt-ci'), cur = box.querySelector('.rtc.cur');
+        if (rci && cur) rci.onclick = function () {
+          var lbl = function (t) { try { rci.textContent = t; setTimeout(function () { try { rci.textContent = 'copy as image'; } catch (e) {} }, 1800); } catch (e) {} };
+          try {
+            routeImage(d, Math.min(Math.max(+rts.value, 0), d.routes.length - 1), cur.getAttribute('data-c'), dark).toBlob(function (b) {
+              var save = function () { try { var a = w.document.createElement('a'); a.href = w.URL.createObjectURL(b); a.download = '18xx-routes.png'; w.document.body.appendChild(a); a.click(); a.remove(); lbl('saved as a file'); } catch (e) { lbl('copy failed'); } };
+              try { w.navigator.clipboard.write([new w.ClipboardItem({ 'image/png': b })]).then(function () { lbl('copied \u2713'); }, save); } catch (e) { save(); }
+            }, 'image/png');
+          } catch (e) { lbl('copy failed'); }
+        };
       };
       var rtSet = function (v) { v = Math.min(Math.max(v, 0), d.routes.length - 1); rts.value = v; ST.rtIdx = v; ST.rtGame = d.id; doc.getElementById('rt-b').innerHTML = rtBody(d, v, rtCol2); rtMapDraw(); };
       var rtmb = doc.getElementById('rt-mb');
@@ -1636,6 +1768,9 @@
         doc.getElementById('gl-l').textContent = d.gameLog.rounds[v].label;
         doc.getElementById('gl-b').innerHTML = glBody(d, v, ST.glQ, glCol, me); doc.getElementById('gl-b').scrollTop = 0;
       };
+      var glAgain = function () { ST.glGame = d.id; glSet(+gli.value); };
+      Array.prototype.forEach.call(doc.querySelectorAll('#gl-k .pill'), function (b) { b.onclick = function () { var k = b.getAttribute('data-k'); ST.glGame = d.id; ST.glKind = ST.glKind === k ? null : k; Array.prototype.forEach.call(doc.querySelectorAll('#gl-k .pill'), function (o) { o.classList.toggle('cur', o.getAttribute('data-k') === ST.glKind); }); glAgain(); }; });
+      var glc = doc.getElementById('gl-c'); if (glc) glc.onchange = function () { ST.glGame = d.id; ST.glCo = glc.value || null; glAgain(); };
       gli.oninput = function () { glSet(+gli.value); };
       doc.getElementById('gl-p').onclick = function () { glSet(+gli.value - 1); };
       doc.getElementById('gl-n').onclick = function () { glSet(+gli.value + 1); };
@@ -1706,6 +1841,9 @@
       var ttx = doc.getElementById('tt-x'); if (ttx) ttx.onclick = function () { ttExit(); };
     }
     doc.getElementById('sn').onclick = function () { snapRight(w); };
+    var zoomBy = function (dz) { var z = Math.min(1.5, Math.max(0.8, (parseFloat(lsGet('xxStats.zoom')) || 1) + dz)); lsSet('xxStats.zoom', String(Math.round(z * 100) / 100)); doc.body.style.zoom = String(z); };
+    doc.getElementById('zo').onclick = function () { zoomBy(-0.1); }; doc.getElementById('zi').onclick = function () { zoomBy(0.1); };
+    doc.body.style.zoom = String(parseFloat(lsGet('xxStats.zoom')) || 1);
     var updA = doc.getElementById('upd'); if (updA) updA.onclick = function (ev) { ev.preventDefault(); updateNow(updA); };
     doc.getElementById('gf').onsubmit = function (ev) { ev.preventDefault(); ST.giVal = ''; ST.menuOpen = false; var mm = String(doc.getElementById('gi').value).match(/(\d{3,})/); if (mm) { ST.gameId = mm[1]; ST.pfPlayer = null; w.document.body.innerHTML = '<p style="padding:20px">Loading game ' + mm[1] + '…</p>'; refresh(true); } };
     function drawPf(i) {
@@ -1731,8 +1869,8 @@
   // ---------- Layout: collapse and reorder sections, remembered per mode ----------------
   // Two layouts are kept in this browser: 'live' (game in progress) and 'review' (finished game).
   var DEFAULT_ORDER = {
-    live: ['now', 'what-just-happened', 'trains-phases-bank', 'routes-revenue', 'stock-round-helper', 'stock-market', 'standings', 'player-value-over-time', 'stock-ticker', 'portfolios', 'corporations', 'company-revenue-per-operating-round', 'share-price', 'game-log', 'minors-private-companies', 'tile-manifest'],
-    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'game-log', 'company-revenue-per-operating-round', 'share-price', 'portfolios', 'corporations', 'trains-phases-bank', 'routes-revenue', 'minors-private-companies', 'tile-manifest']
+    live: ['now', 'what-just-happened', 'trains-phases-bank', 'routes-revenue', 'stock-round-helper', 'stock-market', 'standings', 'player-value-over-time', 'stock-ticker', 'portfolios', 'corporations', 'company-revenue-per-operating-round', 'share-price', 'game-log', 'minors-private-companies', 'tile-manifest', 'game-info'],
+    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'game-log', 'company-revenue-per-operating-round', 'share-price', 'portfolios', 'corporations', 'trains-phases-bank', 'routes-revenue', 'minors-private-companies', 'tile-manifest', 'game-info']
   };
   function slug(txt) { return String(txt).toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
   function loadLayout(mode) {
@@ -1743,11 +1881,11 @@
         if (!v.m11 && v.order.indexOf('routes-revenue') >= 0 && v.order.indexOf('trains-phases-bank') >= 0) { // 0.11.1: Routes & revenue moved to sit right after Trains, phases & Bank (once)
           v.order.splice(v.order.indexOf('routes-revenue'), 1); v.order.splice(v.order.indexOf('trains-phases-bank') + 1, 0, 'routes-revenue'); v.m11 = 1;
         }
-        DEFAULT_ORDER[mode].forEach(function (k, i) { if (v.order.indexOf(k) < 0) { v.order.splice(Math.min(i, v.order.length), 0, k); if (k === 'tile-manifest' || k === 'minors-private-companies') (v.collapsed = v.collapsed || []).push(k); } });
+        DEFAULT_ORDER[mode].forEach(function (k, i) { if (v.order.indexOf(k) < 0) { v.order.splice(Math.min(i, v.order.length), 0, k); if (k === 'tile-manifest' || k === 'minors-private-companies' || k === 'game-info') (v.collapsed = v.collapsed || []).push(k); } });
         return v;
       }
     } catch (e) {}
-    return { order: DEFAULT_ORDER[mode].slice(), collapsed: ['minors-private-companies', 'tile-manifest'] };
+    return { order: DEFAULT_ORDER[mode].slice(), collapsed: ['minors-private-companies', 'tile-manifest', 'game-info'] };
   }
   function saveLayout(mode, lay) { try { localStorage.setItem('xxStats.layout.' + mode, JSON.stringify(lay)); } catch (e) {} }
   function applyLayout(w, mode) {

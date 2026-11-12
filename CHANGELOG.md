@@ -2,6 +2,17 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.13.0] - 2026-11-12
+
+### Added
+- **Charts:** click a name in a chart legend to show only that line (click again for all). Phase changes (blue ▲) and companies that close or merge (red ▲) are marked along the time axis; hover for the text.
+- **Routes & revenue:** "= same" marks a train that ran the same stops as in the company's previous run, and ▲/▼ shows the change in the company's revenue. A *copy as image* button under the map sketch copies the map and routes as a picture.
+- **Game log:** filter by kind of line (Stock, Revenue, Track, Trains, Auctions) and by company.
+- **Minors & private companies:** each private shows its ability text from the engine.
+- **Game info** card at the very bottom (collapsed): development stage, optional rules, play style, pinned version and how the game ends.
+- **Text size:** A− / A+ in the ⋯ menu.
+- **Narrow windows:** tighter single-column layout under about 720 px wide (new, may be revised).
+
 ## [0.12.2] - 2026-11-12
 
 ### Changed
