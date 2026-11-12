@@ -24,6 +24,9 @@ All notable changes to this project are listed here. The format follows [Keep a 
 - Obsolete trains get their own column and warning, separate from rusting.
 - A new company that has not operated yet shows "⚠ needs trains" instead of the red "⚠ no trains".
 
+### Documentation
+- Updates through the bookmark can take about 12 hours to reach everyone; the README and CONTRIBUTING now say so, with a way to pin a version for immediate use.
+
 ### Fixed
 - Clicking the bookmark a second time left the old copy running and could empty the history charts.
 

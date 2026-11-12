@@ -21,7 +21,7 @@ javascript:(function(){if(!/18xx\.games\/game\/\d+/.test(location.href)){alert('
 
 5. Save.
 
-The bookmark is only a loader: it fetches the newest `stats.js` from this repository each time. When the code is improved here, everyone gets the new version on their next click.
+The bookmark is only a loader: it fetches `stats.js` from this repository each time. When the code is improved here, the new version reaches everyone without reinstalling, usually within about 12 hours (the delivery network caches which version is newest). The version number is shown at the top of the stats window. To get a new version at once, see *Releasing* in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Use
 

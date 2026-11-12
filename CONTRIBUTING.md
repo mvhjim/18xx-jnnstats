@@ -31,7 +31,6 @@ Good test games are recent finished games of the titles you touched; the 18xx.ga
 1. Update `VERSION` at the top of `stats.js`.
 2. Add an entry to `CHANGELOG.md`.
 3. Push to `main`.
-4. jsDelivr caches files for up to 12 hours. To publish at once, **wait about 5 minutes after pushing** (jsDelivr needs that long to see the new commit), then open
-   `https://purge.jsdelivr.net/gh/mvhjim/18xx-jnnstats@main/stats.js` in a browser.
-5. Check it: open `https://cdn.jsdelivr.net/gh/mvhjim/18xx-jnnstats@main/stats.js` and look for the new `VERSION`. If it still shows the old one, purge again.
-   jsDelivr limits how often one file can be purged. If the purge page says `"throttled": true`, wait the number of seconds in `throttlingReset` and try again, or simply wait: the update arrives on its own within 12 hours.
+4. Expect the update to reach bookmarks within about 12 hours. jsDelivr remembers which commit `main` points to for up to 12 hours, and its servers do not all refresh at the same moment, so for a while different people can get different versions (even an older one than before).
+   Purging (`https://purge.jsdelivr.net/gh/mvhjim/18xx-jnnstats@main/stats.js`) sometimes speeds this up but is not reliable, and is rate-limited.
+5. To use or test a new version straight away, pin the bookmark to the commit: replace `@main` in the bookmark's URL with `@` followed by the short commit hash from GitHub (for example `@a4b8b56`). A pinned address never changes, so switch back to `@main` afterwards to keep getting updates.
