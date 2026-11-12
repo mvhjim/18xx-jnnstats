@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.5.0';
+  var VERSION = '0.6.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -58,6 +58,8 @@
     var rd = g.round, short = s(rd.$class().$short_name());
     var snap = { label: short + ' ' + s(g.$turn()) + (short === 'OR' ? '.' + s(call(rd, 'round_num')) : ''), prices: {}, hold: {}, cash: {}, priv: {}, value: {}, minors: {}, companies: {}, corpCash: {} };
     var corps = g.$corporations();
+    snap.bank = num(call(call(g, 'bank'), 'cash'));
+    snap.certLimit = num(call(g, 'cert_limit', g.$players()[0]) || call(g, 'cert_limit'));
     corps.forEach(function (c) {
       var sp = call(c, 'share_price'); if (sp) snap.prices[s(c.$name())] = num(call(sp, 'price'));
       snap.corpCash[s(c.$name())] = num(call(c, 'cash'));
@@ -91,13 +93,24 @@
     });
     return snap;
   }
+  // The step that knows how a dividend moves the share price (title-specific rules).
+  function findDivStep(round) {
+    var steps = call(round, 'steps') || [], i;
+    for (i = 0; i < steps.length; i++) if (rt(steps[i], 'share_price_change')) return steps[i];
+    return null;
+  }
   function installHook() {
     var B = Opal.Engine.Game.Base.prototype;
-    if (B.__xxHooked) return;
-    var orig = B.$store_player_info;
+    // Each load of this script installs its own hook around the engine's original function,
+    // so clicking the bookmark again (or a newer version) never leaves a stale hook in charge.
+    if (B.__xxHookOwner === ST.token) return;
+    var orig = B.__xxOrigSPI || B.$store_player_info;
     if (typeof orig !== 'function') return;
+    B.__xxOrigSPI = orig;
+    B.__xxHookOwner = ST.token;
     B.$store_player_info = function () {
       var r = orig.apply(this, arguments);
+      try { var ds = findDivStep(this.round); if (ds) this.__xxDivStep = ds; } catch (e) {}
       if (SNAP && SNAP.active) {
         try { if (bool(call(this.round, 'show_in_history?'))) SNAP.list.push(takeSnapshot(this)); } catch (e) { SNAP.err = String(e); }
       }
@@ -127,6 +140,22 @@
     finally { SNAP.active = false; }
     g.__xxSnaps = SNAP.list;
     return g;
+  }
+  // Apply only the new moves to a game that is already replayed. Returns false when a full
+  // replay is needed instead (undo/redo, an engine error, or the engine handing back a new game).
+  function applyActions(g, actions) {
+    installHook();
+    SNAP = { active: true, list: g.__xxSnaps || (g.__xxSnaps = []) };
+    try {
+      for (var i = 0; i < actions.length; i++) {
+        var a = actions[i];
+        if (!a || a.type === 'undo' || a.type === 'redo') return false;
+        var r = g.$process_action(Opal.JSON.$parse(JSON.stringify(a)));
+        if (r !== g || !nil(call(g, 'exception'))) return false;
+      }
+      return true;
+    } catch (e) { return false; }
+    finally { SNAP.active = false; }
   }
 
   function extract(g, raw) {
@@ -189,7 +218,11 @@
         operated: bool(call(c, 'operated?')), closed: bool(call(c, 'closed?')), oh: oh,
         tokensLeft: (call(c, 'tokens') || []).filter(function (t) { return !bool(call(t, 'used')); }).length,
         tokensTotal: (call(c, 'tokens') || []).length,
-        loans: (call(c, 'loans') || []).length
+        loans: (call(c, 'loans') || []).length,
+        maxLoans: num(call(g, 'maximum_loans', c)), interestOwed: (call(c, 'loans') || []).length ? num(call(g, 'interest_owed', c)) : 0,
+        ipoShares: num(call(c, 'num_ipo_shares')), marketShares: num(call(c, 'num_market_shares')),
+        totalShares: num(call(c, 'total_shares')) || 10, sharePct: num(call(c, 'share_percent')) || 10,
+        trainLimit: num(call(g.$phase(), 'train_limit', c))
       };
     });
     var corpColor = {};
@@ -373,7 +406,7 @@
       p.status = j < curIdx ? 'past' : j === curIdx ? 'current' : 'future';
       p.inPurchases = p.status === 'future' && p.on.length ? untilTrigger(p.on) : null;
     });
-    groups.forEach(function (gr) { gr.rustIn = gr.rustsOn ? untilTrigger([gr.rustsOn]) : -1; });
+    groups.forEach(function (gr) { gr.rustIn = gr.rustsOn ? untilTrigger([gr.rustsOn]) : -1; gr.obsIn = gr.obsoleteOn ? untilTrigger([gr.obsoleteOn]) : -1; });
     // trains at risk: owned trains whose rust trigger is still ahead
     var risk = [];
     corps.forEach(function (c) {
@@ -381,10 +414,140 @@
       var safe = rustIn.filter(function (x) { return x < 0; }).length;
       var soonest = rustIn.filter(function (x) { return x >= 0; }).sort(function (a, b) { return a - b; })[0];
       c.rustIn = rustIn;
+      // obsolete is not rust: the train is on its way out under the title's own rules
+      c.obsIn = c.trains.map(function (t) { return t.obsoleteOn ? untilTrigger([t.obsoleteOn]) : -1; });
       c.trainless = c.trains.length === 0;
+      c.needsTrains = c.trainless && c.oh.length === 0; // new company that has not operated yet
       c.allRustAt = (safe === 0 && c.trains.length) ? Math.max.apply(null, rustIn) : null;
       if (soonest != null) risk.push({ corp: c.name, inPurchases: soonest, count: rustIn.filter(function (x) { return x === soonest; }).length, ofTotal: c.trains.length });
     });
+
+    // ---------- Live-play helpers ----------------------------------------------------------
+    var corpObj = {}; g.$corporations().forEach(function (c) { corpObj[s(c.$name())] = c; });
+    var playerCash = {}; players.forEach(function (p) { playerCash[p.name] = p.cash; });
+    var rShort = s(r.$class().$short_name());
+    var isOR = rShort === 'OR', isSR = rShort === 'SR';
+
+    // Cheapest train that can be bought from the bank right now (new or bank pool), and how each company could pay
+    var cheapest = null;
+    try {
+      var mt = call(depot, 'min_depot_train'), mp = call(depot, 'min_depot_price');
+      if (mt && mp != null) cheapest = { name: s(mt.$name()), price: num(mp), pool: discSet.has(mt) };
+    } catch (e) {}
+    if (!cheapest && nextTrain) cheapest = { name: s(nextTrain.$name()), price: num(nextTrain.$price()), pool: false };
+    corps.forEach(function (c) {
+      if (!cheapest) { c.buy = null; return; }
+      var pc = playerCash[c.president] || 0, gap = cheapest.price - c.cash;
+      var full = c.trainLimit && c.trains.length >= c.trainLimit;
+      c.buy = gap <= 0 ? { kind: full ? 'full' : 'treasury' }
+        : c.trainless ? (pc >= gap ? { kind: 'emergency', add: gap } : { kind: 'stuck', add: gap, shortAfter: gap - pc })
+        : { kind: 'short', add: gap };
+      c.buy.loanRoom = c.maxLoans > c.loans && (c.loans > 0 || rt(g, 'interest_owed')) ? c.maxLoans - c.loans : 0;
+    });
+
+    // Who acts, and the order of this round
+    var acting = (call(g, 'active_players') || []).map(nameOf).filter(Boolean);
+    var curEnt = nameOf(call(g, 'current_entity'));
+    var eIdx = num(call(r, 'entity_index'));
+    var order = (call(r, 'entities') || []).map(function (e, i) {
+      var nm = nameOf(e);
+      return { name: nm, color: corpColor[nm] || null, owner: corpObj[nm] ? nameOf(call(e, 'owner')) : '', state: finished ? 'done' : i < eIdx ? 'done' : i === eIdx ? 'current' : 'todo' };
+    });
+    var orsInSet = num(call(g, 'operating_rounds')) || num(call(phase, 'operating_rounds'));
+
+    // Price preview: where the share price goes if the company pays out its last revenue, or withholds
+    var divStep = findDivStep(r) || g.__xxDivStep || null;
+    function previewPrice(c, revenue) {
+      try {
+        var hsh = divStep.$share_price_change(c, revenue);
+        if (nil(hsh)) return null;
+        var dir = hsh.$fetch('share_direction', Opal.nil), times = hsh.$fetch('share_times', Opal.nil);
+        var cur = num(call(call(c, 'share_price'), 'price'));
+        if (nil(dir)) return cur;
+        var dd = Array.isArray(dir) ? dir : [dir], tm = Array.isArray(times) ? times : [times], dirs = [];
+        dd.forEach(function (x, i) { for (var k = 0; k < (num(tm[i]) || 1); k++) dirs.push(x); });
+        var sp = g.$stock_market().$find_share_price(c, dirs);
+        return nil(sp) ? null : num(sp.$price());
+      } catch (e) { return null; }
+    }
+    var market = corps.filter(function (c) { return !c.closed && c.price != null; }).map(function (c) {
+      var co = corpObj[c.name];
+      var ohs = c.oh.slice().sort(function (a, b) { return (a.t * 100 + a.r) - (b.t * 100 + b.r); });
+      var last = ohs[ohs.length - 1], lastRun = null;
+      for (var q = ohs.length - 1; q >= 0; q--) if (ohs[q].revenue > 0) { lastRun = ohs[q]; break; }
+      var dps = last ? (last.kind === 'payout' ? last.revenue / c.totalShares : last.kind === 'half' ? last.revenue / 2 / c.totalShares : 0) : null;
+      // presidency: how close is the nearest challenger
+      var holders = players.map(function (p) { var hh = curSnap ? (curSnap.hold[p.name] || {})[c.name] : null; return { name: p.name, pct: hh ? hh.pct : 0, pres: hh ? hh.pres : false }; });
+      var pres = holders.filter(function (x) { return x.pres; })[0] || null;
+      var chal = holders.filter(function (x) { return !x.pres && x.pct > 0; }).sort(function (a, b) { return b.pct - a.pct; })[0] || null;
+      var need = pres && chal ? Math.floor((pres.pct - chal.pct) / c.sharePct) + 1 : null;
+      var done = order.filter(function (o) { return o.name === c.name; })[0];
+      return { name: c.name, color: c.color, price: c.price, ipo: c.ipoShares, pool: c.marketShares, sharePct: c.sharePct,
+        dps: dps, yield: dps != null && c.price ? dps / c.price * 100 : null, lastKind: last ? last.kind : null,
+        estRevenue: lastRun ? lastRun.revenue : null,
+        ifPay: divStep && lastRun && co ? previewPrice(co, lastRun.revenue) : null,
+        ifHold: divStep && co ? previewPrice(co, 0) : null,
+        orState: isOR && done ? done.state : null,
+        pres: pres, chal: chal, need: need, canTake: need != null && need <= c.ipoShares + c.marketShares };
+    });
+
+    // Train rush: could the companies still to act buy enough trains to trigger the next phase?
+    var rush = null;
+    var nPh = phases.filter(function (p) { return p.status === 'future' && p.inPurchases > 0; })[0];
+    if (nPh && !finished) {
+      var costs = upcoming.slice(0, nPh.inPurchases).map(function (t) { return num(t.$price()); });
+      var buyers = isOR ? order.filter(function (o) { return o.state !== 'done'; }).map(function (o) { return o.name; }) : corps.map(function (c) { return c.name; });
+      var left = costs.slice(), bought = 0, cashTotal = 0, who = [];
+      buyers.forEach(function (bn) {
+        var c = corps.filter(function (x) { return x.name === bn; })[0]; if (!c) return;
+        var cash = c.cash, room = c.trainLimit ? c.trainLimit - c.trains.length : 1, n = 0;
+        cashTotal += cash;
+        while (room > 0 && left.length && cash >= left[0]) { cash -= left.shift(); room--; bought++; n++; }
+        if (n) who.push(bn + (n > 1 ? '×' + n : ''));
+      });
+      var rustHit = groups.filter(function (gr) { return gr.owned && gr.rustIn === nPh.inPurchases; }).map(function (gr) { return gr.sym; });
+      var obsHit = groups.filter(function (gr) { return gr.owned && gr.obsIn === nPh.inPurchases; }).map(function (gr) { return gr.sym; });
+      rush = { phase: nPh.name, need: nPh.inPurchases, cost: costs.reduce(function (a, b) { return a + b; }, 0), cash: cashTotal, bought: bought, possible: bought >= nPh.inPurchases, who: who, rust: rustHit, obsolete: obsHit, scope: isOR ? 'companies still to operate this OR' : 'all companies' };
+    }
+
+    // Game end: the title's own end conditions, plus a bank estimate from the recent pace
+    var endInfo = { conditions: [], triggered: null, bankORs: null, bankDrop: null };
+    try {
+      var gec = g.$class().$const_get('GAME_END_CHECK');
+      if (!nil(gec)) gec.$to_a().forEach(function (kv) { endInfo.conditions.push({ reason: s(kv[0]).replace(/_/g, ' '), timing: s(kv[1]).replace(/_/g, ' ').replace(/\bor\b/g, 'OR') }); });
+      var trig = call(g, 'game_end_check');
+      if (trig && trig.length) endInfo.triggered = { reason: s(trig[0]).replace(/_/g, ' '), timing: s(trig[1]).replace(/_/g, ' ').replace(/\bor\b/g, 'OR') };
+    } catch (e) {}
+    var orSnaps = snaps.filter(function (sn) { return /^OR /.test(sn.label) && sn.bank != null; });
+    if (orSnaps.length >= 2 && endInfo.conditions.some(function (c) { return c.reason === 'bank'; })) {
+      var k0 = Math.max(0, orSnaps.length - 3), span = orSnaps.length - 1 - k0;
+      var drop = (orSnaps[k0].bank - orSnaps[orSnaps.length - 1].bank) / span;
+      var bankNow = num(g.$bank().$cash());
+      if (drop > 0 && bankNow > 0) { endInfo.bankDrop = drop; endInfo.bankORs = bankNow / drop; }
+    }
+
+    // Certificate limit: room per player is in the standings; note when the limit last changed
+    var certNote = null;
+    for (var ci2 = snaps.length - 1; ci2 > 0; ci2--) {
+      if (snaps[ci2].certLimit && snaps[ci2 - 1].certLimit && snaps[ci2].certLimit !== snaps[ci2 - 1].certLimit) { certNote = { from: snaps[ci2 - 1].certLimit, to: snaps[ci2].certLimit, at: snaps[ci2].label }; break; }
+    }
+
+    // Loans and interest (1817 family)
+    var loanInfo = null;
+    if (corps.some(function (c) { return c.loans > 0; }) || rt(g, 'interest_owed')) {
+      loanInfo = { rate: num(call(g, 'interest_rate')), future: rt(g, 'future_interest_rate') ? num(call(g, 'future_interest_rate')) : null, value: num(call(g, 'loan_value')),
+        total: corps.reduce(function (a, c) { return a + c.loans; }, 0), owed: corps.reduce(function (a, c) { return a + c.interestOwed; }, 0) };
+    }
+
+    // What just happened: the latest log lines
+    var feed = [];
+    for (var fi = log.length - 1; fi >= 0 && feed.length < 14; fi--) {
+      var fm = s(call(log[fi], 'message')); if (!fm) continue;
+      feed.push({ id: num(call(log[fi], 'action_id')), msg: fm, head: /^-- /.test(fm) });
+    }
+
+    var live = { isOR: isOR, isSR: isSR, acting: acting, current: curEnt, order: order, orNum: isOR ? num(call(r, 'round_num')) : null, orsInSet: orsInSet,
+      priority: nameOf(call(g, 'priority_deal_player')), market: market, rush: rush, end: endInfo, hasPreview: !!divStep };
 
     var notes = cfg.notes ? cfg.notes(g) : [];
     return {
@@ -395,7 +558,7 @@
       trainGroups: groups, phases: phases, risk: risk,
       ticker: ticker, portfolio: portfolio, holdings: holdings, minors: minorList, companies: companyList, snapErr: SNAP && SNAP.err,
       nextTrain: nextTrain ? { name: s(nextTrain.$name()), sym: s(call(nextTrain, 'sym')), price: num(nextTrain.$price()) } : null,
-      upcomingCount: upcoming.length, notes: notes, updated: new Date()
+      upcomingCount: upcoming.length, notes: notes, updated: new Date(), live: live, feed: feed, certNote: certNote, loanInfo: loanInfo, cheapest: cheapest
     };
   }
 
@@ -425,6 +588,16 @@
     '.tiles{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:6px}.tile{flex:1 1 120px;border:1px solid var(--grid);border-radius:8px;padding:8px 10px}.tile .l{font-size:11px;color:var(--text-muted)}.tile .v{font-size:20px;font-weight:650;font-variant-numeric:tabular-nums}',
     '.notes{color:var(--text-muted);font-size:12px;margin:6px 0 0;padding-left:16px}',
     '.err{color:var(--crit);padding:20px}',
+    '#xx-paused{position:fixed;left:0;right:0;bottom:0;z-index:20;background:#c62828;color:#fff;padding:10px 16px;font-weight:600;font-size:14px}',
+    '.nowline{margin:0 0 8px;font-size:14px}.pill.yours{background:var(--good);border-color:var(--good);color:#fff}.mename{background:color-mix(in srgb,var(--accent) 22%,transparent);border-radius:4px;padding:0 3px}',
+    '.chips{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 10px}.chip{border:1px solid var(--border);border-radius:999px;padding:1px 9px;font-size:12px}.chip.done{opacity:.5}.chip.current{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:650}',
+    '.tile .d2{font-size:12px;color:var(--text-secondary);margin-top:2px}.sm{font-size:13px;color:var(--text-muted);font-weight:400}.tile .v.sm2{font-size:15px;color:var(--text-muted)}',
+    '.feed{list-style:none;margin:0;padding:0;max-height:260px;overflow:auto}.feed li{padding:3px 0 3px 14px;border-bottom:1px solid var(--grid);position:relative;font-size:12.5px}.feed li.head{color:var(--text-muted);font-size:11.5px}',
+    '.feed li.new{font-weight:600}.feed li.new:before,.newdot{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent)}.feed li.new:before{position:absolute;left:1px;top:8px}',
+    'button.lnk{font:inherit;font-size:12px;border:0;background:none;color:var(--accent);cursor:pointer;padding:0;text-decoration:underline}',
+    'tr.merow{background:color-mix(in srgb,var(--accent) 12%,transparent)}tr.merow td:first-child{box-shadow:inset 3px 0 0 var(--accent)}',
+    '.mesel{font-size:12px}.mesel select{font:inherit;font-size:12px;padding:2px 4px;border:1px solid var(--border);border-radius:6px;background:var(--surface-0);color:var(--text-primary)}',
+    '@keyframes fl{0%{background:color-mix(in srgb,var(--accent) 55%,transparent)}100%{background:transparent}}.fl{animation:fl 3s ease-out;border-radius:4px}@media (prefers-reduced-motion:reduce){.fl{animation:none;outline:2px solid var(--accent)}}',
     'h2.sh{display:flex;align-items:center;gap:6px;margin:-4px -6px 6px !important;padding:2px 4px;border-radius:6px}h2.sh .st{flex:1}',
     'h2.sh button{font:inherit;font-size:11px;line-height:1;padding:3px 5px;border:1px solid transparent;border-radius:5px;background:none;color:var(--text-muted);cursor:pointer}h2.sh button:hover{border-color:var(--border);color:var(--text-primary)}',
     'h2.sh .tg{font-size:13px;width:22px}.grip{cursor:grab;color:var(--text-muted);user-select:none;padding:0 2px}.mv{opacity:0;transition:opacity .15s}.card:hover .mv,.card:focus-within .mv{opacity:1}',
@@ -438,6 +611,21 @@
     '.tl{display:flex;flex-wrap:wrap;gap:4px;align-items:center}.tl span.o{border:1px solid var(--border);border-radius:6px;padding:0 6px}.tl small{color:var(--text-muted)}'
   ].join('\n');
 
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  // Two short tones, played in the stats window (the sound toggle click unlocks audio there).
+  function beep(w) {
+    try {
+      var ac = w.__xxAudio; if (!ac) return;
+      [[880, 0], [1175, 0.18]].forEach(function (n) {
+        var o = ac.createOscillator(), gn = ac.createGain(), t0 = ac.currentTime + n[1];
+        o.type = 'sine'; o.frequency.value = n[0];
+        gn.gain.setValueAtTime(0.0001, t0); gn.gain.exponentialRampToValueAtTime(0.25, t0 + 0.02); gn.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16);
+        o.connect(gn); gn.connect(ac.destination); o.start(t0); o.stop(t0 + 0.18);
+      });
+      ST.beeps = (ST.beeps || 0) + 1;
+    } catch (e) {}
+  }
   function isDark(w) { try { return w.matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) { return false; } }
   function luminance(hex) {
     var m = /^#?([0-9a-f]{6})$/i.exec(hex || ''); if (!m) return 0.5;
@@ -481,7 +669,7 @@
       var col = displayColor(ser.color, opts.dark);
       var halo = !opts.dark && luminance(col) > 0.6;
       if (halo) out.push('<path d="' + d + '" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>');
-      out.push('<path data-s="' + si + '" d="' + d + '" fill="none" stroke="' + col + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"' + (ser.dashed ? ' stroke-dasharray="5 4"' : '') + '/>');
+      out.push('<path data-s="' + si + '" d="' + d + '" fill="none" stroke="' + col + '" stroke-width="' + (ser.bold ? 4 : 2) + '" stroke-linejoin="round" stroke-linecap="round"' + (ser.dashed ? ' stroke-dasharray="5 4"' : '') + '/>');
       if (ser.kinds) ser.values.forEach(function (val, i) {
         if (val == null) return; var k = ser.kinds[i];
         var ring = halo ? 'rgba(0,0,0,.55)' : col;
@@ -589,7 +777,13 @@
   function render(w, d) {
     var doc = w.document, dark = isDark(w), pal = PLAYER_COLORS[dark ? 'dark' : 'light'];
     var m = d.money;
-    doc.title = d.title + ' · ' + d.id + ' · Stats';
+    var me = lsGet('xxStats.me');
+    if (me && !d.players.some(function (p) { return p.name === me; })) me = null;
+    var myTurn = !!me && !d.finished && !!d.live && d.live.acting.indexOf(me) >= 0;
+    var soundOn = lsGet('xxStats.sound') === '1', armed = !!w.__xxAudio;
+    doc.title = (myTurn ? '● Your turn · ' : '') + d.title + ' · ' + d.id + ' · 18xx-JNNstats';
+    if (ST.lookGame !== d.id) { ST.lookGame = d.id; ST.lookId = d.feed.length ? d.feed[0].id : 0; }
+    ST.maxFeedId = d.feed.length ? d.feed[0].id : 0;
     var leader = Math.max.apply(null, d.players.map(function (p) { return p.value; }));
     var ranked = d.players.slice().sort(function (a, b) { return b.value - a.value; });
     var maxVal = leader || 1;
@@ -597,10 +791,74 @@
     var h = [];
     h.push('<header><h1>' + esc(d.title) + ' <span style="color:var(--text-muted);font-weight:400">#' + esc(d.id) + '</span></h1>');
     h.push('<span class="kv">Round <b>' + esc(d.roundLabel) + '</b></span><span class="kv">Phase <b>' + esc(d.phase) + '</b></span>');
-    h.push('<span class="kv">Bank <b class="' + (d.bank <= 0 ? 'st-crit' : '') + '">' + esc(m(d.bank)) + '</b></span>');
+    h.push('<span class="kv">Bank <b data-f="bank" class="' + (d.bank <= 0 ? 'st-crit' : '') + '">' + esc(m(d.bank)) + '</b></span>');
     if (d.nextTrain) h.push('<span class="kv">Next train <b>' + esc(d.nextTrain.name) + '</b> ' + esc(m(d.nextTrain.price)) + '</span>');
     if (d.finished) h.push('<span class="pill" style="border-color:var(--crit);color:var(--crit)">Game over</span>');
-    h.push('<span class="right"><a href="' + REPO_URL + '" target="_blank" rel="noopener" style="color:inherit">18xx-JNNstats v' + VERSION + ' by jimiste</a> · ' + d.actions + ' actions · updated ' + d.updated.toLocaleTimeString() + ' · auto-refresh 10 s <button id="rf">Refresh</button> <button id="sn" title="Move this window to the right half of the screen">◨ Half screen</button> <button id="lr" title="Restore the default order and expand all sections">Reset <span id="lm">layout</span></button> <form id="gf" style="display:inline"><input id="gi" placeholder="game # or link" size="12" style="font:inherit;font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface-0);color:var(--text-primary)"> <button>Open</button></form></span></header><main>');
+    h.push('<span class="right"><a href="' + REPO_URL + '" target="_blank" rel="noopener" style="color:inherit">18xx-JNNstats v' + VERSION + ' by jimiste</a> · ' + d.actions + ' actions · updated ' + d.updated.toLocaleTimeString() + ' · ' + esc(ST.statusText || '') + (ST.verify ? ' · <span class="' + (ST.verify.ok ? 'st-good' : 'st-warn') + '" title="After each round the whole game is replayed from scratch and compared with the live numbers">' + (ST.verify.ok ? '✓ verified' : '⚠ corrected') + ' at ' + esc(ST.verify.at) + '</span>' : '') +
+      ' <label class="mesel">I am <select id="me"><option value="">…</option>' + d.players.map(function (p) { return '<option' + (p.name === me ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') + '</select></label>' +
+      ' <button id="snd" title="Play a sound in this window when it becomes your turn">' + (soundOn ? (armed ? '🔔 Sound on' : '🔔 Click to arm sound') : '🔕 Sound off') + '</button> <button id="rf">Refresh</button> <button id="sn" title="Move this window to the right half of the screen">◨ Half screen</button> <button id="lr" title="Restore the default order and expand all sections">Reset <span id="lm">layout</span></button> <form id="gf" style="display:inline"><input id="gi" placeholder="game # or link" size="12" style="font:inherit;font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface-0);color:var(--text-primary)"> <button>Open</button></form></span></header><main>');
+
+    // ---------- Live sections: Now, What just happened, Stock round helper -----------------
+    var L = d.live;
+    var buysTxt = function (n) { return n === 1 ? 'on the next buy' : 'in ' + n + ' buys'; };
+    if (!d.finished && L) {
+      h.push('<section class="card wide"><h2>Now</h2>');
+      h.push('<p class="nowline">' + (myTurn ? '<span class="pill yours">● Your turn</span> ' : '') + 'To act: <b>' + (L.acting.length ? L.acting.map(function (a) { return a === me ? '<span class="mename">' + esc(a) + '</span>' : esc(a); }).join(', ') : '—') + '</b>' +
+        (L.current && L.acting.indexOf(L.current) < 0 ? ' for <b>' + esc(L.current) + '</b>' : '') +
+        ' · ' + esc(d.roundLabel) + (L.isOR && L.orsInSet ? ' <span style="color:var(--text-muted)">(operating round ' + L.orNum + ' of ' + L.orsInSet + ' in this set' + (L.orsInSet - L.orNum > 0 ? ', ' + (L.orsInSet - L.orNum) + ' more to come' : ', then a stock round') + ')</span>' : '') +
+        (L.priority ? ' · Priority deal: <b>' + esc(L.priority) + '</b>' : '') + '</p>');
+      if (L.order.length) h.push('<div class="chips">' + L.order.map(function (o) {
+        return '<span class="chip ' + o.state + '" title="' + (o.state === 'done' ? 'has acted' : o.state === 'current' ? 'acting now' : 'still to act') + (o.owner ? ' · president ' + esc(o.owner) : '') + '">' + (o.color ? '<i class="sw" style="background:' + displayColor(o.color, dark) + '"></i>' : '') + (o.state === 'done' ? '✓ ' : o.state === 'current' ? '▶ ' : '') + esc(o.name) + '</span>';
+      }).join('') + '</div>');
+      h.push('<div class="tiles">');
+      // Me
+      if (me) {
+        var mp = d.players.filter(function (p) { return p.name === me; })[0], mr = ranked.indexOf(mp) + 1;
+        h.push('<div class="tile"><div class="l">Me · ' + esc(me) + '</div><div class="v" data-f="me:v">' + esc(m(mp.value)) + ' <small class="sm">#' + mr + ' of ' + ranked.length + '</small></div>' +
+          '<div class="d2">' + (mr === 1 ? 'leading by ' + esc(m(mp.value - (ranked[1] ? ranked[1].value : 0))) : esc(m(leader - mp.value)) + ' behind ' + esc(ranked[0].name)) + '</div>' +
+          '<div class="d2">Cash <b data-f="me:c">' + esc(m(mp.cash)) + '</b>' + (mp.certLimit ? ' · room for <b>' + Math.max(0, mp.certLimit - mp.certs) + '</b> more certificate' + (mp.certLimit - mp.certs === 1 ? '' : 's') : '') + '</div>' +
+          (L.priority ? '<div class="d2">' + (L.priority === me ? 'You hold the priority deal' : 'Priority deal: ' + esc(L.priority)) + '</div>' : '') + '</div>');
+      } else {
+        h.push('<div class="tile"><div class="l">Me</div><div class="d2">Pick your name under <b>I am…</b> at the top to highlight yourself everywhere and get a turn signal.</div></div>');
+      }
+      // Train rush
+      if (L.rush) {
+        var ru = L.rush;
+        h.push('<div class="tile"><div class="l">Train rush · phase ' + esc(ru.phase) + '</div><div class="v ' + (ru.possible ? 'st-warn' : '') + '">' + (ru.possible ? '⚠ possible now' : 'not yet') + '</div>' +
+          '<div class="d2">Phase ' + esc(ru.phase) + ' starts ' + buysTxt(ru.need) + ' (' + esc(m(ru.cost)) + ' of trains).</div>' +
+          '<div class="d2">The ' + esc(ru.scope) + ' hold ' + esc(m(ru.cash)) + ' and could buy <b>' + ru.bought + ' of ' + ru.need + '</b> from their treasuries' + (ru.who.length ? ' (' + esc(ru.who.join(', ')) + ')' : '') + '.</div>' +
+          (ru.rust.length ? '<div class="d2 st-crit">Rusts: ' + esc(ru.rust.join(', ')) + '</div>' : '') + (ru.obsolete.length ? '<div class="d2 st-warn">Becomes obsolete: ' + esc(ru.obsolete.join(', ')) + '</div>' : '') + '</div>');
+      }
+      // Game end
+      var en = L.end;
+      h.push('<div class="tile"><div class="l">Game end</div>' +
+        (en.triggered ? '<div class="v st-crit">Triggered</div><div class="d2">' + esc(en.triggered.reason) + ' → ends ' + esc(en.triggered.timing) + '</div>'
+          : en.bankORs != null ? '<div class="v">≈ ' + (en.bankORs < 10 ? en.bankORs.toFixed(1) : Math.round(en.bankORs)) + ' <small class="sm">ORs of bank left</small></div><div class="d2">Bank ' + esc(m(d.bank)) + ', falling about ' + esc(m(en.bankDrop)) + ' per OR lately.</div>'
+          : '<div class="v sm2">not triggered</div>') +
+        (en.conditions.length ? '<div class="d2">Ends on: ' + en.conditions.map(function (c) { return esc(c.reason) + ' <span style="color:var(--text-muted)">(' + esc(c.timing) + ')</span>'; }).join(', ') + '</div>' : '') + '</div>');
+      h.push('</div></section>');
+
+      // Feed
+      h.push('<section class="card"><h2>What just happened</h2><p class="sub">Latest moves, newest first. <span class="newdot"></span> = since you last looked here <button id="seen" class="lnk">mark all as seen</button></p><ul class="feed">' +
+        d.feed.map(function (f) { return '<li class="' + (f.head ? 'head' : '') + (ST.lookId != null && f.id > ST.lookId ? ' new' : '') + '">' + esc(f.msg) + '</li>'; }).join('') + '</ul></section>');
+
+      // Stock round helper
+      if (L.market.length) {
+        h.push('<section class="card wide"><h2>Stock round helper</h2><p class="sub">Shares still available, what a share pays, and where the price goes next. ' + (L.hasPreview ? 'Price preview assumes the company earns the same as its last run.' : 'Price preview appears once the first operating round has been played.') + '</p><div class="tw"><table><thead><tr><th>Corp</th><th>Price</th><th title="Shares left in the initial offering">IPO</th><th title="Shares in the bank pool / market">Market</th><th title="Dividend per share at the last operating turn">Last div / share</th><th title="Last dividend per share as % of the share price">Yield</th><th>If it pays →</th><th>If it withholds →</th><th style="text-align:left">Presidency</th></tr></thead><tbody>');
+        L.market.forEach(function (k) {
+          var arrow = function (v) { if (v == null) return '<span style="color:var(--text-muted)">—</span>'; var dl = v - k.price; return '<b>' + esc(m(v)) + '</b> <span class="' + (dl > 0 ? 'up' : dl < 0 ? 'down' : 'flat') + '">' + (dl > 0 ? '▲' : dl < 0 ? '▼' : '■') + (dl ? ' ' + esc(m(Math.abs(dl))) : '') + '</span>'; };
+          var prs = !k.pres ? '<span style="color:var(--text-muted)">—</span>'
+            : '<span' + (k.pres.name === me ? ' class="mename"' : '') + '>' + esc(k.pres.name) + '</span> ' + k.pres.pct + '%' +
+              (k.chal ? (k.need <= 1 ? ' <span class="st-crit">⚠ ' + esc(k.chal.name) + ' (' + k.chal.pct + '%) takes it with 1 more share' + (k.canTake ? '' : ', none available now') + '</span>'
+                : k.need === 2 ? ' <span class="st-warn">' + esc(k.chal.name) + ' (' + k.chal.pct + '%) needs 2 more</span>'
+                : ' <span style="color:var(--text-muted)">next: ' + esc(k.chal.name) + ' ' + k.chal.pct + '%</span>') : '');
+          h.push('<tr><td><i class="sw" style="background:' + displayColor(k.color, dark) + '"></i><b>' + esc(k.name) + '</b>' + (k.orState === 'done' ? ' <small style="color:var(--text-muted)">ran</small>' : k.orState === 'current' ? ' <small class="st-warn">▶ now</small>' : '') + '</td><td data-f="mk:' + esc(k.name) + '">' + esc(m(k.price)) + '</td><td>' + (k.ipo ? k.ipo + ' × ' + k.sharePct + '%' : '<span style="color:var(--text-muted)">0</span>') + '</td><td>' + (k.pool ? k.pool + ' × ' + k.sharePct + '%' : '<span style="color:var(--text-muted)">0</span>') + '</td>' +
+            '<td>' + (k.dps == null ? '—' : esc(m(k.dps)) + (k.lastKind && k.lastKind !== 'payout' ? ' <small style="color:var(--text-muted)">' + esc(k.lastKind) + '</small>' : '')) + '</td><td>' + (k.yield == null ? '—' : k.yield.toFixed(1) + '%') + '</td>' +
+            '<td title="' + (k.estRevenue != null ? 'if it pays out ' + esc(m(k.estRevenue)) : '') + '">' + arrow(k.ifPay) + '</td><td>' + arrow(k.ifHold) + '</td><td style="text-align:left">' + prs + '</td></tr>');
+        });
+        h.push('</tbody></table></div></section>');
+      }
+    }
 
     // Stock ticker
     if (d.ticker && d.ticker.length) {
@@ -610,7 +868,7 @@
         var cls = dlt > 0 ? 'up' : dlt < 0 ? 'down' : 'flat', arrow = dlt > 0 ? '▲' : dlt < 0 ? '▼' : '■';
         var tot = tk.first ? (tk.price - tk.first) / tk.first * 100 : 0;
         h.push('<div class="tk' + (tk.closed ? ' closed' : '') + '" title="' + esc(tk.name) + ': ' + esc(m(tk.first)) + ' → ' + esc(m(tk.price)) + ' over the game (' + (tot >= 0 ? '+' : '') + tot.toFixed(0) + '%)"><div><span class="nm"><i class="sw" style="background:' + displayColor(tk.color, dark) + '"></i>' + esc(tk.name) + '</span>' + (tk.closed ? ' <small>closed</small>' : '') +
-          '<div class="px">' + esc(m(tk.price)) + '</div><div class="ch ' + cls + '">' + arrow + ' ' + (dlt ? (dlt > 0 ? '+' : '−') + esc(m(Math.abs(dlt))) + ' (' + Math.abs(pct).toFixed(1) + '%)' : 'unchanged') + '</div></div>' + sparkline(tk.spark, tk.color, dark) + '</div>');
+          '<div class="px" data-f="tp:' + esc(tk.name) + '">' + esc(m(tk.price)) + '</div><div class="ch ' + cls + '">' + arrow + ' ' + (dlt ? (dlt > 0 ? '+' : '−') + esc(m(Math.abs(dlt))) + ' (' + Math.abs(pct).toFixed(1) + '%)' : 'unchanged') + '</div></div>' + sparkline(tk.spark, tk.color, dark) + '</div>');
       });
       h.push('</div></section>');
     }
@@ -620,14 +878,14 @@
     ranked.forEach(function (p, i) {
       var c = pal[p.idx % pal.length];
       var certCls = p.certLimit && p.certs >= p.certLimit ? 'st-crit' : p.certLimit && p.certs >= p.certLimit - 1 ? 'st-warn' : '';
-      h.push('<tr><td>' + (i + 1) + '</td><td style="text-align:left"><i class="sw" style="background:' + c + '"></i>' + esc(p.name) + (p.bankrupt ? ' <span class="pill">bankrupt</span>' : '') + '</td><td><b>' + esc(m(p.value)) + '</b></td>');
+      h.push('<tr' + (p.name === me ? ' class="merow"' : '') + '><td>' + (i + 1) + '</td><td style="text-align:left"><i class="sw" style="background:' + c + '"></i>' + esc(p.name) + (p.name === me ? ' <small>(me)</small>' : '') + (p.bankrupt ? ' <span class="pill">bankrupt</span>' : '') + '</td><td><b data-f="pv:' + esc(p.name) + '">' + esc(m(p.value)) + '</b></td>');
       h.push('<td><div class="bar"><i style="width:' + (p.value / maxVal * 100).toFixed(1) + '%;background:' + c + '"></i></div></td>');
-      h.push('<td>' + (i === 0 ? '—' : '−' + esc(m(leader - p.value))) + '</td><td>' + esc(m(p.cash)) + '</td><td class="' + certCls + '">' + p.certs + (p.certLimit ? '/' + p.certLimit : '') + '</td></tr>');
+      h.push('<td>' + (i === 0 ? '—' : '−' + esc(m(leader - p.value))) + '</td><td data-f="pc:' + esc(p.name) + '">' + esc(m(p.cash)) + '</td><td class="' + certCls + '" title="' + (p.certLimit ? 'room for ' + Math.max(0, p.certLimit - p.certs) + ' more' : '') + '">' + p.certs + (p.certLimit ? '/' + p.certLimit + ' <small style="color:var(--text-muted)">(' + Math.max(0, p.certLimit - p.certs) + ' free)</small>' : '') + '</td></tr>');
     });
-    h.push('</tbody></table></div></section>');
+    h.push('</tbody></table></div>' + (d.certNote ? '<p class="sub" style="margin:6px 0 0"><span class="st-warn">Certificate limit changed from ' + d.certNote.from + ' to ' + d.certNote.to + ' at ' + esc(d.certNote.at) + '.</span> In some titles it changes again with phases or the number of companies.</p>' : '') + '</section>');
 
     // Value history
-    var vModel = { labels: d.valueHistory.labels, fmt: m, series: d.players.map(function (p, i) { return { name: p.name, color: pal[p.idx % pal.length], values: d.valueHistory.series[i] }; }) };
+    var vModel = { labels: d.valueHistory.labels, fmt: m, series: d.players.map(function (p, i) { return { name: p.name, color: pal[p.idx % pal.length], values: d.valueHistory.series[i], bold: p.name === me }; }) };
     var vChart = lineChart(vModel, { title: 'Player value over time', dark: dark });
     h.push('<section class="card"><h2>Player value over time</h2><p class="sub">Value at the end of each round</p>' + legend(vModel.series) + '<div class="chart" id="c-value">' + vChart.svg + '<div class="tip"></div></div></section>');
 
@@ -642,7 +900,8 @@
     h.push('<section class="card"><h2>Share price</h2><p class="sub">Market price at the end of each round</p>' + legend(pModel.series, dark) + '<div class="chart" id="c-price">' + pChart.svg + '<div class="tip"></div></div></section>');
 
     // Portfolio
-    var pfSel = Math.min(ST.pfPlayer || 0, d.portfolio.length - 1);
+    var meIdx = d.players.map(function (p) { return p.name; }).indexOf(me);
+    var pfSel = Math.min(ST.pfPlayer != null ? ST.pfPlayer : Math.max(0, meIdx), d.portfolio.length - 1);
     if (d.portfolio.length && d.portfolio[0].labels.length > 1) {
       h.push('<section class="card wide"><h2>Portfolios</h2><p class="sub">What each player holds, valued at the market price at the end of each round. Grey is cash, sand is private companies, blue-grey is anything else the title counts in player value (such as bids or debts); layers below zero are short positions or debts.</p>');
       h.push('<div class="tabs" id="pf-tabs">' + d.portfolio.map(function (p, i) { return '<button data-i="' + i + '"' + (i === pfSel ? ' class="on"' : '') + '><i class="sw" style="background:' + pal[d.players[i].idx % pal.length] + '"></i>' + esc(p.name) + '</button>'; }).join('') + '</div>');
@@ -681,7 +940,7 @@
         (p.status === 'future' && p.inPurchases > 0 ? '<div class="d">' + (p.inPurchases === 1 ? 'next buy' : 'in ' + p.inPurchases + ' buys') + '</div>' : p.status === 'current' ? '<div class="d">now</div>' : '') + '</div>';
     }).join('') + '</div>');
 
-    h.push('<div class="tw"><table><thead><tr><th>Train</th><th>Variants</th><th>Price</th><th>In bank</th><th>Pool</th><th>Running</th><th>Rusted / gone</th><th style="width:22%">Supply</th><th>Rusts when</th><th>Held by</th></tr></thead><tbody>');
+    h.push('<div class="tw"><table><thead><tr><th>Train</th><th>Variants</th><th>Price</th><th>In bank</th><th>Pool</th><th>Running</th><th>Rusted / gone</th><th style="width:22%">Supply</th><th title="Rusted trains are removed">Rusts when</th><th title="Obsolete is not rusted: the train is on its way out under the rules of this title">Obsolete when</th><th>Held by</th></tr></thead><tbody>');
     d.trainGroups.forEach(function (g) {
       var tot = g.total || 1;
       var isNext = d.nextTrain && d.nextTrain.sym === g.sym;
@@ -692,27 +951,37 @@
         (g.pool ? '<i style="width:' + (g.pool / tot * 100) + '%;background:var(--warn)"></i>' : '') +
         (g.owned ? '<i style="width:' + (g.owned / tot * 100) + '%;background:var(--good)"></i>' : '') +
         ((g.rusted + g.removed) ? '<i style="width:' + ((g.rusted + g.removed) / tot * 100) + '%;background:var(--text-muted);opacity:.45"></i>' : '') + '</div></td>');
-      h.push('<td>' + esc(g.rustsOn ? g.rustsOn : g.obsoleteOn ? 'obsolete: ' + g.obsoleteOn : '—') + '</td><td>' + esc(Object.keys(g.owners).map(function (o) { return o + (g.owners[o] > 1 ? '×' + g.owners[o] : ''); }).join(', ')) + '</td></tr>');
+      h.push('<td>' + (g.rustsOn ? esc(g.rustsOn) + (g.owned && g.rustIn > 0 ? ' <small class="st-crit">' + buysTxt(g.rustIn) + '</small>' : '') : '—') + '</td><td>' + (g.obsoleteOn ? esc(g.obsoleteOn) + (g.owned && g.obsIn > 0 ? ' <small class="st-warn">' + buysTxt(g.obsIn) + '</small>' : '') : '—') + '</td><td>' + esc(Object.keys(g.owners).map(function (o) { return o + (g.owners[o] > 1 ? '×' + g.owners[o] : ''); }).join(', ')) + '</td></tr>');
     });
     h.push('</tbody></table></div><p class="sub" style="margin-top:6px"><i class="sw" style="background:var(--accent)"></i>in bank <i class="sw" style="background:var(--warn);margin-left:10px"></i>bank pool <i class="sw" style="background:var(--good);margin-left:10px"></i>running <i class="sw" style="background:var(--text-muted);opacity:.45;margin-left:10px"></i>rusted / removed</p></section>');
 
     // Corporations
     var anyLoans = d.corps.some(function (c) { return c.loans > 0; });
-    h.push('<section class="card wide"><h2>Corporations</h2><p class="sub">Treasury vs next train, train health, recent results</p><div class="tw"><table><thead><tr><th>Corp</th><th>President</th><th>Price</th><th>Treasury</th><th>Can buy next?</th><th>Trains</th><th>Train status</th><th>Tokens left</th>' + (anyLoans ? '<th>Loans</th>' : '') + '<th>Last revenue</th><th>Avg last 3</th></tr></thead><tbody>');
+    h.push('<section class="card wide"><h2>Corporations</h2><p class="sub">Treasury vs next train, train health, recent results</p><div class="tw"><table><thead><tr><th>Corp</th><th>President</th><th>Price</th><th>Treasury</th><th>' + (d.cheapest ? 'Buy cheapest train (' + esc(d.cheapest.name) + (d.cheapest.pool ? ', bank pool' : '') + ' ' + esc(m(d.cheapest.price)) + ')' : 'Buy a train') + '</th><th>Trains</th><th>Train status</th><th>Tokens left</th>' + (anyLoans ? '<th>Loans</th><th title="Interest this company owes at its next operating turn">Interest due</th>' : '') + '<th>Last revenue</th><th>Avg last 3</th></tr></thead><tbody>');
     d.corps.forEach(function (c) {
       var ohs = c.oh.slice().sort(function (a, b) { return (a.t * 100 + a.r) - (b.t * 100 + b.r); });
       var last = ohs[ohs.length - 1];
       var l3 = ohs.slice(-3); var avg = l3.length ? l3.reduce(function (a, o) { return a + o.revenue; }, 0) / l3.length : null;
-      var can = d.nextTrain ? (c.cash >= d.nextTrain.price ? '<span class="st-good">✓ yes</span>' : '<span class="st-warn">short ' + esc(m(d.nextTrain.price - c.cash)) + '</span>') : '—';
-      var status = c.trainless ? '<span class="st-crit">⚠ no trains</span>'
+      var b = c.buy, can = !b ? '—'
+        : b.kind === 'full' ? '<span style="color:var(--text-muted)">at train limit</span>'
+        : b.kind === 'treasury' ? '<span class="st-good">✓ from treasury</span>'
+        : b.kind === 'emergency' ? '<span class="st-warn" title="Not a normal purchase: the company cannot pay, so the president must add personal cash (emergency buy)">⚠ emergency buy: ' + esc(c.president) + ' adds ' + esc(m(b.add)) + '</span>'
+        : b.kind === 'stuck' ? '<span class="st-crit" title="Not a normal purchase: treasury plus the president\'s cash is not enough, so shares must be sold or the president goes bankrupt">⚠ emergency buy: ' + esc(m(b.shortAfter)) + ' short even with ' + esc(c.president) + '\'s cash</span>'
+        : '<span style="color:var(--text-muted)">short ' + esc(m(b.add)) + '</span>';
+      if (b && b.loanRoom && b.kind !== 'treasury' && b.kind !== 'full') can += ' <small style="color:var(--text-muted)">or take a loan (' + b.loanRoom + ' left)</small>';
+      var obsSoon = c.obsIn.filter(function (x) { return x > 0 && x <= 3; });
+      var status = c.needsTrains ? '<span class="st-warn" title="New company that has not operated yet">⚠ needs trains</span>'
+        : c.trainless ? '<span class="st-crit">⚠ no trains</span>'
         : c.allRustAt != null ? '<span class="st-crit">⚠ trainless ' + (c.allRustAt === 1 ? 'on next buy' : 'in ' + c.allRustAt + ' buys') + '</span>'
         : c.rustIn.some(function (x) { return x >= 0; }) ? '<span class="st-warn">◐ ' + c.rustIn.filter(function (x) { return x >= 0; }).length + ' will rust</span>'
         : '<span class="st-good">✓ safe</span>';
-      h.push('<tr><td><i class="sw" style="background:' + displayColor(c.color, dark) + '"></i><b>' + esc(c.name) + '</b></td><td>' + esc(c.president) + '</td><td>' + (c.price != null ? esc(m(c.price)) : '—') + '</td><td>' + esc(m(c.cash)) + '</td><td>' + can + '</td>');
-      h.push('<td>' + esc(c.trains.map(function (t) { return t.name; }).join(', ') || '—') + '</td><td>' + status + '</td><td>' + (c.tokensTotal ? c.tokensLeft + '/' + c.tokensTotal : '—') + '</td>' + (anyLoans ? '<td>' + (c.loans || '') + '</td>' : ''));
+      if (obsSoon.length) status += ' <span class="st-warn" title="Obsolete is not rusted: the train is on its way out under this title\'s rules">◔ ' + obsSoon.length + ' obsolete ' + buysTxt(Math.min.apply(null, obsSoon)) + '</span>';
+      h.push('<tr><td><i class="sw" style="background:' + displayColor(c.color, dark) + '"></i><b>' + esc(c.name) + '</b></td><td>' + esc(c.president) + '</td><td>' + (c.price != null ? esc(m(c.price)) : '—') + '</td><td data-f="ct:' + esc(c.name) + '">' + esc(m(c.cash)) + '</td><td>' + can + '</td>');
+      h.push('<td>' + esc(c.trains.map(function (t) { return t.name; }).join(', ') || '—') + '</td><td>' + status + '</td><td>' + (c.tokensTotal ? c.tokensLeft + '/' + c.tokensTotal : '—') + '</td>' + (anyLoans ? '<td>' + (c.loans ? c.loans + (c.maxLoans ? '/' + c.maxLoans : '') : '') + '</td><td>' + (c.interestOwed ? esc(m(c.interestOwed)) : '') + '</td>' : ''));
       h.push('<td>' + (last ? esc(m(last.revenue)) + (last.kind && last.kind !== 'payout' ? ' <small style="color:var(--text-muted)">' + esc(last.kind) + '</small>' : '') : '—') + '</td><td>' + (avg != null ? esc(m(avg)) : '—') + '</td></tr>');
     });
     h.push('</tbody></table></div>');
+    if (d.loanInfo) h.push('<p class="sub" style="margin:6px 0 0">Loans: ' + d.loanInfo.total + ' outstanding' + (d.loanInfo.value ? ' at ' + esc(m(d.loanInfo.value)) + ' each' : '') + ' · interest rate <b>' + d.loanInfo.rate + '%</b>' + (d.loanInfo.future != null && d.loanInfo.future !== d.loanInfo.rate ? ' now, <b>' + d.loanInfo.future + '%</b> next' : '') + ' · total interest due next operating round <b>' + esc(m(d.loanInfo.owed)) + '</b></p>');
     if (d.notes.length) h.push('<ul class="notes">' + d.notes.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul>');
     h.push('</section>');
 
@@ -741,9 +1010,30 @@
     });
     attachHover(doc, doc.getElementById('c-rev'), rModel, rChart);
     attachHover(doc, doc.getElementById('c-price'), pModel, pChart);
+    // flash numbers that changed since the last update
+    var vals = {};
+    Array.prototype.forEach.call(doc.querySelectorAll('[data-f]'), function (el) {
+      var k = el.getAttribute('data-f'), v = el.textContent; vals[k] = v;
+      if (ST.prevGame === d.id && ST.prevVals && ST.prevVals[k] !== undefined && ST.prevVals[k] !== v) el.classList.add('fl');
+    });
+    ST.prevVals = vals; ST.prevGame = d.id;
+    // your-turn sound, once per turn
+    var turnKey = d.id + ':' + myTurn;
+    if (myTurn && ST.turnKey !== turnKey && ST.turnKey != null && soundOn) beep(w);
+    ST.turnKey = turnKey;
+    doc.getElementById('me').onchange = function () { lsSet('xxStats.me', this.value); ST.pfPlayer = null; rerender(); };
+    doc.getElementById('snd').onclick = function () {
+      if (soundOn && armed) { lsSet('xxStats.sound', '0'); }
+      else { lsSet('xxStats.sound', '1'); try { if (!w.__xxAudio) w.__xxAudio = new (w.AudioContext || w.webkitAudioContext)(); w.__xxAudio.resume(); beep(w); } catch (e) {} }
+      rerender();
+    };
+    var seenBtn = doc.getElementById('seen');
+    var markSeen = function () { ST.lookId = ST.maxFeedId; };
+    if (seenBtn) seenBtn.onclick = function () { markSeen(); rerender(); };
+    doc.documentElement.onmouseleave = markSeen; // leaving the window counts as having looked
     doc.getElementById('rf').onclick = function () { refresh(true); };
     doc.getElementById('sn').onclick = function () { snapRight(w); };
-    doc.getElementById('gf').onsubmit = function (ev) { ev.preventDefault(); var mm = String(doc.getElementById('gi').value).match(/(\d{3,})/); if (mm) { ST.gameId = mm[1]; ST.sig = null; w.document.body.innerHTML = '<p style="padding:20px">Loading game ' + mm[1] + '…</p>'; refresh(true); } };
+    doc.getElementById('gf').onsubmit = function (ev) { ev.preventDefault(); var mm = String(doc.getElementById('gi').value).match(/(\d{3,})/); if (mm) { ST.gameId = mm[1]; ST.pfPlayer = null; w.document.body.innerHTML = '<p style="padding:20px">Loading game ' + mm[1] + '…</p>'; refresh(true); } };
     function drawPf(i) {
       ST.pfPlayer = i;
       var el = doc.getElementById('c-pf'); if (!el) return;
@@ -766,12 +1056,18 @@
   // ---------- Layout: collapse and reorder sections, remembered per mode ----------------
   // Two layouts are kept in this browser: 'live' (game in progress) and 'review' (finished game).
   var DEFAULT_ORDER = {
-    live: ['trains-phases', 'corporations', 'standings', 'stock-ticker', 'portfolios', 'company-revenue-per-operating-round', 'player-value-over-time', 'share-price', 'minors-private-companies'],
+    live: ['now', 'what-just-happened', 'trains-phases', 'stock-round-helper', 'corporations', 'standings', 'stock-ticker', 'portfolios', 'company-revenue-per-operating-round', 'player-value-over-time', 'share-price', 'minors-private-companies'],
     review: ['stock-ticker', 'standings', 'player-value-over-time', 'company-revenue-per-operating-round', 'share-price', 'portfolios', 'trains-phases', 'corporations', 'minors-private-companies']
   };
   function slug(txt) { return String(txt).toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
   function loadLayout(mode) {
-    try { var v = JSON.parse(localStorage.getItem('xxStats.layout.' + mode) || 'null'); if (v && v.order) return v; } catch (e) {}
+    try {
+      var v = JSON.parse(localStorage.getItem('xxStats.layout.' + mode) || 'null');
+      if (v && v.order) { // sections added in newer versions slot in at their default place
+        DEFAULT_ORDER[mode].forEach(function (k, i) { if (v.order.indexOf(k) < 0) v.order.splice(Math.min(i, v.order.length), 0, k); });
+        return v;
+      }
+    } catch (e) {}
     return { order: DEFAULT_ORDER[mode].slice(), collapsed: [] };
   }
   function saveLayout(mode, lay) { try { localStorage.setItem('xxStats.layout.' + mode, JSON.stringify(lay)); } catch (e) {} }
@@ -847,54 +1143,157 @@
       '<div class="tw"><table><thead><tr><th>#</th><th>Player</th><th>Final score</th><th style="width:40%"></th></tr></thead><tbody>' +
       res.map(function (r, i) { return '<tr><td>' + (i + 1) + '</td><td style="text-align:left">' + esc(r.name) + '</td><td><b>' + esc(r.score) + '</b></td><td><div class="bar"><i style="width:' + (r.score / top * 100).toFixed(1) + '%;background:var(--accent)"></i></div></td></tr>'; }).join('') +
       '</tbody></table></div></section></main>';
-    w.document.getElementById('gf').onsubmit = function (ev) { ev.preventDefault(); var mm = String(w.document.getElementById('gi').value).match(/(\d{3,})/); if (mm) { ST.gameId = mm[1]; ST.sig = null; refresh(true); } };
+    w.document.getElementById('gf').onsubmit = function (ev) { ev.preventDefault(); var mm = String(w.document.getElementById('gi').value).match(/(\d{3,})/); if (mm) { ST.gameId = mm[1]; refresh(true); } };
   }
 
-  var ST = window.__xxStats || (window.__xxStats = {});
-  ST.api = { extract: extract, loadGame: loadGame, ensureTitle: ensureTitle, render: render };
+  // ---------- Window + update loop ------------------------------------------------------------
+  // A second click on the bookmark (or a newer version of this script) replaces the running one.
+  var OLD = window.__xxStats;
+  if (OLD) { try { clearInterval(OLD.timer); } catch (e) {} try { if (OLD.unsub) OLD.unsub(); } catch (e) {} }
+  var ST = window.__xxStats = { token: Date.now() + '-' + Math.random(), win: OLD && OLD.win, version: VERSION };
+  ST.api = { extract: extract, loadGame: loadGame, applyActions: applyActions, ensureTitle: ensureTitle, render: render };
+
+  // Runs inside the stats window itself, so it keeps working when the game page is reloaded or
+  // closed: it then shows that updates have stopped instead of silently showing old numbers.
+  var WATCHDOG = 'if(!window.__xxWd)window.__xxWd=setInterval(function(){var ok=false;try{var o=window.opener||(window.parent!==window?window.parent:null);ok=!!o&&!o.closed&&!!o.__xxStats&&o.__xxStats.token===window.__xxToken&&!!o.__xxStats.timer;}catch(e){}' +
+    'var b=document.getElementById("xx-paused");if(!ok&&!b&&document.body){b=document.createElement("div");b.id="xx-paused";b.textContent="\\u26a0 Updates paused: the game page was reloaded or closed. Go back to the game on 18xx.games and click the 18xx-JNNstats bookmark again.";document.body.appendChild(b);if(document.title.indexOf("\\u23f8")!==0)document.title="\\u23f8 paused \\u00b7 "+document.title;}else if(ok&&b){b.parentNode.removeChild(b);document.title=document.title.replace(/^\\u23f8 paused \\u00b7 /,"");}},2000);';
+
   function openWin() {
-    if (ST.win && !ST.win.closed) return ST.win;
     // The bookmark opens the window itself (window.__xxStatsTarget), during the click, so pop-up
     // blockers allow it; this script arrives a moment later from GitHub via jsDelivr.
-    var w = window.__xxStatsTarget;
+    var w = window.__xxStatsTarget, fresh = true;
     window.__xxStatsTarget = null;
-    if (!w || w.closed) w = window.open('', 'xx-stats', 'width=1280,height=900');
+    if (!w || w.closed) { if (ST.win && !ST.win.closed) { w = ST.win; fresh = false; } else w = window.open('', 'xx-stats', 'width=1280,height=900'); }
     if (!w) { alert('18xx-JNNstats: the popup was blocked. Allow popups for 18xx.games and click the bookmark again.'); return null; }
     w.document.open();
-    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>18xx-JNNstats v' + VERSION + '</title><style>' + CSS + '</style></head><body><p style="padding:20px">Loading game…</p></body></html>');
+    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>18xx-JNNstats v' + VERSION + '</title><style>' + CSS + '</style></head><body><p style="padding:20px">Loading game…</p><script>' + WATCHDOG + '<\/script></body></html>');
     w.document.close();
-    snapRight(w);
+    w.__xxToken = ST.token;
+    if (fresh) snapRight(w);
     ST.win = w;
     return w;
   }
+
+  function lastId(raw) { var a = raw.actions; return a.length ? a[a.length - 1].id : 0; }
+  function rerender() {
+    var gm = ST.game, w = ST.win; if (!gm || !w || w.closed) return;
+    var fin = gm.raw.status === 'finished';
+    ST.statusText = fin ? 'finished game' : ST.unsub ? 'live: updates as moves are made' : 'checks every ' + (REFRESH_MS / 1000) + ' s';
+    var d = extract(gm.g, gm.raw);
+    window.__xxLast = d;
+    render(w, d);
+  }
+  function showError(e) {
+    console.error('18xx-JNNstats', e);
+    try { ST.win.document.body.innerHTML = '<div class="err"><b>Could not build stats.</b><br>' + esc(e && e.message || e) + '</div>'; } catch (_) {}
+  }
+  function fullLoad(text, raw) {
+    return ensureTitle(raw.title).then(function () {
+      var g = loadGame(text), id = String(raw.id);
+      if (!ST.game || ST.game.id !== id) ST.verify = null;
+      ST.game = { id: id, g: g, raw: raw };
+      ST.fullLoads = (ST.fullLoads || 0) + 1;
+      rerender();
+    });
+  }
+  // Apply new moves to the game in memory. At the end of every round, replay the whole game
+  // from scratch in the background and compare, as a check on the incremental numbers.
+  function advance(newActions, rawNew) {
+    var gm = ST.game, before = gm.g.__xxSnaps.length;
+    if (!applyActions(gm.g, newActions)) return false;
+    if (rawNew) gm.raw = rawNew; else Array.prototype.push.apply(gm.raw.actions, newActions);
+    ST.increments = (ST.increments || 0) + 1;
+    rerender();
+    var sn = gm.g.__xxSnaps;
+    if (sn.length > before) { var lab = sn[sn.length - 1].label; setTimeout(function () { verify(lab); }, 300); }
+    return true;
+  }
+  function fingerprint(g) {
+    return JSON.stringify([g.$players().map(function (p) { return [s(p.$name()), num(p.$cash()), num(call(g, 'player_value', p))]; }),
+      g.$corporations().map(function (c) { var sp = call(c, 'share_price'); return [s(c.$name()), num(call(c, 'cash')), sp ? num(call(sp, 'price')) : null, (call(c, 'trains') || []).length]; }),
+      num(g.$bank().$cash())]);
+  }
+  function verify(label) {
+    var gm = ST.game; if (!gm) return Promise.resolve();
+    return fetch('/api/game/' + gm.id, { credentials: 'same-origin' }).then(function (r) { return r.text(); }).then(function (text) {
+      var raw = JSON.parse(text);
+      if (!raw.actions || ST.game !== gm) return;
+      var same = raw.actions.length === gm.raw.actions.length && lastId(raw) === lastId(gm.raw);
+      var before = same ? fingerprint(gm.g) : null;
+      var g2 = loadGame(text);
+      var ok = !same || fingerprint(g2) === before;
+      ST.game = { id: gm.id, g: g2, raw: raw };
+      ST.verify = { ok: ok, at: label, checked: same };
+      ST.verifies = (ST.verifies || 0) + 1;
+      rerender();
+    }).catch(function (e) { console.error('18xx-JNNstats verify', e); });
+  }
+
+  // Live push: 18xx.games already has a message channel per game; listen on it too.
+  function subscribe(id) {
+    var MB = window.MessageBus;
+    if (!MB || !MB.subscribe) return;
+    if (ST.subId === id && ST.subFn && (MB.callbacks || []).some(function (c) { return c.func === ST.subFn; })) return;
+    if (ST.unsub) ST.unsub();
+    try {
+      var ch = '/game/' + id, last = -1;
+      (MB.callbacks || []).forEach(function (c) { if (c.channel === ch && c.last_id != null) last = c.last_id; });
+      var fn = function (msg) { onBus(msg); };
+      MB.subscribe(ch, fn, last);
+      ST.subFn = fn; ST.subId = id;
+      ST.unsub = function () { try { MB.unsubscribe(ch, fn); } catch (e) {} ST.unsub = null; ST.subFn = null; };
+    } catch (e) { ST.unsub = null; }
+  }
+  function onBus(msg) {
+    ST.busMsgs = (ST.busMsgs || 0) + 1;
+    try {
+      var gm = ST.game;
+      if (gm && !ST.busy && msg && msg.type && msg.type !== 'undo' && msg.type !== 'redo' && msg.id === lastId(gm.raw) + 1 && String(gameId()) === gm.id) {
+        var a = {}; Object.keys(msg).forEach(function (k) { if (k.charAt(0) !== '_') a[k] = msg[k]; });
+        if (!advance([a], null)) refresh(true);
+        return;
+      }
+    } catch (e) {}
+    refresh(false);
+  }
+
   function refresh(force) {
-    var w = ST.win; if (!w || w.closed) { clearInterval(ST.timer); ST.timer = null; return; }
-    var id = gameId();
-    return fetch('/api/game/' + id, { credentials: 'same-origin' }).then(function (r) { return r.text(); }).then(function (text) {
+    var w = ST.win; if (!w || w.closed) { clearInterval(ST.timer); ST.timer = null; if (ST.unsub) ST.unsub(); return Promise.resolve(); }
+    if (ST.busy) { ST.pending = true; ST.pendingForce = ST.pendingForce || !!force; return ST.busy; }
+    var id = String(gameId());
+    subscribe(id);
+    ST.busy = fetch('/api/game/' + id, { credentials: 'same-origin' }).then(function (r) { return r.text(); }).then(function (text) {
       var raw = JSON.parse(text);
       if (!raw.actions) throw new Error('Game ' + id + ' not found (' + (raw.error || 'no data') + ')');
-      var sig = raw.actions.length + ':' + (raw.actions.length ? raw.actions[raw.actions.length - 1].id : 0) + ':' + raw.updated_at;
-      if (!force && sig === ST.sig) return;
-      ST.sig = sig;
-      if (!raw.actions.length && (raw.status === 'archived' || (raw.result && Object.keys(raw.result).length))) { renderArchived(w, raw); return; }
-      return ensureTitle(raw.title).then(function () {
-        var g = loadGame(text);
-        var d = extract(g, raw);
-        window.__xxLast = d;
-        render(w, d);
-      });
-    }).catch(function (e) {
-      console.error('18xx-JNNstats', e);
-      try { w.document.body.innerHTML = '<div class="err"><b>Could not build stats.</b><br>' + esc(e && e.message || e) + '</div>'; } catch (_) {}
+      if (!raw.actions.length && (raw.status === 'archived' || (raw.result && Object.keys(raw.result).length))) { ST.game = null; renderArchived(w, raw); return; }
+      var gm = ST.game;
+      if (!force && gm && gm.id === id) {
+        var n0 = gm.raw.actions.length, n1 = raw.actions.length;
+        if (n1 === n0 && lastId(raw) === lastId(gm.raw)) {
+          if (raw.status !== gm.raw.status) { gm.raw.status = raw.status; gm.raw.result = raw.result; rerender(); }
+          return;
+        }
+        if (n1 > n0 && n0 > 0 && raw.actions[n0 - 1].id === lastId(gm.raw) && advance(raw.actions.slice(n0), raw)) return;
+      }
+      return fullLoad(text, raw);
+    }).catch(showError).then(function () {
+      ST.busy = null;
+      if (ST.pending) { var f = ST.pendingForce; ST.pending = false; ST.pendingForce = false; return refresh(f); }
     });
+    return ST.busy;
   }
 
   if (!pageGameId() || typeof Opal === 'undefined' || !Opal.Engine) { alert('18xx-JNNstats: open a game on 18xx.games first, then click the bookmark.'); return; }
   if (!openWin()) return;
-  ST.win.focus();
+  try { ST.win.focus(); } catch (e) {}
   ST.gameId = null;
-  ST.sig = null;
+  ST.ticks = 0;
   refresh(true);
-  if (!ST.timer) ST.timer = setInterval(function () { refresh(false); }, REFRESH_MS);
-  ST.version = VERSION;
+  // Backup check: every 10 s without the push channel, every 30 s with it; finished games are left alone.
+  ST.timer = setInterval(function () {
+    ST.ticks++;
+    if (ST.game && ST.game.raw.status === 'finished') return;
+    if (ST.unsub && ST.ticks % 3) return;
+    refresh(false);
+  }, REFRESH_MS);
 })();

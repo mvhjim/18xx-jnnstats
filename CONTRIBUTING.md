@@ -11,6 +11,7 @@ By contributing you agree that your contribution is licensed under the project's
 1. The bookmark opens an empty window and loads `stats.js` from this repository (via jsDelivr).
 2. `stats.js` fetches the game from `https://18xx.games/api/game/<id>`, loads that title's rules from `/assets/<title>.js` (the same way the site does), and replays the game with the site's own engine (`Opal.Engine.Game.load`).
 3. During the replay it hooks the engine's end-of-round bookkeeping (`store_player_info`) to take a snapshot of share prices, holdings, cash, minors and private companies each round.
+   After that it listens on the site's MessageBus channel for the game and applies each new move to the game in memory (`applyActions`). At the end of every round, and after any undo, it replays the whole game again and compares (`verify`).
 4. `extract()` turns the engine state and snapshots into plain data; `render()` draws the dashboard as HTML and SVG in the stats window.
 
 ## Title-specific settings

@@ -2,6 +2,31 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.6.0] - 2026-11-12
+
+### Added
+- **Now** section for games in progress: who is to act and for which company, the order of the round with who has gone, operating rounds left in the set, and the priority deal.
+- **I am…** selector: your row, name and line are highlighted everywhere, with a personal tile (value, rank, gap, cash, certificate room).
+- **Your-turn signal:** the window title shows ● when it is your turn, with an optional sound (🔔 button).
+- **What just happened:** the latest moves in plain words, with new ones marked since you last looked.
+- **Stock round helper:** shares left in the IPO and market, last dividend per share, yield, presidency warnings, and a **price preview** of where the share price goes if a company pays or withholds (from the engine's own stock market rules).
+- **Train rush** tile: whether the companies still to act could buy enough trains to trigger the next phase, and what would rust or become obsolete.
+- **Game end** tile: the title's end conditions, whether one has triggered, and an estimate of operating rounds left before the bank breaks.
+- Certificate room per player, and a note when the certificate limit has changed.
+- Loans per company against the maximum, interest due, and the current and next interest rate (1817 family).
+- Numbers that changed since the last update flash briefly.
+- "Updates paused" banner in the stats window when the game page is reloaded or closed.
+
+### Changed
+- **Instant updates:** the window listens on the site's own live channel instead of downloading the game every 10 seconds, and applies only the new moves instead of replaying the whole game. A typical update takes about 30 ms instead of 1–5 seconds. Undo and redo trigger a full replay.
+- **Verified every round:** at the end of each round the whole game is replayed from scratch and compared with the live numbers; the header shows "✓ verified at …".
+- "Buy cheapest train" replaces "Can buy next?": it considers the bank pool, and says when a purchase would be an **emergency buy** with the president's cash, or when a loan is possible.
+- Obsolete trains get their own column and warning, separate from rusting.
+- A new company that has not operated yet shows "⚠ needs trains" instead of the red "⚠ no trains".
+
+### Fixed
+- Clicking the bookmark a second time left the old copy running and could empty the history charts.
+
 ## [0.5.0] - 2026-11-12
 
 ### Added

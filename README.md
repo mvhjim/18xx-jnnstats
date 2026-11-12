@@ -28,12 +28,21 @@ The bookmark is only a loader: it fetches the newest `stats.js` from this reposi
 1. Open any game on 18xx.games (its address looks like `https://18xx.games/game/` followed by a number).
 2. Click **18xx-JNNstats** in the bookmarks bar. A stats window opens.
 3. The first time, your browser may block the pop-up. Allow pop-ups for 18xx.games and click again.
-4. Leave the window open. It refreshes every 10 seconds; put it on a second screen if you have one.
+4. Leave the window open. It updates the moment a move is made. If you reload or leave the game page, the stats window shows *Updates paused*; click the bookmark again on the game page.
 5. To look at another game, old or live, type its number or link into the box at the top of the stats window and press **Open**. Any title works.
 6. **Half screen:** the window opens on the right half of your screen, so the game keeps the left half. Press **Half screen** to put it back if it moves.
 7. **Arrange it your way:** collapse a section with ▾, and move it by dragging the ⠿ handle or with ▲ ▼. The arrangement is saved separately for live games and for reviews of finished games. Live games start with *Trains & phases* at the top. **Reset layout** restores the defaults.
 
 ## What the window shows
+
+While a game is in progress:
+
+- **Now:** who is to act, the order of the round, operating rounds left in the set, priority deal, a personal tile once you pick your name under *I am…*, a train rush warning and a game-end estimate.
+- **Your-turn signal:** ● in the window title, and a sound if you switch on 🔔.
+- **What just happened:** the latest moves, with new ones marked.
+- **Stock round helper:** shares available, dividend per share, yield, presidency warnings, and where the price goes if a company pays or withholds.
+
+Always:
 
 - **Stock ticker:** each company's share price, the change since the previous round, and a trend line.
 - **Standings:** player value (cash + shares at market + private companies), gap to the leader, cash, certificates against the limit.
@@ -43,7 +52,7 @@ The bookmark is only a loader: it fetches the newest `stats.js` from this reposi
 - **Portfolios:** pick a player and see what they held over the game, stacked by company, with private companies and cash. Short positions (1817 family) go below zero.
 - **Holdings now:** who owns what percentage of each company; ★ is president, shorts in red.
 - **Trains & phases:** trains left in the bank per type, the next train, purchases until each phase change, what rusts next and which companies it hits.
-- **Corporations:** treasury against the next train's price, train health (*safe*, *will rust*, *trainless in N buys*), tokens, loans.
+- **Corporations:** whether the treasury covers the cheapest train or an emergency buy is needed, train health (*safe*, *will rust*, *obsolete*, *trainless in N buys*), tokens, loans and interest.
 - **Minors & private companies:** owners over time and when each closed.
 
 ## Tested titles
