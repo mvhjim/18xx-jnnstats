@@ -2,6 +2,18 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.12.0] - 2026-11-12
+
+### Added
+- **Routes & revenue:** *Show the routes on a map sketch* draws the board's hex grid (laid tiles as colours, cities, towns and off-board hexes marked) and joins the stops of a chosen company's trains, one colour per train, so a route is easy to match against the real map. It uses the same hex positions as 18xx.games, so it works for every title the engine supports.
+
+### Changed
+- Chart axis labels (Player value over time, Company revenue per operating round, Share price, portfolios) are larger and easier to read.
+- The window opens in the dark theme by default. The ☾/☀ button still switches, and your choice is remembered.
+
+### Tests
+- `tests/regression.js` also reports how many route stops are found on the map sketch.
+
 ## [0.11.1] - 2026-11-12
 
 ### Changed

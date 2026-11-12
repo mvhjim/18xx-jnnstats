@@ -20,6 +20,7 @@ For each game it checks that:
 - every company with a share price stands on the market square with that price,
 - every section of the dashboard renders without an error.
 - at six points in the game, bank cash, phase and the game-end trigger match the engine itself (`engine` column),
+- route stops are found on the map sketch's hex grid (`map` column; a few percent can be bonus entries such as 1846's "Meat"),
 - the Routes & revenue table holds as many trains as the log has "runs a ... train" lines.
 
 ## `live-simulation.js` - does live play work?

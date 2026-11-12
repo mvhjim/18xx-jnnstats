@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.11.1';
+  var VERSION = '0.12.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -612,6 +612,18 @@
     } catch (e) { gameLog = null; }
 
     // Routes & revenue: read from the engine's own "runs a <train> train for <revenue>: <stops>" lines, per round
+    // The board as the engine lays it out (same grid maths as 18xx.games), for the route sketch
+    var hexMap = null;
+    try {
+      var hxs = g.$hexes(), hl = [], lay = 'flat';
+      for (var hi = 0; hi < hxs.length; hi++) {
+        var hx = hxs[hi], tl = hx.$tile(), cities = 0, towns = 0, offb = 0, tcolor = 'white', tname = '';
+        try { cities = tl.$cities().length; towns = tl.$towns().length; offb = tl.$offboards().length; tcolor = s(tl.$color()); tname = s(tl.$name()); } catch (e5) {}
+        lay = s(hx.$layout());
+        hl.push({ id: s(hx.$id()), x: num(hx.$x()), y: num(hx.$y()), c: tcolor, t: tname, city: cities, town: towns, off: offb, loc: s(call(hx, 'location_name') || '') });
+      }
+      if (hl.length) hexMap = { layout: lay, hexes: hl };
+    } catch (e) { hexMap = null; }
     var routeTable = [];
     try {
       if (gameLog) gameLog.rounds.forEach(function (rd3, ri3) {
@@ -733,7 +745,7 @@
       ticker: ticker, portfolio: portfolio, holdings: holdings, minors: minorList, companies: companyList, snapErr: SNAP && SNAP.err,
       nextTrain: nextTrain ? { name: s(nextTrain.$name()), sym: s(call(nextTrain, 'sym')), price: num(nextTrain.$price()) } : null,
       upcomingCount: upcoming.length, notes: notes, updated: new Date(), live: live, feed: feed, certNote: certNote, loanInfo: loanInfo, cheapest: cheapest,
-      grid: grid, gridHist: gridHist, bank2: bankInfo, tiles: tileInfo, recap: recap, gameLog: gameLog, routes: routeTable, pin: (raw.settings && raw.settings.pin) ? String(raw.settings.pin) : ''
+      grid: grid, gridHist: gridHist, bank2: bankInfo, tiles: tileInfo, recap: recap, gameLog: gameLog, routes: routeTable, hexMap: hexMap, pin: (raw.settings && raw.settings.pin) ? String(raw.settings.pin) : ''
     };
   }
 
@@ -793,7 +805,7 @@
     '.mk{display:grid;grid-template-columns:repeat(var(--cols),minmax(34px,1fr));gap:2px;overflow-x:auto}',
     '.mc{border:1px solid var(--grid);border-radius:5px;padding:2px 3px;min-height:40px;font-size:11px;min-width:0}.mc.empty{border-color:transparent}.mp{color:var(--text-secondary);font-variant-numeric:tabular-nums;font-size:10.5px}',
     '.cp{display:block;border-radius:4px;padding:0 3px;margin-top:2px;font-size:10.5px;font-weight:700;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default}.cp.mine{outline:2px solid var(--accent);outline-offset:1px}.cp.gh{background:transparent!important;border:1.5px dashed;font-weight:600}',
-    '.bankrow{display:flex;flex-wrap:wrap;gap:6px 22px;margin:0 0 10px}.bankrow .bb{flex:1 1 200px;min-width:0}.bankrow .bb:first-child{flex:2 1 260px}.bankrow .bl{margin-top:0}.feed.gl{max-height:420px}.feed li.gl{display:grid;grid-template-columns:92px 1fr;gap:8px;padding-left:0;border-left:4px solid var(--pc,transparent)}.feed li.gl .gu{padding-left:6px;color:var(--text-secondary);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.feed li.gl.me{background:color-mix(in srgb,var(--pc) 14%,transparent)}.feed li.gl.me .gu{color:var(--text);font-weight:700}.feed li.gl.head{border-left-color:transparent}.feed li.mine .gm{font-weight:600;color:var(--accent)}.glr{color:var(--text-muted);font-size:10.5px}.gla{color:var(--text-muted);text-decoration:none;font-size:11px;margin-left:4px;opacity:.55}.gla:hover{opacity:1;color:var(--accent)}.rt td,.rt th{padding:3px 8px;text-align:left;vertical-align:top;white-space:normal}.rt td.n{text-align:right;white-space:nowrap}.rt .stp{color:var(--text-secondary);font-size:11.5px;word-break:break-word}.rtsel{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--text-secondary)}.rt tr.tot td{border-top:1px solid var(--border);font-weight:600}.gltools{display:flex;gap:8px;align-items:center;margin:0 0 8px}.gltools input{flex:1;min-width:80px}',
+    '.bankrow{display:flex;flex-wrap:wrap;gap:6px 22px;margin:0 0 10px}.bankrow .bb{flex:1 1 200px;min-width:0}.bankrow .bb:first-child{flex:2 1 260px}.bankrow .bl{margin-top:0}.feed.gl{max-height:420px}.feed li.gl{display:grid;grid-template-columns:92px 1fr;gap:8px;padding-left:0;border-left:4px solid var(--pc,transparent)}.feed li.gl .gu{padding-left:6px;color:var(--text-secondary);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.feed li.gl.me{background:color-mix(in srgb,var(--pc) 14%,transparent)}.feed li.gl.me .gu{color:var(--text);font-weight:700}.feed li.gl.head{border-left-color:transparent}.feed li.mine .gm{font-weight:600;color:var(--accent)}.glr{color:var(--text-muted);font-size:10.5px}.gla{color:var(--text-muted);text-decoration:none;font-size:11px;margin-left:4px;opacity:.55}.gla:hover{opacity:1;color:var(--accent)}.rt td,.rt th{padding:3px 8px;text-align:left;vertical-align:top;white-space:normal}.rt td.n{text-align:right;white-space:nowrap}.rt .stp{color:var(--text-secondary);font-size:11.5px;word-break:break-word}#rt-map svg{width:100%;height:auto;display:block}#rt-map .tabs{margin:0 0 6px}.rtsel{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--text-secondary)}.rt tr.tot td{border-top:1px solid var(--border);font-weight:600}.gltools{display:flex;gap:8px;align-items:center;margin:0 0 8px}.gltools input{flex:1;min-width:80px}',
     '.gslide{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--text-secondary)}.gslide input{flex:1;min-width:80px}',
     '.zl{display:flex;flex-wrap:wrap;gap:4px 12px;margin:8px 0 0;font-size:11.5px;color:var(--text-secondary)}.zl i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1px solid var(--border)}',
     '.dq{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px}.dq .chip{font-variant-numeric:tabular-nums}.dq .chip.next{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:650}.bl{font-size:12px;color:var(--text-muted);margin:6px 0 2px}',
@@ -823,7 +835,7 @@
     } catch (e) {}
   }
   function themePref() { var v = lsGet('xxStats.theme'); return v === 'dark' || v === 'light' ? v : null; }
-  function isDark(w) { var p = themePref(); if (p) return p === 'dark'; try { return w.matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) { return false; } }
+  function isDark(w) { var p = themePref(); return p ? p === 'dark' : true; }
   // "I am": the player chosen in the window, else the one recognised from the page's own header (never any login data)
   function myName(names) {
     var v = lsGet('xxStats.me');
@@ -929,7 +941,7 @@
   // Generic line chart: model = {labels, series:[{name,color,values,kinds?}], fmt}
   function lineChart(model, opts) {
     opts = opts || {};
-    var W = 640, H = opts.height || 215, L = 54, R = 74, T = 10, B = 26;
+    var W = 640, H = opts.height || 215, L = 60, R = 84, T = 10, B = 30;
     var pw = W - L - R, ph = H - T - B;
     var all = []; model.series.forEach(function (s) { s.values.forEach(function (v) { if (v != null) all.push(v); }); });
     var max = all.length ? Math.max.apply(null, all) : 1, min = Math.min(0, all.length ? Math.min.apply(null, all) : 0);
@@ -940,11 +952,11 @@
     var out = ['<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(opts.title || '') + '">'];
     for (var v = min; v <= max + 1e-9; v += step) {
       out.push('<line x1="' + L + '" x2="' + (L + pw) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="var(--grid)" stroke-width="1"/>');
-      out.push('<text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="11" fill="var(--text-muted)">' + esc(model.fmt(v)) + '</text>');
+      out.push('<text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="13" fill="var(--text-muted)">' + esc(model.fmt(v)) + '</text>');
     }
     var every = Math.max(1, Math.ceil(n / 12));
     model.labels.forEach(function (lab, i) {
-      if ((i % every === 0 && (n - 1 - i >= every || i === n - 1)) || i === n - 1) out.push('<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="middle" font-size="11" fill="var(--text-muted)">' + esc(lab) + '</text>');
+      if ((i % every === 0 && (n - 1 - i >= every || i === n - 1)) || i === n - 1) out.push('<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="middle" font-size="13" fill="var(--text-muted)">' + esc(lab) + '</text>');
     });
     var ends = [];
     model.series.forEach(function (ser, si) {
@@ -970,7 +982,7 @@
     if (model.series.length <= 8) {
       ends.sort(function (a, b) { return a.y - b.y; });
       for (var e = 1; e < ends.length; e++) if (ends[e].y - ends[e - 1].y < 13) ends[e].y = ends[e - 1].y + 13;
-      ends.forEach(function (en) { out.push('<text x="' + (en.x + 7) + '" y="' + (en.y + 4) + '" font-size="11" fill="var(--text-secondary)" font-weight="600">' + esc(en.name) + '</text>'); });
+      ends.forEach(function (en) { out.push('<text x="' + (en.x + 7) + '" y="' + (en.y + 4) + '" font-size="13" fill="var(--text-secondary)" font-weight="600">' + esc(en.name) + '</text>'); });
     }
     out.push('<line class="xh" x1="0" x2="0" y1="' + T + '" y2="' + (T + ph) + '" stroke="var(--text-muted)" stroke-dasharray="3 3" visibility="hidden"/>');
     out.push('<rect class="hit" x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '" fill="transparent"/>');
@@ -1005,7 +1017,7 @@
   }
   function stackedArea(model, opts) {
     opts = opts || {};
-    var W = 640, H = opts.height || 225, L = 54, R = 74, T = 10, B = 26, pw = W - L - R, ph = H - T - B;
+    var W = 640, H = opts.height || 225, L = 60, R = 84, T = 10, B = 30, pw = W - L - R, ph = H - T - B;
     var n = model.labels.length;
     var up = new Array(n).fill(0), down = new Array(n).fill(0);
     var layers = model.series.map(function (ser) {
@@ -1020,11 +1032,11 @@
     var out = ['<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(opts.title || '') + '">'];
     for (var v = min; v <= max + 1e-9; v += step) {
       out.push('<line x1="' + L + '" x2="' + (L + pw) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="var(--grid)"/>');
-      out.push('<text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="11" fill="var(--text-muted)">' + esc(model.fmt(v)) + '</text>');
+      out.push('<text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="13" fill="var(--text-muted)">' + esc(model.fmt(v)) + '</text>');
     }
     var every = Math.max(1, Math.ceil(n / 12));
     model.labels.forEach(function (lab, i) {
-      if ((i % every === 0 && (n - 1 - i >= every || i === n - 1)) || i === n - 1) out.push('<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="middle" font-size="11" fill="var(--text-muted)">' + esc(lab) + '</text>');
+      if ((i % every === 0 && (n - 1 - i >= every || i === n - 1)) || i === n - 1) out.push('<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="middle" font-size="13" fill="var(--text-muted)">' + esc(lab) + '</text>');
     });
     layers.forEach(function (ly) {
       var top = ly.hi.map(function (v, i) { return x(i).toFixed(1) + ' ' + y(v).toFixed(1); });
@@ -1038,7 +1050,7 @@
     var li = n - 1, lab = [];
     layers.forEach(function (ly) { var hgt = Math.abs(ly.hi[li] - ly.lo[li]); if (hgt > (max - min) * 0.06) lab.push({ y: y((ly.hi[li] + ly.lo[li]) / 2), name: ly.ser.name }); });
     lab.sort(function (a, b) { return a.y - b.y; }); for (var e = 1; e < lab.length; e++) if (lab[e].y - lab[e - 1].y < 13) lab[e].y = lab[e - 1].y + 13;
-    lab.forEach(function (lb) { out.push('<text x="' + (x(li) + 7) + '" y="' + (lb.y + 4) + '" font-size="11" font-weight="600" fill="var(--text-secondary)">' + esc(lb.name) + '</text>'); });
+    lab.forEach(function (lb) { out.push('<text x="' + (x(li) + 7) + '" y="' + (lb.y + 4) + '" font-size="13" font-weight="600" fill="var(--text-secondary)">' + esc(lb.name) + '</text>'); });
     out.push('<line class="xh" x1="0" x2="0" y1="' + T + '" y2="' + (T + ph) + '" stroke="var(--text-muted)" stroke-dasharray="3 3" visibility="hidden"/>');
     out.push('<rect class="hit" x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '" fill="transparent"/></svg>');
     return { svg: out.join(''), geom: { W: W, L: L, pw: pw, n: n, x: x } };
@@ -1194,6 +1206,50 @@
     var tc = CONFIG[title] && CONFIG[title].trainClass, m = tc && /([A-Z])\*?$/.exec(name);
     return m && tc[m[1]] ? '<span title="' + tc[m[1]][1] + '">' + tc[m[1]][0] + '</span> ' : '';
   }
+  // Route sketch: the engine's hex grid, laid tiles as colours, one company's routes drawn through the hexes in order
+  var RT_PAL = ['#3b82f6', '#f59e0b', '#22c55e', '#ef4444', '#a855f7', '#14b8a6'], RT_CLS = { E: '#3b82f6', F: '#f59e0b', L: '#22c55e' };
+  var TILE_FILL = { white: '#c9c8bc', yellow: '#e8d44d', green: '#5aa65a', brown: '#a47852', gray: '#8a8a8a', red: '#c0504d', blue: '#5b8fc7' };
+  function rtMapSvg(d, R, corp) {
+    var M = d.hexMap, u = 26, flat = M.layout !== 'pointy', tx = flat ? 1.5 * u : Math.sqrt(3) / 2 * u, ty = flat ? Math.sqrt(3) / 2 * u : 1.5 * u;
+    var minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9, pos = {};
+    M.hexes.forEach(function (h) { minx = Math.min(minx, h.x); miny = Math.min(miny, h.y); maxx = Math.max(maxx, h.x); maxy = Math.max(maxy, h.y); });
+    M.hexes.forEach(function (h) { pos[h.id] = [tx * (h.x - minx) + u, ty * (h.y - miny) + u]; });
+    var W = tx * (maxx - minx) + 2 * u, H = ty * (maxy - miny) + 2 * u, o = ['<svg viewBox="0 0 ' + W.toFixed(0) + ' ' + H.toFixed(0) + '" role="img" aria-label="Routes on the board" style="max-width:' + Math.round(Math.min(W * 1.5, 760)) + 'px">'];
+    var poly = function (cx, cy, r) { var pts = []; for (var a = 0; a < 6; a++) { var ang = (flat ? 0 : 30) + a * 60, rad = ang * Math.PI / 180; pts.push((cx + r * Math.cos(rad)).toFixed(1) + ',' + (cy + r * Math.sin(rad)).toFixed(1)); } return pts.join(' '); };
+    var C = R ? R.corps.filter(function (c) { return c.corp === corp; })[0] : null, on = {};
+    var paths = C ? C.trains.map(function (t, i) {
+      var ids = t.stops.split('-').map(function (x) { return { id: x.replace(/[\[\]()]/g, '').split(' + ')[0].trim(), skip: /^\[/.test(x) }; }).filter(function (x) { return pos[x.id]; });
+      var cm = CONFIG[d.title] && CONFIG[d.title].trainClass ? /([A-Z])\*?$/.exec(t.train) : null;
+      return { t: t, ids: ids, col: cm && RT_CLS[cm[1]] ? RT_CLS[cm[1]] : RT_PAL[i % RT_PAL.length] };
+    }) : [];
+    paths.forEach(function (p) { p.ids.forEach(function (x) { on[x.id] = 1; }); });
+    M.hexes.forEach(function (h) {
+      var c = pos[h.id], lit = on[h.id];
+      o.push('<polygon points="' + poly(c[0], c[1], u - 1) + '" fill="' + (TILE_FILL[h.c] || TILE_FILL.white) + '" fill-opacity="' + (h.c === 'white' ? '.22' : '.6') + '" stroke="var(--border)" stroke-width="1"><title>' + esc(h.id + (h.loc ? ' ' + h.loc : '') + (h.t ? ' · tile ' + h.t : '') + ' · ' + h.c) + '</title></polygon>');
+      if (h.city) o.push('<circle cx="' + c[0].toFixed(1) + '" cy="' + c[1].toFixed(1) + '" r="' + (6 + (h.city > 1 ? 2 : 0)) + '" fill="var(--surface-1)" stroke="var(--text-muted)" stroke-width="1"/>');
+      else if (h.off) o.push('<rect x="' + (c[0] - 5).toFixed(1) + '" y="' + (c[1] - 5).toFixed(1) + '" width="10" height="10" transform="rotate(45 ' + c[0].toFixed(1) + ' ' + c[1].toFixed(1) + ')" fill="var(--surface-1)" stroke="var(--text-muted)" stroke-width="1"/>');
+      else if (h.town) o.push('<circle cx="' + c[0].toFixed(1) + '" cy="' + c[1].toFixed(1) + '" r="3" fill="var(--text-muted)"/>');
+      o.push('<text x="' + c[0].toFixed(1) + '" y="' + (c[1] + u * 0.62).toFixed(1) + '" text-anchor="middle" font-size="' + (lit ? 9 : 7.5) + '" fill="var(--text-' + (lit ? 'primary' : 'muted') + ')"' + (lit ? ' font-weight="700"' : '') + '>' + esc(h.id) + '</text>');
+    });
+    paths.forEach(function (p, i) {
+      var off = (i - (paths.length - 1) / 2) * 4, pts = p.ids.map(function (x) { return (pos[x.id][0] + off).toFixed(1) + ',' + (pos[x.id][1] + off).toFixed(1); });
+      if (pts.length > 1) o.push('<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + p.col + '" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round" opacity=".9"/>');
+      p.ids.forEach(function (x, k) {
+        var e = k === 0 || k === p.ids.length - 1;
+        o.push('<circle cx="' + (pos[x.id][0] + off).toFixed(1) + '" cy="' + (pos[x.id][1] + off).toFixed(1) + '" r="' + (e ? 5 : 3) + '" fill="' + (x.skip ? 'var(--surface-1)' : p.col) + '" stroke="' + p.col + '" stroke-width="1.5"/>');
+      });
+    });
+    o.push('</svg>');
+    return o.join('');
+  }
+  function rtMapHtml(d, k, corp) {
+    var R = d.routes[Math.min(Math.max(k, 0), d.routes.length - 1)], runners = R.corps.filter(function (c) { return c.trains.length; });
+    if (!runners.length) return '<p class="sub">Nobody ran trains in this round.</p>';
+    if (!runners.some(function (c) { return c.corp === corp; })) corp = runners[0].corp;
+    var chips = runners.map(function (c) { return '<button class="pill rtc' + (c.corp === corp ? ' cur' : '') + '" data-c="' + esc(c.corp) + '">' + esc(c.corp) + '</button>'; }).join(' ');
+    return '<div class="tabs">' + chips + '</div>' + rtMapSvg(d, R, corp) +
+      '<p class="sub" style="margin-top:6px">Each line joins the stops the engine logs, in order, so it shows where the train went but not the exact track. One colour per train; a hollow dot is a stop the train skips. Hex colours show the tiles on the board in the game state you are viewing, not necessarily when the route ran. ◯ city &nbsp;◆ off-board &nbsp;• town</p>';
+  }
   // Body of the Routes & revenue card: one operating round, a row per train
   function rtBody(d, k, col) {
     var R = d.routes[Math.min(Math.max(k, 0), d.routes.length - 1)], rows = '';
@@ -1214,7 +1270,7 @@
     var myTurn = !!me && !d.finished && !d.tt && !!d.live && d.live.acting.indexOf(me) >= 0;
     var soundOn = lsGet('xxStats.sound') === '1', armed = !!w.__xxAudio;
     doc.title = (myTurn ? '● Your turn · ' : '') + d.roundLabel + ' · ' + d.title + ' · ' + d.id + ' · 18xx-JNNstats';
-    var th = themePref(); if (th) doc.documentElement.setAttribute('data-theme', th); else doc.documentElement.removeAttribute('data-theme');
+    doc.documentElement.setAttribute('data-theme', themePref() || 'dark');
     if (ST.lookGame !== d.id && !d.tt) { ST.lookGame = d.id; ST.lookId = d.feed.length ? d.feed[0].id : 0; }
     if (!d.tt) ST.maxFeedId = d.feed.length ? d.feed[0].id : 0;
     var leader = Math.max.apply(null, d.players.map(function (p) { return p.value; }));
@@ -1379,7 +1435,8 @@
       var rtLast = d.routes.length - 1, rtIdx = ST.rtIdx != null && ST.rtGame === d.id && ST.rtIdx <= rtLast ? ST.rtIdx : rtLast;
       h.push('<section class="card wide"><h2>Routes &amp; revenue</h2><p class="sub">What each company ran in an operating round: train, revenue and stops, as the engine logs them.' + (CONFIG[d.title] && CONFIG[d.title].trainClass ? ' ' + Object.keys(CONFIG[d.title].trainClass).map(function (k) { var c = CONFIG[d.title].trainClass[k]; return c[0] + ' ' + c[1]; }).join(' &nbsp; ') : '') + '</p>' +
         '<div class="rtsel"><button id="rt-p" title="Earlier round">◀</button><select id="rt-s">' + d.routes.map(function (r, i) { return '<option value="' + i + '"' + (i === rtIdx ? ' selected' : '') + '>' + esc(r.label) + '</option>'; }).join('') + '</select><button id="rt-n" title="Later round">▶</button></div>' +
-        '<div class="tw" id="rt-b">' + rtBody(d, rtIdx, rtCol) + '</div></section>');
+        '<div class="tw" id="rt-b">' + rtBody(d, rtIdx, rtCol) + '</div>' +
+        (d.hexMap ? '<p class="sub" style="margin:8px 0 4px"><button id="rt-mb" class="lnk">' + (ST.rtMap ? '▾ Hide the map sketch' : '🗺 Show the routes on a map sketch') + '</button></p><div id="rt-map">' + (ST.rtMap ? rtMapHtml(d, rtIdx, ST.rtCorp) : '') + '</div>' : '') + '</section>');
     }
 
     // Share prices
@@ -1547,7 +1604,15 @@
     var rts = doc.getElementById('rt-s');
     if (rts && d.routes) {
       var rtCol2 = {}; d.ticker.forEach(function (t) { rtCol2[t.name] = displayColor(t.color, dark); });
-      var rtSet = function (v) { v = Math.min(Math.max(v, 0), d.routes.length - 1); rts.value = v; ST.rtIdx = v; ST.rtGame = d.id; doc.getElementById('rt-b').innerHTML = rtBody(d, v, rtCol2); };
+      var rtMapDraw = function () {
+        var box = doc.getElementById('rt-map'); if (!box) return;
+        box.innerHTML = ST.rtMap ? rtMapHtml(d, +rts.value, ST.rtCorp) : '';
+        Array.prototype.forEach.call(box.querySelectorAll('.rtc'), function (b) { b.onclick = function () { ST.rtCorp = b.getAttribute('data-c'); rtMapDraw(); }; });
+      };
+      var rtSet = function (v) { v = Math.min(Math.max(v, 0), d.routes.length - 1); rts.value = v; ST.rtIdx = v; ST.rtGame = d.id; doc.getElementById('rt-b').innerHTML = rtBody(d, v, rtCol2); rtMapDraw(); };
+      var rtmb = doc.getElementById('rt-mb');
+      if (rtmb) rtmb.onclick = function () { ST.rtMap = !ST.rtMap; rtmb.textContent = ST.rtMap ? '▾ Hide the map sketch' : '🗺 Show the routes on a map sketch'; rtMapDraw(); };
+      rtMapDraw();
       rts.onchange = function () { rtSet(+rts.value); };
       doc.getElementById('rt-p').onclick = function () { rtSet(+rts.value - 1); };
       doc.getElementById('rt-n').onclick = function () { rtSet(+rts.value + 1); };
@@ -1739,7 +1804,7 @@
     var res = Object.keys(raw.result || {}).map(function (k) { return { name: names[k] || k, score: raw.result[k] }; }).sort(function (a, b) { return b.score - a.score; });
     var top = res.length ? res[0].score : 1;
     w.document.title = raw.title + ' · ' + raw.id + ' · Stats';
-    var th0 = themePref(); if (th0) w.document.documentElement.setAttribute('data-theme', th0); else w.document.documentElement.removeAttribute('data-theme');
+    w.document.documentElement.setAttribute('data-theme', themePref() || 'dark');
     w.document.body.innerHTML = '<header><div class="hr1"><h1>' + esc(raw.title) + ' <span style="color:var(--text-muted);font-weight:400">#' + esc(raw.id) + '</span></h1><span class="kv">' + esc(raw.description || '') + '</span>' +
       '<span class="grow"></span><span class="tb"><form id="gf" style="display:inline"><input id="gi" placeholder="game # or link" size="12" style="font:inherit;font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface-0);color:var(--text-primary)"> <button class="ib" style="font-size:12px">Open</button></form></span></div></header>' +
       '<main><section class="card wide"><h2>Archived game: only the final result is kept</h2><p class="sub">18xx.games deletes the moves of archived games, so there is no history to replay or chart. This is the final result as the site stored it.</p>' +
