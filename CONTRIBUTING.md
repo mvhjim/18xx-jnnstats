@@ -26,9 +26,11 @@ Titles differ a lot. The `CONFIG` object near the top of `stats.js` holds per-ti
 
 Good test games are recent finished games of the titles you touched; the 18xx.games front page lists some under *Finished Games*.
 
+The [tests/](tests/) folder has two console scripts that automate this: `regression.js` checks the scores, market grid and rendering for a list of finished games, and `live-simulation.js` replays a game as if it were live. Please keep game numbers and player names out of the repository.
+
 ## Releasing
 
-1. Update `VERSION` at the top of `stats.js`.
+1. Update `VERSION` at the top of `stats.js`, and the same number in `version.js` (the stats window reads it to tell people when a newer version exists).
 2. Add an entry to `CHANGELOG.md`.
 3. Push to `main`.
 4. Expect the update to reach bookmarks within about 12 hours. jsDelivr remembers which commit `main` points to for up to 12 hours, and its servers do not all refresh at the same moment, so for a while different people can get different versions (even an older one than before).

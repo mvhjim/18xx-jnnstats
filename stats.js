@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.7.1';
+  var VERSION = '0.8.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -161,7 +161,13 @@
 
   function extract(g, raw) {
     var cfg = Object.assign({}, CONFIG.default, CONFIG[raw.title] || {});
-    var money = function (v) { try { return s(g.$format_currency(Math.round(v))); } catch (e) { return String(Math.round(v)); } };
+    var money = function (v) {
+      try {
+        var str = s(g.$format_currency(Math.round(Math.abs(v))));
+        str = str.replace(/\d{4,}/, function (x) { return x.replace(/\B(?=(\d{3})+(?!\d))/g, ','); });
+        return (v < 0 && Math.round(v) !== 0 ? '\u2212' : '') + str;
+      } catch (e) { return String(Math.round(v)); }
+    };
     var r = g.$round();
     var finished = bool(call(g, 'finished'));
     var roundName = s(call(r, 'name')) || s(r.$class().$name()).split('::').pop();
@@ -566,7 +572,7 @@
     // Since your last move: everything logged after the last action by the player chosen under "I am"
     var recap = null;
     try {
-      var meN = lsGet('xxStats.me'), meRaw = meN ? (raw.players || []).filter(function (p) { return p.name === meN; })[0] : null;
+      var meN = myName((raw.players || []).map(function (p) { return p.name; })), meRaw = meN ? (raw.players || []).filter(function (p) { return p.name === meN; })[0] : null;
       if (meRaw) {
         var lastMine = 0;
         for (var ai = raw.actions.length - 1; ai >= 0; ai--) if (raw.actions[ai].user === meRaw.id) { lastMine = raw.actions[ai].id; break; }
@@ -658,13 +664,19 @@
   }
 
   // ---------- Rendering -------------------------------------------------------------------
+  var DARKVARS = '--surface-0:#121211;--surface-1:#1a1a19;--text-primary:#f0efec;--text-secondary:#c3c2b7;--text-muted:#8f8e86;--grid:#2c2c2a;--border:#33332f;--good:#4cc36b;--warn:#e0a020;--crit:#ef6b6b;--accent:#3987e5;color-scheme:dark';
   var CSS = [
     ':root{--surface-0:#f4f4f2;--surface-1:#fcfcfb;--text-primary:#0b0b0b;--text-secondary:#52514e;--text-muted:#7a7974;--grid:#e6e5e1;--border:#dddcd7;--good:#1a7f37;--warn:#b26b00;--crit:#c62828;--accent:#2a78d6;color-scheme:light}',
-    '@media (prefers-color-scheme: dark){:root{--surface-0:#121211;--surface-1:#1a1a19;--text-primary:#f0efec;--text-secondary:#c3c2b7;--text-muted:#8f8e86;--grid:#2c2c2a;--border:#33332f;--good:#4cc36b;--warn:#e0a020;--crit:#ef6b6b;--accent:#3987e5;color-scheme:dark}}',
+    '@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){' + DARKVARS + '}}',
+    ':root[data-theme="dark"]{' + DARKVARS + '}',
     '*{box-sizing:border-box}body{margin:0;background:var(--surface-0);color:var(--text-primary);font:13px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}',
-    'header{position:sticky;top:0;z-index:5;background:var(--surface-1);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline}',
+    'header{position:sticky;top:0;z-index:5;background:var(--surface-1);border-bottom:1px solid var(--border);padding:7px 14px}',
+    '.hr1{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center}.hr1 .grow{flex:1}.hr2{color:var(--text-muted);font-size:11.5px;margin-top:3px}header.compact .hr2{display:none}',
     'header h1{font-size:15px;margin:0;font-weight:650}header .kv{color:var(--text-secondary)}header .kv b{color:var(--text-primary);font-weight:600}',
-    'header .right{margin-left:auto;color:var(--text-muted);font-size:12px}header button{font:inherit;font-size:12px;padding:3px 9px;border:1px solid var(--border);background:var(--surface-0);color:var(--text-primary);border-radius:6px;cursor:pointer}',
+    '.tb{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.ib{font:inherit;font-size:14px;line-height:1;padding:4px 8px;border:1px solid var(--border);background:var(--surface-0);color:var(--text-primary);border-radius:6px;cursor:pointer;list-style:none}.ib:hover{border-color:var(--accent)}summary.ib::-webkit-details-marker{display:none}',
+    '.menu{position:relative}.mp2{position:absolute;right:0;top:calc(100% + 6px);z-index:10;min-width:240px;background:var(--surface-1);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.3);padding:8px;display:flex;flex-direction:column;gap:8px;font-size:12px}',
+    '.mp2 button{font:inherit;font-size:12px;padding:4px 9px;border:1px solid var(--border);background:var(--surface-0);color:var(--text-primary);border-radius:6px;cursor:pointer}.mp2 input{font:inherit;font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface-0);color:var(--text-primary)}',
+    '.upd{color:var(--warn);font-weight:600}@media (max-width:1000px){.kv.opt{display:none}}',
     'main{padding:10px 12px;display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(560px,100%),1fr));align-items:start}',
     '.card{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:12px 14px;min-width:0}.card.wide{grid-column:1/-1}',
     '.tw{overflow-x:auto}.card h2{font-size:13px;margin:0 0 2px;font-weight:650}.card .sub{color:var(--text-muted);font-size:12px;margin:0 0 8px}',
@@ -703,7 +715,7 @@
     '.up{color:var(--good)}.down{color:var(--crit)}.flat{color:var(--text-muted)}',
     '.tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}.tabs button{font:inherit;font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:var(--surface-0);color:var(--text-secondary);cursor:pointer}.tabs button.on{background:var(--accent);border-color:var(--accent);color:#fff}',
     '.pres{color:var(--warn);font-weight:700}.short{color:var(--crit);font-weight:600}.cellv{display:block;font-size:11px;color:var(--text-muted)}',
-    '.mk{display:grid;grid-template-columns:repeat(var(--cols),minmax(34px,1fr));gap:2px;overflow-x:auto}.mk.one{grid-template-columns:repeat(auto-fill,minmax(46px,1fr))}',
+    '.mk{display:grid;grid-template-columns:repeat(var(--cols),minmax(34px,1fr));gap:2px;overflow-x:auto}',
     '.mc{border:1px solid var(--grid);border-radius:5px;padding:2px 3px;min-height:40px;font-size:11px;min-width:0}.mc.empty{border-color:transparent}.mp{color:var(--text-secondary);font-variant-numeric:tabular-nums;font-size:10.5px}',
     '.cp{display:block;border-radius:4px;padding:0 3px;margin-top:2px;font-size:10.5px;font-weight:700;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default}.cp.mine{outline:2px solid var(--accent);outline-offset:1px}.cp.gh{background:transparent!important;border:1.5px dashed;font-weight:600}',
     '.gslide{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--text-secondary)}.gslide input{flex:1;min-width:80px}',
@@ -711,6 +723,8 @@
     '.dq{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px}.dq .chip{font-variant-numeric:tabular-nums}.dq .chip.next{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:650}.bl{font-size:12px;color:var(--text-muted);margin:6px 0 2px}',
     '.tg2{margin:0 0 10px}.tg2 .tcs{display:flex;flex-wrap:wrap;gap:4px}.tcp{border:1px solid var(--border);border-radius:6px;padding:1px 7px;font-size:12px;font-variant-numeric:tabular-nums}.tcp.z{opacity:.4;text-decoration:line-through}.tg2.na{opacity:.55}',
     'tr.actrow{background:color-mix(in srgb,var(--good) 14%,transparent)}.act{color:var(--good);font-weight:700}',
+    '.tw table th:first-child,.tw table td:first-child{position:sticky;left:0;z-index:1;background:var(--surface-1)}',
+    '.tw tr.merow td:first-child{background:color-mix(in srgb,var(--accent) 12%,var(--surface-1))}.tw tr.actrow td:first-child{background:color-mix(in srgb,var(--good) 14%,var(--surface-1))}.tw tr[data-corp].hl td:first-child{background:color-mix(in srgb,var(--accent) 22%,var(--surface-1))}',
     '[data-corp].hl{background-image:linear-gradient(color-mix(in srgb,var(--accent) 22%,transparent),color-mix(in srgb,var(--accent) 22%,transparent));outline:2px solid var(--accent);outline-offset:-2px;animation:hlp 1.1s ease-in-out infinite}@keyframes hlp{50%{outline-color:color-mix(in srgb,var(--accent) 35%,transparent)}}@media (prefers-reduced-motion:reduce){[data-corp].hl{animation:none}}',
     'html.myturn::after{content:"";position:fixed;inset:0;pointer-events:none;box-shadow:inset 0 0 0 5px var(--good);z-index:30;animation:glow 2.4s ease-in-out infinite}@keyframes glow{50%{box-shadow:inset 0 0 0 5px color-mix(in srgb,var(--good) 30%,transparent)}}@media (prefers-reduced-motion:reduce){html.myturn::after{animation:none}}',
     '.glide{position:fixed;left:0;top:0;z-index:40;padding:1px 8px;border-radius:999px;font-weight:700;font-size:12px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.3);margin:-10px 0 0 -24px;white-space:nowrap}',
@@ -732,7 +746,48 @@
       ST.beeps = (ST.beeps || 0) + 1;
     } catch (e) {}
   }
-  function isDark(w) { try { return w.matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) { return false; } }
+  function themePref() { var v = lsGet('xxStats.theme'); return v === 'dark' || v === 'light' ? v : null; }
+  function isDark(w) { var p = themePref(); if (p) return p === 'dark'; try { return w.matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) { return false; } }
+  // "I am": the player chosen in the window, else the one recognised from the page's own header (never any login data)
+  function myName(names) {
+    var v = lsGet('xxStats.me');
+    if (v !== null) return v && names.indexOf(v) >= 0 ? v : null;
+    return ST.autoMe && names.indexOf(ST.autoMe) >= 0 ? ST.autoMe : null;
+  }
+  function detectMe(names) {
+    try {
+      var nav = document.querySelector('nav, #header, .nav'), txt = nav ? nav.textContent : '';
+      var hits = names.filter(function (n) { return n && new RegExp('(^|[^A-Za-z0-9_])' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^A-Za-z0-9_])').test(txt); });
+      return hits.length === 1 ? hits[0] : null;
+    } catch (e) { return null; }
+  }
+  function cmpVer(a, b) { var x = String(a).split('.').map(Number), y = String(b).split('.').map(Number); for (var i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0) ? 1 : -1; } return 0; }
+  function checkLatest() {
+    if (ST.latestAt && Date.now() - ST.latestAt < 6 * 3600 * 1000) return;
+    ST.latestAt = Date.now();
+    try {
+      window.__xxLatest = null;
+      var sc = document.createElement('script');
+      sc.src = 'https://cdn.jsdelivr.net/gh/mvhjim/18xx-jnnstats@main/version.js?t=' + Date.now();
+      sc.onload = function () { ST.latest = String(window.__xxLatest || ''); sc.remove(); rerender(); };
+      sc.onerror = function () { sc.remove(); };
+      document.head.appendChild(sc);
+    } catch (e) {}
+  }
+  function loadBounds() { try { var b = JSON.parse(lsGet('xxStats.bounds') || 'null'); if (b && b.w > 300 && b.h > 300) return b; } catch (e) {} return null; }
+  function applyBounds(w, b) {
+    try {
+      var sc = w.screen || screen, al = sc.availLeft || 0, at = sc.availTop || 0, wd = Math.min(b.w, sc.availWidth), ht = Math.min(b.h, sc.availHeight);
+      w.resizeTo(wd, ht); w.moveTo(Math.max(al, Math.min(b.x, al + sc.availWidth - wd)), Math.max(at, Math.min(b.y, at + sc.availHeight - ht)));
+    } catch (e) {}
+  }
+  function copyText(w, txt, btn) {
+    var done = function (ok) { try { btn.textContent = ok ? 'copied \u2713' : 'copy failed'; setTimeout(function () { try { btn.textContent = 'copy as text'; } catch (e) {} }, 1600); } catch (e) {} };
+    var fallback = function () {
+      try { var ta = w.document.createElement('textarea'); ta.value = txt; ta.style.cssText = 'position:fixed;left:-9999px'; w.document.body.appendChild(ta); ta.select(); var ok = w.document.execCommand('copy'); ta.remove(); return ok; } catch (e) { return false; }
+    };
+    try { w.navigator.clipboard.writeText(txt).then(function () { done(true); }, function () { done(fallback()); }); } catch (e) { done(fallback()); }
+  }
   function luminance(hex) {
     var m = /^#?([0-9a-f]{6})$/i.exec(hex || ''); if (!m) return 0.5;
     var n = parseInt(m[1], 16); var c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
@@ -902,7 +957,9 @@
       });
     }
     var oneD = G.cells.length === 1, h = [];
-    h.push('<div class="mk' + (oneD ? ' one' : '') + '" style="--cols:' + G.cols + '">');
+    var gcols = G.cols;
+    if (oneD) { var grows = Math.ceil(G.cols / 16); gcols = Math.ceil(G.cols / grows); }
+    h.push('<div class="mk' + (oneD ? ' one' : '') + '" style="--cols:' + gcols + '">');
     G.cells.forEach(function (row, ri) {
       for (var ci = 0; ci < G.cols; ci++) {
         var c = row[ci];
@@ -980,11 +1037,11 @@
   function render(w, d) {
     var doc = w.document, dark = isDark(w), pal = PLAYER_COLORS[dark ? 'dark' : 'light'];
     var m = d.money;
-    var me = lsGet('xxStats.me');
-    if (me && !d.players.some(function (p) { return p.name === me; })) me = null;
+    var me = myName(d.players.map(function (p) { return p.name; }));
     var myTurn = !!me && !d.finished && !!d.live && d.live.acting.indexOf(me) >= 0;
     var soundOn = lsGet('xxStats.sound') === '1', armed = !!w.__xxAudio;
-    doc.title = (myTurn ? '● Your turn · ' : '') + d.title + ' · ' + d.id + ' · 18xx-JNNstats';
+    doc.title = (myTurn ? '● Your turn · ' : '') + d.roundLabel + ' · ' + d.title + ' · ' + d.id + ' · 18xx-JNNstats';
+    var th = themePref(); if (th) doc.documentElement.setAttribute('data-theme', th); else doc.documentElement.removeAttribute('data-theme');
     if (ST.lookGame !== d.id) { ST.lookGame = d.id; ST.lookId = d.feed.length ? d.feed[0].id : 0; }
     ST.maxFeedId = d.feed.length ? d.feed[0].id : 0;
     var leader = Math.max.apply(null, d.players.map(function (p) { return p.value; }));
@@ -992,14 +1049,27 @@
     var maxVal = leader || 1;
 
     var h = [];
-    h.push('<header><h1>' + esc(d.title) + ' <span style="color:var(--text-muted);font-weight:400">#' + esc(d.id) + '</span></h1>');
+    var newer = ST.latest && cmpVer(ST.latest, VERSION) > 0;
+    h.push('<header><div class="hr1"><h1>' + esc(d.title) + ' <span style="color:var(--text-muted);font-weight:400">#' + esc(d.id) + '</span></h1>');
     h.push('<span class="kv">Round <b>' + esc(d.roundLabel) + '</b></span><span class="kv">Phase <b>' + esc(d.phase) + '</b></span>');
-    h.push('<span class="kv">Bank <b data-f="bank" class="' + (d.bank <= 0 ? 'st-crit' : '') + '">' + esc(m(d.bank)) + '</b></span>');
-    if (d.nextTrain) h.push('<span class="kv">Next train <b>' + esc(d.nextTrain.name) + '</b> ' + esc(m(d.nextTrain.price)) + '</span>');
+    h.push('<span class="kv">Bank <b data-f="bank" class="' + (d.bank <= 0 ? 'st-crit' : '') + '">' + esc(m(d.bank)) + '</b>' + (d.bank < 0 ? ' <small class="st-crit">broken</small>' : '') + '</span>');
+    if (d.nextTrain) h.push('<span class="kv opt">Next train <b>' + esc(d.nextTrain.name) + '</b> ' + esc(m(d.nextTrain.price)) + '</span>');
     if (d.finished) h.push('<span class="pill" style="border-color:var(--crit);color:var(--crit)">Game over</span>');
-    h.push('<span class="right"><a href="' + REPO_URL + '" target="_blank" rel="noopener" style="color:inherit">18xx-JNNstats v' + VERSION + ' by jimiste</a> · ' + d.actions + ' actions · updated ' + d.updated.toLocaleTimeString() + ' · ' + esc(ST.statusText || '') + (ST.verify ? ' · <span class="' + (ST.verify.ok ? 'st-good' : 'st-warn') + '" title="After each round the whole game is replayed from scratch and compared with the live numbers">' + (ST.verify.ok ? '✓ verified' : '⚠ corrected') + ' at ' + esc(ST.verify.at) + '</span>' : '') +
-      ' <label class="mesel">I am <select id="me"><option value="">…</option>' + d.players.map(function (p) { return '<option' + (p.name === me ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') + '</select></label>' +
-      ' <button id="snd" title="Play a sound in this window when it becomes your turn">' + (soundOn ? (armed ? '🔔 Sound on' : '🔔 Click to arm sound') : '🔕 Sound off') + '</button> <button id="rf">Refresh</button> <button id="sn" title="Move this window to the right half of the screen">◨ Half screen</button> <button id="lr" title="Restore the default order and expand all sections">Reset <span id="lm">layout</span></button> <form id="gf" style="display:inline"><input id="gi" placeholder="game # or link" size="12" style="font:inherit;font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface-0);color:var(--text-primary)"> <button>Open</button></form></span></header><main>');
+    h.push('<span class="grow"></span><span class="tb">' +
+      '<label class="mesel">I am <select id="me"><option value="">…</option>' + d.players.map(function (p) { return '<option' + (p.name === me ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') + '</select></label>' +
+      '<button class="ib" id="snd" title="' + (soundOn ? (armed ? 'Sound on: plays when it becomes your turn. Click to switch off.' : 'Click once to arm the sound (browsers need a click)') : 'Sound off. Click to play a sound when it becomes your turn.') + '">' + (soundOn ? (armed ? '🔔' : '🔔?') : '🔕') + '</button>' +
+      '<button class="ib" id="rf" title="Refresh now">⟳</button>' +
+      '<button class="ib" id="sn" title="Move this window to the right half of the screen">◨</button>' +
+      '<button class="ib" id="th" title="Switch between dark and light">' + (dark ? '🌙' : '☀') + '</button>' +
+      '<details class="menu" id="mn"' + (ST.menuOpen ? ' open' : '') + '><summary class="ib" title="More">⋯</summary><div class="mp2">' +
+        '<button id="lr" title="Restore the default order and expand all sections">Reset <span id="lm">layout</span></button>' +
+        '<form id="gf" style="display:flex;gap:6px"><input id="gi" placeholder="game # or link" size="14" value="' + esc(ST.giVal || '') + '"><button>Open</button></form>' +
+        '<div style="color:var(--text-muted)">Look at another game, old or live.</div></div></details></span></div>');
+    h.push('<div class="hr2"><a href="' + REPO_URL + '" target="_blank" rel="noopener" style="color:inherit">18xx-JNNstats v' + VERSION + ' by jimiste</a>' +
+      (newer ? ' · <a class="upd" href="' + REPO_URL + '/blob/main/CHANGELOG.md" target="_blank" rel="noopener" title="A newer version exists. If you pinned a version, read the changelog, then update your bookmark.">⬆ v' + esc(ST.latest) + ' available</a>' : '') +
+      ' · ' + d.actions + ' actions · updated ' + d.updated.toLocaleTimeString() + ' · ' + esc(ST.statusText || '') +
+      (ST.verify ? ' · <span class="' + (ST.verify.ok ? 'st-good' : 'st-warn') + '" title="After each round the whole game is replayed from scratch and compared with the live numbers">' + (ST.verify.ok ? '✓ verified' : '⚠ corrected') + ' at ' + esc(ST.verify.at) + '</span>' : '') +
+      '</div></header><main>');
 
     // ---------- Live sections: Now, What just happened, Stock round helper -----------------
     var L = d.live;
@@ -1041,16 +1111,15 @@
         (en.conditions.length ? '<div class="d2">Ends on: ' + en.conditions.map(function (c) { return esc(c.reason) + ' <span style="color:var(--text-muted)">(' + esc(c.timing) + ')</span>'; }).join(', ') + '</div>' : '') + '</div>');
       h.push('</div></section>');
 
-      // Since your last move
-      if (me && d.recap) {
-        var rc = d.recap;
-        h.push('<section class="card"><h2>Since your last turn</h2><p class="sub">' + (rc.lines.length ? rc.total + (rc.total >= 120 ? '+' : '') + ' log lines since your last move (newest first)' : 'Nothing has happened since your last move.') + '</p><ul class="feed">' +
-          rc.lines.map(function (f) { return '<li class="' + (f.head ? 'head' : '') + '">' + esc(f.msg) + '</li>'; }).join('') + '</ul></section>');
-      }
-
-      // Feed
-      h.push('<section class="card"><h2>What just happened</h2><p class="sub">Latest moves, newest first. <span class="newdot"></span> = since you last looked here <button id="seen" class="lnk">mark all as seen</button></p><ul class="feed">' +
-        d.feed.map(function (f) { return '<li class="' + (f.head ? 'head' : '') + (ST.lookId != null && f.id > ST.lookId ? ' new' : '') + '">' + esc(f.msg) + '</li>'; }).join('') + '</ul></section>');
+      // What just happened: latest moves, plus everything since your own last move
+      var rc = me && d.recap && d.recap.lines.length ? d.recap : null;
+      var fTab = ST.feedTab || (myTurn && rc ? 'since' : 'latest'); if (fTab === 'since' && !rc) fTab = 'latest';
+      h.push('<section class="card"><h2>What just happened</h2>' +
+        (rc ? '<div class="tabs" id="fd-tabs"><button data-t="latest"' + (fTab === 'latest' ? ' class="on"' : '') + '>Latest moves</button><button data-t="since"' + (fTab === 'since' ? ' class="on"' : '') + '>Since your last turn (' + rc.total + (rc.total >= 120 ? '+' : '') + ')</button></div>' : '') +
+        '<div id="fd-latest"' + (fTab === 'latest' ? '' : ' hidden') + '><p class="sub">Latest moves, newest first. <span class="newdot"></span> = since you last looked here <button id="seen" class="lnk">mark all as seen</button></p><ul class="feed">' +
+        d.feed.map(function (f) { return '<li class="' + (f.head ? 'head' : '') + (ST.lookId != null && f.id > ST.lookId ? ' new' : '') + '">' + esc(f.msg) + '</li>'; }).join('') + '</ul></div>' +
+        (rc ? '<div id="fd-since"' + (fTab === 'since' ? '' : ' hidden') + '><p class="sub">Everything logged after your own last move, newest first.</p><ul class="feed">' + rc.lines.map(function (f) { return '<li class="' + (f.head ? 'head' : '') + '">' + esc(f.msg) + '</li>'; }).join('') + '</ul></div>' : '') +
+        '</section>');
 
       // Stock round helper
       if (L.market.length) {
@@ -1092,7 +1161,7 @@
     }
 
     // Standings
-    h.push('<section class="card"><h2>Standings</h2><p class="sub">Player value = cash + shares at market price' + (d.finished ? ' (final)' : '') + '</p><div class="tw"><table><thead><tr><th>#</th><th>Player</th><th>Value</th><th style="width:30%"></th><th>Gap</th><th>Cash</th><th>Certs</th></tr></thead><tbody>');
+    h.push('<section class="card"><h2>Standings</h2><p class="sub">Player value = cash + shares at market price' + (d.finished ? ' (final)' : '') + ' <button id="cp" class="lnk" title="Copy the standings and share prices as plain text, to paste into chat">copy as text</button></p><div class="tw"><table><thead><tr><th>#</th><th style="text-align:left">Player</th><th>Value</th><th style="width:30%"></th><th>Gap</th><th>Cash</th><th>Certs</th></tr></thead><tbody>');
     ranked.forEach(function (p, i) {
       var c = pal[p.idx % pal.length];
       var certCls = p.certLimit && p.certs >= p.certLimit ? 'st-crit' : p.certLimit && p.certs >= p.certLimit - 1 ? 'st-warn' : '';
@@ -1275,7 +1344,30 @@
     var turnKey = d.id + ':' + myTurn;
     if (myTurn && ST.turnKey !== turnKey && ST.turnKey != null && soundOn) beep(w);
     ST.turnKey = turnKey;
-    doc.getElementById('me').onchange = function () { lsSet('xxStats.me', this.value); ST.pfPlayer = null; rerender(); };
+    doc.getElementById('me').onchange = function () { lsSet('xxStats.me', this.value); ST.pfPlayer = null; ST.feedTab = null; rerender(); };
+    doc.getElementById('th').onclick = function () { lsSet('xxStats.theme', dark ? 'light' : 'dark'); rerender(); };
+    var mn = doc.getElementById('mn'); if (mn) mn.ontoggle = function () { ST.menuOpen = mn.open; };
+    doc.onclick = function (ev) { if (ST.menuOpen && mn && !ev.target.closest('#mn')) { mn.open = false; ST.menuOpen = false; } };
+    var giEl = doc.getElementById('gi'); if (giEl) giEl.oninput = function () { ST.giVal = giEl.value; };
+    var cpb = doc.getElementById('cp');
+    if (cpb) cpb.onclick = function () {
+      var lines = [d.title + ' #' + d.id + ' · ' + d.roundLabel + ' · phase ' + d.phase];
+      ranked.forEach(function (p, i) { lines.push((i + 1) + '. ' + p.name + ' ' + m(p.value) + ' (cash ' + m(p.cash) + ')'); });
+      var px = d.ticker.filter(function (tk) { return !tk.closed; }).map(function (tk) { return tk.name + ' ' + m(tk.price); });
+      if (px.length) lines.push('Share prices: ' + px.join(', '));
+      copyText(w, lines.join('\n'), cpb);
+    };
+    var fdt = doc.getElementById('fd-tabs');
+    if (fdt) fdt.onclick = function (ev) {
+      var b2 = ev.target.closest('button'); if (!b2) return;
+      ST.feedTab = b2.getAttribute('data-t');
+      ['latest', 'since'].forEach(function (k) { var el = doc.getElementById('fd-' + k); if (el) el.hidden = k !== ST.feedTab; });
+      Array.prototype.forEach.call(fdt.querySelectorAll('button'), function (x) { x.className = x === b2 ? 'on' : ''; });
+    };
+    // the header shrinks to one line once you scroll
+    var hdr = doc.querySelector('header');
+    w.onscroll = function () { var hd = doc.querySelector('header'); if (hd) hd.classList.toggle('compact', (w.scrollY || 0) > 30); };
+    if (hdr && (w.scrollY || 0) > 30) hdr.classList.add('compact');
     doc.getElementById('snd').onclick = function () {
       if (soundOn && armed) { lsSet('xxStats.sound', '0'); }
       else { lsSet('xxStats.sound', '1'); try { if (!w.__xxAudio) w.__xxAudio = new (w.AudioContext || w.webkitAudioContext)(); w.__xxAudio.resume(); beep(w); } catch (e) {} }
@@ -1287,7 +1379,7 @@
     doc.documentElement.onmouseleave = markSeen; // leaving the window counts as having looked
     doc.getElementById('rf').onclick = function () { refresh(true); };
     doc.getElementById('sn').onclick = function () { snapRight(w); };
-    doc.getElementById('gf').onsubmit = function (ev) { ev.preventDefault(); var mm = String(doc.getElementById('gi').value).match(/(\d{3,})/); if (mm) { ST.gameId = mm[1]; ST.pfPlayer = null; w.document.body.innerHTML = '<p style="padding:20px">Loading game ' + mm[1] + '…</p>'; refresh(true); } };
+    doc.getElementById('gf').onsubmit = function (ev) { ev.preventDefault(); ST.giVal = ''; ST.menuOpen = false; var mm = String(doc.getElementById('gi').value).match(/(\d{3,})/); if (mm) { ST.gameId = mm[1]; ST.pfPlayer = null; w.document.body.innerHTML = '<p style="padding:20px">Loading game ' + mm[1] + '…</p>'; refresh(true); } };
     function drawPf(i) {
       ST.pfPlayer = i;
       var el = doc.getElementById('c-pf'); if (!el) return;
@@ -1310,7 +1402,7 @@
   // ---------- Layout: collapse and reorder sections, remembered per mode ----------------
   // Two layouts are kept in this browser: 'live' (game in progress) and 'review' (finished game).
   var DEFAULT_ORDER = {
-    live: ['now', 'since-your-last-turn', 'what-just-happened', 'trains-phases', 'stock-round-helper', 'stock-market', 'corporations', 'bank-depot', 'standings', 'stock-ticker', 'portfolios', 'company-revenue-per-operating-round', 'player-value-over-time', 'share-price', 'minors-private-companies', 'tile-manifest'],
+    live: ['now', 'what-just-happened', 'trains-phases', 'stock-round-helper', 'stock-market', 'corporations', 'bank-depot', 'standings', 'stock-ticker', 'portfolios', 'company-revenue-per-operating-round', 'player-value-over-time', 'share-price', 'minors-private-companies', 'tile-manifest'],
     review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'company-revenue-per-operating-round', 'share-price', 'portfolios', 'trains-phases', 'corporations', 'bank-depot', 'minors-private-companies', 'tile-manifest']
   };
   function slug(txt) { return String(txt).toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
@@ -1391,10 +1483,11 @@
     var res = Object.keys(raw.result || {}).map(function (k) { return { name: names[k] || k, score: raw.result[k] }; }).sort(function (a, b) { return b.score - a.score; });
     var top = res.length ? res[0].score : 1;
     w.document.title = raw.title + ' · ' + raw.id + ' · Stats';
-    w.document.body.innerHTML = '<header><h1>' + esc(raw.title) + ' <span style="color:var(--text-muted);font-weight:400">#' + esc(raw.id) + '</span></h1><span class="kv">' + esc(raw.description || '') + '</span>' +
-      '<span class="right"><form id="gf" style="display:inline"><input id="gi" placeholder="game # or link" size="12" style="font:inherit;font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface-0);color:var(--text-primary)"> <button>Open</button></form></span></header>' +
+    var th0 = themePref(); if (th0) w.document.documentElement.setAttribute('data-theme', th0); else w.document.documentElement.removeAttribute('data-theme');
+    w.document.body.innerHTML = '<header><div class="hr1"><h1>' + esc(raw.title) + ' <span style="color:var(--text-muted);font-weight:400">#' + esc(raw.id) + '</span></h1><span class="kv">' + esc(raw.description || '') + '</span>' +
+      '<span class="grow"></span><span class="tb"><form id="gf" style="display:inline"><input id="gi" placeholder="game # or link" size="12" style="font:inherit;font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface-0);color:var(--text-primary)"> <button class="ib" style="font-size:12px">Open</button></form></span></div></header>' +
       '<main><section class="card wide"><h2>Archived game: only the final result is kept</h2><p class="sub">18xx.games deletes the moves of archived games, so there is no history to replay or chart. This is the final result as the site stored it.</p>' +
-      '<div class="tw"><table><thead><tr><th>#</th><th>Player</th><th>Final score</th><th style="width:40%"></th></tr></thead><tbody>' +
+      '<div class="tw"><table><thead><tr><th>#</th><th style="text-align:left">Player</th><th>Final score</th><th style="width:40%"></th></tr></thead><tbody>' +
       res.map(function (r, i) { return '<tr><td>' + (i + 1) + '</td><td style="text-align:left">' + esc(r.name) + '</td><td><b>' + esc(r.score) + '</b></td><td><div class="bar"><i style="width:' + (r.score / top * 100).toFixed(1) + '%;background:var(--accent)"></i></div></td></tr>'; }).join('') +
       '</tbody></table></div></section></main>';
     w.document.getElementById('gf').onsubmit = function (ev) { ev.preventDefault(); var mm = String(w.document.getElementById('gi').value).match(/(\d{3,})/); if (mm) { ST.gameId = mm[1]; refresh(true); } };
@@ -1403,7 +1496,7 @@
   // ---------- Window + update loop ------------------------------------------------------------
   // A second click on the bookmark (or a newer version of this script) replaces the running one.
   var OLD = window.__xxStats;
-  if (OLD) { try { clearInterval(OLD.timer); } catch (e) {} try { if (OLD.unsub) OLD.unsub(); } catch (e) {} }
+  if (OLD) { try { clearInterval(OLD.timer); clearInterval(OLD.bTimer); } catch (e) {} try { if (OLD.unsub) OLD.unsub(); } catch (e) {} }
   var ST = window.__xxStats = { token: Date.now() + '-' + Math.random(), win: OLD && OLD.win, version: VERSION };
   ST.api = { extract: extract, loadGame: loadGame, applyActions: applyActions, ensureTitle: ensureTitle, render: render };
 
@@ -1423,8 +1516,18 @@
     w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>18xx-JNNstats v' + VERSION + '</title><style>' + CSS + '</style></head><body><p style="padding:20px">Loading game…</p><script>' + WATCHDOG + '<\/script></body></html>');
     w.document.close();
     w.__xxToken = ST.token;
-    if (fresh) snapRight(w);
+    if (fresh) { var bnd = loadBounds(); if (bnd) applyBounds(w, bnd); else snapRight(w); }
     ST.win = w;
+    // remember where you put the window
+    try { clearInterval(ST.bTimer); } catch (e) {}
+    var lastB = '';
+    ST.bTimer = setInterval(function () {
+      try {
+        if (!ST.win || ST.win.closed) { clearInterval(ST.bTimer); return; }
+        var ww = ST.win, bb = { x: ww.screenX, y: ww.screenY, w: ww.outerWidth, h: ww.outerHeight }, key = JSON.stringify(bb);
+        if (key !== lastB && bb.w > 300 && bb.h > 300) { lastB = key; lsSet('xxStats.bounds', key); }
+      } catch (e) {}
+    }, 2500);
     return w;
   }
 
@@ -1446,6 +1549,7 @@
       var g = loadGame(text), id = String(raw.id);
       if (!ST.game || ST.game.id !== id) ST.verify = null;
       ST.game = { id: id, g: g, raw: raw };
+      ST.autoMe = detectMe((raw.players || []).map(function (p) { return p.name; }));
       ST.fullLoads = (ST.fullLoads || 0) + 1;
       rerender();
     });
@@ -1543,9 +1647,11 @@
   ST.gameId = null;
   ST.ticks = 0;
   refresh(true);
+  checkLatest();
   // Backup check: every 10 s without the push channel, every 30 s with it; finished games are left alone.
   ST.timer = setInterval(function () {
     ST.ticks++;
+    checkLatest();
     if (ST.game && ST.game.raw.status === 'finished') return;
     if (ST.unsub && ST.ticks % 3) return;
     refresh(false);
