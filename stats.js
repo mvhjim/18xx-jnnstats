@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.9.0';
+  var VERSION = '0.9.1';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -593,12 +593,16 @@
     try {
       var glR = [{ label: 'Start', lines: [] }], glMe = -1, plName = {}, actBy = {};
       (raw.players || []).forEach(function (pp) { plName[pp.id] = pp.name; });
-      (raw.actions || []).forEach(function (aa) { if (aa.id != null && plName[aa.user]) actBy[aa.id] = plName[aa.user]; });
+      var plNames = (raw.players || []).map(function (pp) { return pp.name; }).filter(Boolean), curActor = '';
       for (var gi = 0; gi < log.length; gi++) {
         var gmsg = s(call(log[gi], 'message')); if (!gmsg) continue;
         var gid = num(call(log[gi], 'action_id'));
-        if (/^-- /.test(gmsg) && /(Round|Auction|Draft)/i.test(gmsg) && !/^-- Phase/i.test(gmsg)) { glR.push({ label: gmsg.replace(/^-+\s*/, '').replace(/[\s-]+$/, ''), lines: [] }); continue; }
-        glR[glR.length - 1].lines.push({ id: gid, msg: gmsg, head: /^-- /.test(gmsg), u: actBy[gid] || '' });
+        if (/^-- /.test(gmsg) && /(Round|Auction|Draft)/i.test(gmsg) && !/^-- Phase/i.test(gmsg)) { glR.push({ label: gmsg.replace(/^-+\s*/, '').replace(/[\s-]+$/, ''), lines: [] }); curActor = ''; continue; }
+        // who the line belongs to: a line that starts with a player's name, else the player whose turn the company is in
+        var lineActor = '';
+        for (var pi = 0; pi < plNames.length; pi++) if (gmsg.indexOf(plNames[pi] + ' ') === 0) { lineActor = plNames[pi]; break; }
+        if (lineActor) curActor = lineActor; else lineActor = /^-- /.test(gmsg) ? '' : curActor;
+        glR[glR.length - 1].lines.push({ id: gid, msg: gmsg, head: /^-- /.test(gmsg), u: lineActor });
         if (lastMineId && gid > 0 && gid <= lastMineId) glMe = glR.length - 1;
       }
       if (!glR[0].lines.length && glR.length > 1) glR.shift(), glMe = glMe > 0 ? glMe - 1 : glMe;
