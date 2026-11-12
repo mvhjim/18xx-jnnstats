@@ -591,12 +591,14 @@
     // Game log: the whole log split into rounds at the engine's own "-- ... Round ... --" headings
     var gameLog = null;
     try {
-      var glR = [{ label: 'Start', lines: [] }], glMe = -1;
+      var glR = [{ label: 'Start', lines: [] }], glMe = -1, plName = {}, actBy = {};
+      (raw.players || []).forEach(function (pp) { plName[pp.id] = pp.name; });
+      (raw.actions || []).forEach(function (aa) { if (aa.id != null && plName[aa.user]) actBy[aa.id] = plName[aa.user]; });
       for (var gi = 0; gi < log.length; gi++) {
         var gmsg = s(call(log[gi], 'message')); if (!gmsg) continue;
         var gid = num(call(log[gi], 'action_id'));
         if (/^-- /.test(gmsg) && /(Round|Auction|Draft)/i.test(gmsg) && !/^-- Phase/i.test(gmsg)) { glR.push({ label: gmsg.replace(/^-+\s*/, '').replace(/[\s-]+$/, ''), lines: [] }); continue; }
-        glR[glR.length - 1].lines.push({ id: gid, msg: gmsg, head: /^-- /.test(gmsg) });
+        glR[glR.length - 1].lines.push({ id: gid, msg: gmsg, head: /^-- /.test(gmsg), u: actBy[gid] || '' });
         if (lastMineId && gid > 0 && gid <= lastMineId) glMe = glR.length - 1;
       }
       if (!glR[0].lines.length && glR.length > 1) glR.shift(), glMe = glMe > 0 ? glMe - 1 : glMe;
@@ -693,7 +695,7 @@
     '.menu{position:relative}.mp2{position:absolute;right:0;top:calc(100% + 6px);z-index:10;min-width:240px;background:var(--surface-1);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.3);padding:8px;display:flex;flex-direction:column;gap:8px;font-size:12px}',
     '.mp2 button{font:inherit;font-size:12px;padding:4px 9px;border:1px solid var(--border);background:var(--surface-0);color:var(--text-primary);border-radius:6px;cursor:pointer}.mp2 input{font:inherit;font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface-0);color:var(--text-primary)}',
     '.upd{color:var(--warn);font-weight:600}@media (max-width:1000px){.kv.opt{display:none}}',
-    'main{padding:10px 12px;display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(560px,100%),1fr));align-items:start}',
+    'main{padding:10px 12px;display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(440px,100%),1fr));align-items:start}',
     '.card{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:12px 14px;min-width:0}.card.wide{grid-column:1/-1}',
     '.tw{overflow-x:auto}.card h2{font-size:13px;margin:0 0 2px;font-weight:650}.card .sub{color:var(--text-muted);font-size:12px;margin:0 0 8px}',
     'table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}th,td{padding:4px 8px;text-align:right;border-bottom:1px solid var(--grid);white-space:nowrap}th{font-weight:600;color:var(--text-secondary);font-size:12px}th:first-child,td:first-child{text-align:left}',
@@ -734,7 +736,7 @@
     '.mk{display:grid;grid-template-columns:repeat(var(--cols),minmax(34px,1fr));gap:2px;overflow-x:auto}',
     '.mc{border:1px solid var(--grid);border-radius:5px;padding:2px 3px;min-height:40px;font-size:11px;min-width:0}.mc.empty{border-color:transparent}.mp{color:var(--text-secondary);font-variant-numeric:tabular-nums;font-size:10.5px}',
     '.cp{display:block;border-radius:4px;padding:0 3px;margin-top:2px;font-size:10.5px;font-weight:700;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default}.cp.mine{outline:2px solid var(--accent);outline-offset:1px}.cp.gh{background:transparent!important;border:1.5px dashed;font-weight:600}',
-    '.feed.gl{max-height:420px}.feed li.mine{font-weight:600;color:var(--accent)}.glr{color:var(--text-muted);font-size:10.5px}.gltools{display:flex;gap:8px;align-items:center;margin:0 0 8px}.gltools input{flex:1;min-width:80px}',
+    '.feed.gl{max-height:420px}.feed li.gl{display:grid;grid-template-columns:92px 1fr;gap:8px;padding-left:0;border-left:4px solid var(--pc,transparent)}.feed li.gl .gu{padding-left:6px;color:var(--text-secondary);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.feed li.gl.me{background:color-mix(in srgb,var(--pc) 14%,transparent)}.feed li.gl.me .gu{color:var(--text);font-weight:700}.feed li.gl.head{border-left-color:transparent}.feed li.mine .gm{font-weight:600;color:var(--accent)}.glr{color:var(--text-muted);font-size:10.5px}.gltools{display:flex;gap:8px;align-items:center;margin:0 0 8px}.gltools input{flex:1;min-width:80px}',
     '.gslide{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--text-secondary)}.gslide input{flex:1;min-width:80px}',
     '.zl{display:flex;flex-wrap:wrap;gap:4px 12px;margin:8px 0 0;font-size:11.5px;color:var(--text-secondary)}.zl i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1px solid var(--border)}',
     '.dq{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px}.dq .chip{font-variant-numeric:tabular-nums}.dq .chip.next{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:650}.bl{font-size:12px;color:var(--text-muted);margin:6px 0 2px}',
@@ -804,6 +806,53 @@
       try { var ta = w.document.createElement('textarea'); ta.value = txt; ta.style.cssText = 'position:fixed;left:-9999px'; w.document.body.appendChild(ta); ta.select(); var ok = w.document.execCommand('copy'); ta.remove(); return ok; } catch (e) { return false; }
     };
     try { w.navigator.clipboard.writeText(txt).then(function () { done(true); }, function () { done(fallback()); }); } catch (e) { done(fallback()); }
+  }
+  // Standings + value chart as a PNG (drawn on a canvas so it does not depend on the page's styles)
+  function shareImage(d, ranked, pal, dark, m, me) {
+    var th = dark ? { bg: '#14181d', tx: '#e8eaed', t2: '#a9b0b8', gr: '#2a3038' } : { bg: '#ffffff', tx: '#1b1f24', t2: '#5b636c', gr: '#e1e4e8' };
+    var W = 900, rowH = 28, n = ranked.length, topH = 64, listH = 26 + n * rowH, chartTop = topH + listH + 34, chartH = 300, H = chartTop + chartH + 50, S = 2;
+    var c = document.createElement('canvas'); c.width = W * S; c.height = H * S; var x = c.getContext('2d'); x.scale(S, S);
+    var F = function (sz, wt) { x.font = (wt || '400') + ' ' + sz + 'px system-ui,-apple-system,Segoe UI,Roboto,sans-serif'; };
+    x.fillStyle = th.bg; x.fillRect(0, 0, W, H);
+    x.textBaseline = 'alphabetic'; x.textAlign = 'left';
+    F(22, '700'); x.fillStyle = th.tx; x.fillText(d.title + ' \u00b7 ' + d.roundLabel + (d.finished ? ' (final)' : ''), 24, 36);
+    F(12.5); x.fillStyle = th.t2; x.fillText('Player value = cash + shares at market price + private companies', 24, 56);
+    var y = topH + 18; F(12, '600'); x.fillStyle = th.t2;
+    x.fillText('#', 24, y); x.fillText('Player', 52, y); x.textAlign = 'right'; x.fillText('Value', 420, y); x.fillText('Cash', 520, y); x.textAlign = 'left';
+    var maxV = Math.max.apply(null, ranked.map(function (p) { return p.value; }).concat([1]));
+    ranked.forEach(function (p, i) {
+      var yy = topH + 26 + i * rowH + 19, col = pal[p.idx % pal.length];
+      x.fillStyle = col; x.fillRect(52, yy - 12, 12, 12);
+      F(15, i === 0 ? '700' : '400'); x.fillStyle = th.tx; x.fillText(String(i + 1), 24, yy); x.fillText(p.name + (p.name === me ? ' (me)' : ''), 72, yy);
+      x.textAlign = 'right'; x.fillText(m(p.value), 420, yy); F(14); x.fillStyle = th.t2; x.fillText(m(p.cash), 520, yy); x.textAlign = 'left';
+      x.fillStyle = col; x.globalAlpha = 0.85; x.fillRect(560, yy - 13, 316 * p.value / maxV, 13); x.globalAlpha = 1;
+    });
+    // chart
+    var vh = d.valueHistory, L = 70, R = 110, T = chartTop, B = chartTop + chartH - 26, pw = W - L - R, ph = B - T;
+    F(14, '700'); x.fillStyle = th.tx; x.fillText('Player value over time', 24, chartTop - 12);
+    var all = []; vh.series.forEach(function (sr) { sr.forEach(function (v) { if (v != null) all.push(v); }); });
+    var mx = all.length ? Math.max.apply(null, all) : 1, mn = Math.min(0, all.length ? Math.min.apply(null, all) : 0), st = niceStep((mx - mn) / 4) || 1;
+    mx = Math.ceil(mx / st) * st || st; mn = Math.floor(mn / st) * st;
+    var N = vh.labels.length, X = function (i) { return L + (N <= 1 ? pw / 2 : i * pw / (N - 1)); }, Y = function (v) { return B - (v - mn) / (mx - mn || 1) * ph; };
+    F(11); x.textAlign = 'right';
+    for (var gv = mn; gv <= mx + st / 1000; gv += st) { x.strokeStyle = th.gr; x.lineWidth = 1; x.beginPath(); x.moveTo(L, Y(gv)); x.lineTo(W - R, Y(gv)); x.stroke(); x.fillStyle = th.t2; x.fillText(m(gv), L - 8, Y(gv) + 4); }
+    x.textAlign = 'center'; var every = Math.max(1, Math.ceil(N / 9));
+    for (var li = 0; li < N; li += every) { x.fillStyle = th.t2; x.fillText(vh.labels[li], X(li), B + 16); }
+    x.textAlign = 'left';
+    var ends = [];
+    d.players.forEach(function (p, i) {
+      var col = pal[p.idx % pal.length], vals = vh.series[i], started = false;
+      x.strokeStyle = col; x.lineWidth = p.name === me ? 3.5 : 2.5; x.lineJoin = 'round'; x.beginPath();
+      vals.forEach(function (v, k) { if (v == null) return; if (!started) { x.moveTo(X(k), Y(v)); started = true; } else x.lineTo(X(k), Y(v)); });
+      x.stroke();
+      var lastK = -1; vals.forEach(function (v, k) { if (v != null) lastK = k; });
+      if (lastK >= 0) { x.fillStyle = col; x.beginPath(); x.arc(X(lastK), Y(vals[lastK]), 3.5, 0, 6.3); x.fill(); ends.push({ y: Y(vals[lastK]), name: p.name, col: col }); }
+    });
+    ends.sort(function (a, b) { return a.y - b.y; });
+    for (var e = 1; e < ends.length; e++) if (ends[e].y - ends[e - 1].y < 15) ends[e].y = ends[e - 1].y + 15;
+    F(12.5, '600'); ends.forEach(function (o) { x.fillStyle = o.col; x.fillRect(W - R + 10, o.y - 5, 9, 9); x.fillStyle = th.tx; x.fillText(o.name, W - R + 24, o.y + 4); });
+    F(11); x.fillStyle = th.t2; x.fillText('18xx-JNNstats by jimiste', 24, H - 14);
+    return c;
   }
   function luminance(hex) {
     var m = /^#?([0-9a-f]{6})$/i.exec(hex || ''); if (!m) return 0.5;
@@ -1052,17 +1101,22 @@
     gone.forEach(function (g3) { if (n >= 8) return; var el = q('tr[data-crow="' + g3.corp + '"]'); if (el) { glideChip(w, el, el, g3.name + ' rusted', '#c62828'); n++; } });
   }
   // Body of the Game log section: one round's lines, or search hits across the whole log
-  function glBody(d, idx, q) {
+  function glBody(d, idx, q, col, me) {
     var G = d.gameLog; if (!G) return '';
-    var li = function (f, pre) { return '<li class="' + (f.head ? 'head' : '') + (G.meId && f.id === G.meId ? ' mine' : '') + '">' + (pre ? '<small class="glr">' + esc(pre) + '</small> ' : '') + esc(f.msg) + '</li>'; };
+    var prev = null;
+    var li = function (f, pre, runs) {
+      var who = f.u && !f.head ? f.u : '', first = !runs || who !== prev; prev = who;
+      return '<li class="gl' + (f.head ? ' head' : '') + (G.meId && f.id === G.meId ? ' mine' : '') + (who && who === me ? ' me' : '') + '"' + (who && col[who] ? ' style="--pc:' + col[who] + '"' : '') + '>' +
+        '<span class="gu">' + (who && first ? esc(who) : '') + '</span><span class="gm">' + (pre ? '<small class="glr">' + esc(pre) + '</small> ' : '') + esc(f.msg) + '</span></li>';
+    };
     q = (q || '').trim().toLowerCase();
     if (q) {
       var out = [], total = 0;
-      G.rounds.forEach(function (r) { r.lines.forEach(function (f) { if (f.msg.toLowerCase().indexOf(q) >= 0) { total++; if (out.length < 300) out.push(li(f, r.label)); } }); });
+      G.rounds.forEach(function (r) { r.lines.forEach(function (f) { if (f.msg.toLowerCase().indexOf(q) >= 0) { total++; if (out.length < 300) out.push(li(f, r.label, false)); } }); });
       return (out.length ? out.join('') : '<li class="head">No lines match.</li>') + (total > 300 ? '<li class="head">… and ' + (total - 300) + ' more, narrow the search</li>' : '');
     }
     var rr = G.rounds[Math.min(Math.max(idx, 0), G.rounds.length - 1)];
-    return rr.lines.length ? rr.lines.map(function (f) { return li(f); }).join('') : '<li class="head">Nothing logged in this round.</li>';
+    return rr.lines.length ? rr.lines.map(function (f) { return li(f, '', true); }).join('') : '<li class="head">Nothing logged in this round.</li>';
   }
   function render(w, d) {
     var doc = w.document, dark = isDark(w), pal = PLAYER_COLORS[dark ? 'dark' : 'light'];
@@ -1179,11 +1233,12 @@
 
     // Game log with a round slider
     if (d.gameLog && d.gameLog.rounds.length) {
+      var glCol = {}; d.players.forEach(function (p) { glCol[p.name] = pal[p.idx % pal.length]; });
       var GL = d.gameLog, glLast = GL.rounds.length - 1, glIdx = ST.glIdx != null && ST.glGame === d.id && ST.glIdx <= glLast ? ST.glIdx : glLast;
       h.push('<section class="card wide"><h2>Game log</h2><p class="sub">Drag the slider (or use ◀ ▶ and the arrow keys) to read the game round by round. Search looks through the whole game.</p>' +
         '<div class="gslide"><span>Round</span><button id="gl-p" title="Previous round">◀</button><input type="range" id="gl-i" min="0" max="' + glLast + '" value="' + glIdx + '"><button id="gl-n" title="Next round">▶</button><b id="gl-l">' + esc(GL.rounds[glIdx].label) + '</b></div>' +
         '<div class="gltools"><input type="search" id="gl-q" placeholder="Search the whole log…" value="' + esc(ST.glQ || '') + '">' + (me && GL.meRound >= 0 ? ' <button id="gl-me" class="lnk">jump to my last move</button>' : '') + '</div>' +
-        '<ul class="feed gl" id="gl-b">' + glBody(d, glIdx, ST.glQ) + '</ul></section>');
+        '<ul class="feed gl" id="gl-b">' + glBody(d, glIdx, ST.glQ, glCol, me) + '</ul></section>');
     }
 
     // Stock ticker
@@ -1200,7 +1255,7 @@
     }
 
     // Standings
-    h.push('<section class="card"><h2>Standings</h2><p class="sub">Player value = cash + shares at market price' + (d.finished ? ' (final)' : '') + ' <button id="cp" class="lnk" title="Copy the standings and share prices as plain text, to paste into chat">copy as text</button></p><div class="tw"><table><thead><tr><th>#</th><th style="text-align:left">Player</th><th>Value</th><th style="width:30%"></th><th>Gap</th><th>Cash</th><th>Certs</th></tr></thead><tbody>');
+    h.push('<section class="card"><h2>Standings</h2><p class="sub">Player value = cash + shares at market price' + (d.finished ? ' (final)' : '') + ' <button id="cp" class="lnk" title="Copy the standings and share prices as plain text, to paste into chat">copy as text</button> <button id="cpi" class="lnk" title="Copy the standings and the Player value chart as a picture, to paste into chat">copy as image</button></p><div class="tw"><table><thead><tr><th>#</th><th style="text-align:left">Player</th><th>Value</th><th style="width:30%"></th><th>Gap</th><th>Cash</th><th>Certs</th></tr></thead><tbody>');
     ranked.forEach(function (p, i) {
       var c = pal[p.idx % pal.length];
       var certCls = p.certLimit && p.certs >= p.certLimit ? 'st-crit' : p.certLimit && p.certs >= p.certLimit - 1 ? 'st-warn' : '';
@@ -1384,12 +1439,12 @@
       var glSet = function (v) {
         var mx = d.gameLog.rounds.length - 1; v = Math.min(Math.max(v, 0), mx); gli.value = v; ST.glIdx = v; ST.glGame = d.id;
         doc.getElementById('gl-l').textContent = d.gameLog.rounds[v].label;
-        doc.getElementById('gl-b').innerHTML = glBody(d, v, ST.glQ); doc.getElementById('gl-b').scrollTop = 0;
+        doc.getElementById('gl-b').innerHTML = glBody(d, v, ST.glQ, glCol, me); doc.getElementById('gl-b').scrollTop = 0;
       };
       gli.oninput = function () { glSet(+gli.value); };
       doc.getElementById('gl-p').onclick = function () { glSet(+gli.value - 1); };
       doc.getElementById('gl-n').onclick = function () { glSet(+gli.value + 1); };
-      doc.getElementById('gl-q').oninput = function () { ST.glQ = this.value; ST.glGame = d.id; doc.getElementById('gl-b').innerHTML = glBody(d, +gli.value, ST.glQ); };
+      doc.getElementById('gl-q').oninput = function () { ST.glQ = this.value; ST.glGame = d.id; doc.getElementById('gl-b').innerHTML = glBody(d, +gli.value, ST.glQ, glCol, me); };
       var glm = doc.getElementById('gl-me');
       if (glm) glm.onclick = function () { ST.glQ = ''; doc.getElementById('gl-q').value = ''; glSet(d.gameLog.meRound); var mn = doc.querySelector('#gl-b li.mine'); if (mn && mn.scrollIntoView) mn.scrollIntoView({ block: 'center' }); };
     }
@@ -1403,6 +1458,16 @@
     var mn = doc.getElementById('mn'); if (mn) mn.ontoggle = function () { ST.menuOpen = mn.open; };
     doc.onclick = function (ev) { if (ST.menuOpen && mn && !ev.target.closest('#mn')) { mn.open = false; ST.menuOpen = false; } };
     var giEl = doc.getElementById('gi'); if (giEl) giEl.oninput = function () { ST.giVal = giEl.value; };
+    var cpi = doc.getElementById('cpi');
+    if (cpi) cpi.onclick = function () {
+      var lbl = function (t) { try { cpi.textContent = t; setTimeout(function () { try { cpi.textContent = 'copy as image'; } catch (e) {} }, 1800); } catch (e) {} };
+      try {
+        shareImage(d, ranked, pal, dark, m, me).toBlob(function (b) {
+          var save = function () { try { var a = w.document.createElement('a'); a.href = w.URL.createObjectURL(b); a.download = '18xx-standings.png'; w.document.body.appendChild(a); a.click(); a.remove(); lbl('saved as a file'); } catch (e) { lbl('copy failed'); } };
+          try { w.navigator.clipboard.write([new w.ClipboardItem({ 'image/png': b })]).then(function () { lbl('copied \u2713'); }, save); } catch (e) { save(); }
+        }, 'image/png');
+      } catch (e) { lbl('copy failed'); }
+    };
     var cpb = doc.getElementById('cp');
     if (cpb) cpb.onclick = function () {
       var lines = [d.title + ' #' + d.id + ' · ' + d.roundLabel + ' · phase ' + d.phase];
@@ -1456,8 +1521,8 @@
   // ---------- Layout: collapse and reorder sections, remembered per mode ----------------
   // Two layouts are kept in this browser: 'live' (game in progress) and 'review' (finished game).
   var DEFAULT_ORDER = {
-    live: ['now', 'what-just-happened', 'trains-phases', 'stock-round-helper', 'stock-market', 'corporations', 'bank-depot', 'standings', 'stock-ticker', 'portfolios', 'company-revenue-per-operating-round', 'player-value-over-time', 'share-price', 'minors-private-companies', 'game-log', 'tile-manifest'],
-    review: ['stock-ticker', 'stock-market', 'standings', 'game-log', 'player-value-over-time', 'company-revenue-per-operating-round', 'share-price', 'portfolios', 'trains-phases', 'corporations', 'bank-depot', 'minors-private-companies', 'tile-manifest']
+    live: ['now', 'what-just-happened', 'trains-phases', 'stock-round-helper', 'stock-market', 'corporations', 'bank-depot', 'standings', 'player-value-over-time', 'stock-ticker', 'portfolios', 'company-revenue-per-operating-round', 'share-price', 'minors-private-companies', 'game-log', 'tile-manifest'],
+    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'game-log', 'company-revenue-per-operating-round', 'share-price', 'portfolios', 'trains-phases', 'corporations', 'bank-depot', 'minors-private-companies', 'tile-manifest']
   };
   function slug(txt) { return String(txt).toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
   function loadLayout(mode) {
@@ -1478,7 +1543,7 @@
     secs.forEach(function (sec) {
       var h2 = sec.querySelector('h2'); if (!h2) return;
       var key = slug(h2.textContent); sec.setAttribute('data-key', key);
-      var title = h2.innerHTML;
+      var stEl = h2.querySelector('.st'), title = stEl ? stEl.innerHTML : h2.innerHTML;
       h2.className = 'sh';
       h2.innerHTML = '<span class="grip" title="Drag to move">⠿</span><button class="tg" title="Collapse / expand" aria-expanded="true">▾</button><span class="st">' + title + '</span>' +
         '<span class="mv"><button data-mv="-1" title="Move up">▲</button><button data-mv="1" title="Move down">▼</button></span>';
