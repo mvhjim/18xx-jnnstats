@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.11.0';
+  var VERSION = '0.11.1';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -27,6 +27,7 @@
   var CONFIG = {
     default: {},
     '1862': {
+      trainClass: { E: ['🔵', 'Express'], F: ['🟠', 'Freight'], L: ['🟢', 'Local'] },
       notes: function () {
         return ['1862: train variants (E/F/L) are chosen at purchase; each level is one train “type” below.',
                 'Game ends when the bank breaks or the last train is bought (finish the current OR set).'];
@@ -739,7 +740,7 @@
   // ---------- Rendering -------------------------------------------------------------------
   var DARKVARS = '--surface-0:#121211;--surface-1:#1a1a19;--text-primary:#f0efec;--text-secondary:#c3c2b7;--text-muted:#8f8e86;--grid:#2c2c2a;--border:#33332f;--good:#4cc36b;--warn:#e0a020;--crit:#ef6b6b;--accent:#3987e5;color-scheme:dark';
   var CSS = [
-    ':root{--surface-0:#f4f4f2;--surface-1:#fcfcfb;--text-primary:#0b0b0b;--text-secondary:#52514e;--text-muted:#7a7974;--grid:#e6e5e1;--border:#dddcd7;--good:#1a7f37;--warn:#b26b00;--crit:#c62828;--accent:#2a78d6;color-scheme:light}',
+    ':root{--surface-0:#e7e6dc;--surface-1:#f1f0e7;--text-primary:#0b0b0b;--text-secondary:#4d4d46;--text-muted:#74746b;--grid:#d9d8cc;--border:#cdccbf;--good:#1a7f37;--warn:#b26b00;--crit:#c62828;--accent:#2a78d6;color-scheme:light}',
     '@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){' + DARKVARS + '}}',
     ':root[data-theme="dark"]{' + DARKVARS + '}',
     '*{box-sizing:border-box}body{margin:0;background:var(--surface-0);color:var(--text-primary);font:13px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}',
@@ -865,7 +866,7 @@
   }
   // Standings + value chart as a PNG (drawn on a canvas so it does not depend on the page's styles)
   function shareImage(d, ranked, pal, dark, m, me) {
-    var th = dark ? { bg: '#14181d', tx: '#e8eaed', t2: '#a9b0b8', gr: '#2a3038' } : { bg: '#ffffff', tx: '#1b1f24', t2: '#5b636c', gr: '#e1e4e8' };
+    var th = dark ? { bg: '#14181d', tx: '#e8eaed', t2: '#a9b0b8', gr: '#2a3038' } : { bg: '#f1f0e7', tx: '#1b1f24', t2: '#5b636c', gr: '#d9d8cc' };
     var W = 900, rowH = 28, n = ranked.length, topH = 64, listH = 26 + n * rowH, chartTop = topH + listH + 34, chartH = 300, H = chartTop + chartH + 50, S = 2;
     var c = document.createElement('canvas'); c.width = W * S; c.height = H * S; var x = c.getContext('2d'); x.scale(S, S);
     var F = function (sz, wt) { x.font = (wt || '400') + ' ' + sz + 'px system-ui,-apple-system,Segoe UI,Roboto,sans-serif'; };
@@ -1188,6 +1189,11 @@
     var rr = G.rounds[Math.min(Math.max(idx, 0), G.rounds.length - 1)];
     return rr.lines.length ? rr.lines.map(function (f) { return li(f, '', true); }).join('') : '<li class="head">Nothing logged in this round.</li>';
   }
+  // 1862 train classes (and any later title that sets trainClass in CONFIG): a coloured glyph before the train name
+  function trainGlyph(title, name) {
+    var tc = CONFIG[title] && CONFIG[title].trainClass, m = tc && /([A-Z])\*?$/.exec(name);
+    return m && tc[m[1]] ? '<span title="' + tc[m[1]][1] + '">' + tc[m[1]][0] + '</span> ' : '';
+  }
   // Body of the Routes & revenue card: one operating round, a row per train
   function rtBody(d, k, col) {
     var R = d.routes[Math.min(Math.max(k, 0), d.routes.length - 1)], rows = '';
@@ -1195,7 +1201,7 @@
       var sw = col[c.corp] ? '<i class="sw" style="background:' + col[c.corp] + '"></i>' : '';
       if (!c.trains.length) { rows += '<tr class="tot"><td>' + sw + esc(c.corp) + '</td><td colspan="3">' + esc(c.kind || 'did not run') + '</td></tr>'; return; }
       c.trains.forEach(function (t, i) {
-        rows += '<tr><td>' + (i === 0 ? sw + '<b>' + esc(c.corp) + '</b>' : '') + '</td><td>' + esc(t.train) + '</td><td class="n">' + esc(t.rev) + '</td><td class="stp">' + esc(t.stops) + '</td></tr>';
+        rows += '<tr><td>' + (i === 0 ? sw + '<b>' + esc(c.corp) + '</b>' : '') + '</td><td>' + trainGlyph(d.title, t.train) + esc(t.train) + '</td><td class="n">' + esc(t.rev) + '</td><td class="stp">' + esc(t.stops) + '</td></tr>';
       });
       rows += '<tr class="tot"><td></td><td>total' + (c.extra.length ? ' (+ ' + esc(c.extra.join(', ')) + ' extra)' : '') + '</td><td class="n">' + esc(c.total || '') + '</td><td>' + esc(c.kind || '') + '</td></tr>';
     });
@@ -1371,7 +1377,7 @@
     if (d.routes && d.routes.length) {
       var rtCol = {}; d.ticker.forEach(function (t) { rtCol[t.name] = displayColor(t.color, dark); });
       var rtLast = d.routes.length - 1, rtIdx = ST.rtIdx != null && ST.rtGame === d.id && ST.rtIdx <= rtLast ? ST.rtIdx : rtLast;
-      h.push('<section class="card wide"><h2>Routes &amp; revenue</h2><p class="sub">What each company ran in an operating round: train, revenue and stops, as the engine logs them.</p>' +
+      h.push('<section class="card wide"><h2>Routes &amp; revenue</h2><p class="sub">What each company ran in an operating round: train, revenue and stops, as the engine logs them.' + (CONFIG[d.title] && CONFIG[d.title].trainClass ? ' ' + Object.keys(CONFIG[d.title].trainClass).map(function (k) { var c = CONFIG[d.title].trainClass[k]; return c[0] + ' ' + c[1]; }).join(' &nbsp; ') : '') + '</p>' +
         '<div class="rtsel"><button id="rt-p" title="Earlier round">◀</button><select id="rt-s">' + d.routes.map(function (r, i) { return '<option value="' + i + '"' + (i === rtIdx ? ' selected' : '') + '>' + esc(r.label) + '</option>'; }).join('') + '</select><button id="rt-n" title="Later round">▶</button></div>' +
         '<div class="tw" id="rt-b">' + rtBody(d, rtIdx, rtCol) + '</div></section>');
     }
@@ -1648,8 +1654,8 @@
   // ---------- Layout: collapse and reorder sections, remembered per mode ----------------
   // Two layouts are kept in this browser: 'live' (game in progress) and 'review' (finished game).
   var DEFAULT_ORDER = {
-    live: ['now', 'what-just-happened', 'trains-phases-bank', 'stock-round-helper', 'stock-market', 'standings', 'player-value-over-time', 'stock-ticker', 'portfolios', 'corporations', 'company-revenue-per-operating-round', 'routes-revenue', 'share-price', 'game-log', 'minors-private-companies', 'tile-manifest'],
-    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'game-log', 'company-revenue-per-operating-round', 'routes-revenue', 'share-price', 'portfolios', 'corporations', 'trains-phases-bank', 'minors-private-companies', 'tile-manifest']
+    live: ['now', 'what-just-happened', 'trains-phases-bank', 'routes-revenue', 'stock-round-helper', 'stock-market', 'standings', 'player-value-over-time', 'stock-ticker', 'portfolios', 'corporations', 'company-revenue-per-operating-round', 'share-price', 'game-log', 'minors-private-companies', 'tile-manifest'],
+    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'game-log', 'company-revenue-per-operating-round', 'share-price', 'portfolios', 'corporations', 'trains-phases-bank', 'routes-revenue', 'minors-private-companies', 'tile-manifest']
   };
   function slug(txt) { return String(txt).toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
   function loadLayout(mode) {
@@ -1657,6 +1663,9 @@
       var v = JSON.parse(localStorage.getItem('xxStats.layout.' + mode) || 'null');
       if (v && v.order) { // sections added in newer versions slot in at their default place
         ['order', 'collapsed'].forEach(function (kk) { if (v[kk]) v[kk] = v[kk].map(function (x) { return x === 'trains-phases' ? 'trains-phases-bank' : x; }); });
+        if (!v.m11 && v.order.indexOf('routes-revenue') >= 0 && v.order.indexOf('trains-phases-bank') >= 0) { // 0.11.1: Routes & revenue moved to sit right after Trains, phases & Bank (once)
+          v.order.splice(v.order.indexOf('routes-revenue'), 1); v.order.splice(v.order.indexOf('trains-phases-bank') + 1, 0, 'routes-revenue'); v.m11 = 1;
+        }
         DEFAULT_ORDER[mode].forEach(function (k, i) { if (v.order.indexOf(k) < 0) { v.order.splice(Math.min(i, v.order.length), 0, k); if (k === 'tile-manifest' || k === 'minors-private-companies') (v.collapsed = v.collapsed || []).push(k); } });
         return v;
       }

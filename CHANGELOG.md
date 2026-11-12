@@ -2,6 +2,13 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.11.1] - 2026-11-12
+
+### Changed
+- **Routes & revenue** sits right below *Trains, phases & Bank* by default. A layout saved in 0.11.0 is moved once; after that your own order is kept.
+- **Routes & revenue** (1862): a coloured glyph before each train shows its class: 🔵 express, 🟠 freight, 🟢 local.
+- **Light theme** is a notch softer, in a neutral cream with a slight green-brown tint, instead of near-white.
+
 ## [0.11.0] - 2026-11-12
 
 ### Added
