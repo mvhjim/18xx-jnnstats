@@ -2,6 +2,12 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.12.2] - 2026-11-12
+
+### Changed
+- The Player value, Company revenue and Share price charts are 25% taller (Standings grows with Player value, which sits beside it).
+- The Portfolios chart has less empty space on its right side.
+
 ## [0.12.1] - 2026-11-12
 
 ### Added

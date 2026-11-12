@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.12.1';
+  var VERSION = '0.12.2';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -951,7 +951,7 @@
   // Generic line chart: model = {labels, series:[{name,color,values,kinds?}], fmt}
   function lineChart(model, opts) {
     opts = opts || {};
-    var W = 640, H = opts.height || 215, L = 60, R = 84, T = 10, B = 30;
+    var W = 640, H = opts.height || 269, L = 60, R = 84, T = 10, B = 30;
     var pw = W - L - R, ph = H - T - B;
     var all = []; model.series.forEach(function (s) { s.values.forEach(function (v) { if (v != null) all.push(v); }); });
     var max = all.length ? Math.max.apply(null, all) : 1, min = Math.min(0, all.length ? Math.min.apply(null, all) : 0);
@@ -1027,7 +1027,7 @@
   }
   function stackedArea(model, opts) {
     opts = opts || {};
-    var W = 640, H = opts.height || 225, L = 60, R = 84, T = 10, B = 30, pw = W - L - R, ph = H - T - B;
+    var W = 640, H = opts.height || 225, L = 60, R = 54, T = 10, B = 30, pw = W - L - R, ph = H - T - B;
     var n = model.labels.length;
     var up = new Array(n).fill(0), down = new Array(n).fill(0);
     var layers = model.series.map(function (ser) {
