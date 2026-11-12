@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.8.0';
+  var VERSION = '0.9.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -570,12 +570,13 @@
     } catch (e) { tileInfo = null; }
 
     // Since your last move: everything logged after the last action by the player chosen under "I am"
-    var recap = null;
+    var recap = null, lastMineId = 0;
     try {
       var meN = myName((raw.players || []).map(function (p) { return p.name; })), meRaw = meN ? (raw.players || []).filter(function (p) { return p.name === meN; })[0] : null;
       if (meRaw) {
         var lastMine = 0;
         for (var ai = raw.actions.length - 1; ai >= 0; ai--) if (raw.actions[ai].user === meRaw.id) { lastMine = raw.actions[ai].id; break; }
+        lastMineId = lastMine;
         if (lastMine) {
           var rl = [];
           for (var li = log.length - 1; li >= 0 && rl.length < 120; li--) {
@@ -586,6 +587,21 @@
         }
       }
     } catch (e) { recap = null; }
+
+    // Game log: the whole log split into rounds at the engine's own "-- ... Round ... --" headings
+    var gameLog = null;
+    try {
+      var glR = [{ label: 'Start', lines: [] }], glMe = -1;
+      for (var gi = 0; gi < log.length; gi++) {
+        var gmsg = s(call(log[gi], 'message')); if (!gmsg) continue;
+        var gid = num(call(log[gi], 'action_id'));
+        if (/^-- /.test(gmsg) && /(Round|Auction|Draft)/i.test(gmsg) && !/^-- Phase/i.test(gmsg)) { glR.push({ label: gmsg.replace(/^-+\s*/, '').replace(/\s*-+$/, ''), lines: [] }); continue; }
+        glR[glR.length - 1].lines.push({ id: gid, msg: gmsg, head: /^-- /.test(gmsg) });
+        if (lastMineId && gid > 0 && gid <= lastMineId) glMe = glR.length - 1;
+      }
+      if (!glR[0].lines.length && glR.length > 1) glR.shift(), glMe = glMe > 0 ? glMe - 1 : glMe;
+      gameLog = { rounds: glR, meRound: glMe, meId: lastMineId };
+    } catch (e) { gameLog = null; }
 
     // Train rush: could the companies still to act buy enough trains to trigger the next phase?
     var rush = null;
@@ -659,7 +675,7 @@
       ticker: ticker, portfolio: portfolio, holdings: holdings, minors: minorList, companies: companyList, snapErr: SNAP && SNAP.err,
       nextTrain: nextTrain ? { name: s(nextTrain.$name()), sym: s(call(nextTrain, 'sym')), price: num(nextTrain.$price()) } : null,
       upcomingCount: upcoming.length, notes: notes, updated: new Date(), live: live, feed: feed, certNote: certNote, loanInfo: loanInfo, cheapest: cheapest,
-      grid: grid, gridHist: gridHist, bank2: bankInfo, tiles: tileInfo, recap: recap
+      grid: grid, gridHist: gridHist, bank2: bankInfo, tiles: tileInfo, recap: recap, gameLog: gameLog
     };
   }
 
@@ -718,6 +734,7 @@
     '.mk{display:grid;grid-template-columns:repeat(var(--cols),minmax(34px,1fr));gap:2px;overflow-x:auto}',
     '.mc{border:1px solid var(--grid);border-radius:5px;padding:2px 3px;min-height:40px;font-size:11px;min-width:0}.mc.empty{border-color:transparent}.mp{color:var(--text-secondary);font-variant-numeric:tabular-nums;font-size:10.5px}',
     '.cp{display:block;border-radius:4px;padding:0 3px;margin-top:2px;font-size:10.5px;font-weight:700;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default}.cp.mine{outline:2px solid var(--accent);outline-offset:1px}.cp.gh{background:transparent!important;border:1.5px dashed;font-weight:600}',
+    '.feed.gl{max-height:420px}.feed li.mine{font-weight:600;color:var(--accent)}.glr{color:var(--text-muted);font-size:10.5px}.gltools{display:flex;gap:8px;align-items:center;margin:0 0 8px}.gltools input{flex:1;min-width:80px}',
     '.gslide{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--text-secondary)}.gslide input{flex:1;min-width:80px}',
     '.zl{display:flex;flex-wrap:wrap;gap:4px 12px;margin:8px 0 0;font-size:11.5px;color:var(--text-secondary)}.zl i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1px solid var(--border)}',
     '.dq{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px}.dq .chip{font-variant-numeric:tabular-nums}.dq .chip.next{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:650}.bl{font-size:12px;color:var(--text-muted);margin:6px 0 2px}',
@@ -1034,6 +1051,19 @@
     });
     gone.forEach(function (g3) { if (n >= 8) return; var el = q('tr[data-crow="' + g3.corp + '"]'); if (el) { glideChip(w, el, el, g3.name + ' rusted', '#c62828'); n++; } });
   }
+  // Body of the Game log section: one round's lines, or search hits across the whole log
+  function glBody(d, idx, q) {
+    var G = d.gameLog; if (!G) return '';
+    var li = function (f, pre) { return '<li class="' + (f.head ? 'head' : '') + (G.meId && f.id === G.meId ? ' mine' : '') + '">' + (pre ? '<small class="glr">' + esc(pre) + '</small> ' : '') + esc(f.msg) + '</li>'; };
+    q = (q || '').trim().toLowerCase();
+    if (q) {
+      var out = [], total = 0;
+      G.rounds.forEach(function (r) { r.lines.forEach(function (f) { if (f.msg.toLowerCase().indexOf(q) >= 0) { total++; if (out.length < 300) out.push(li(f, r.label)); } }); });
+      return (out.length ? out.join('') : '<li class="head">No lines match.</li>') + (total > 300 ? '<li class="head">… and ' + (total - 300) + ' more, narrow the search</li>' : '');
+    }
+    var rr = G.rounds[Math.min(Math.max(idx, 0), G.rounds.length - 1)];
+    return rr.lines.length ? rr.lines.map(function (f) { return li(f); }).join('') : '<li class="head">Nothing logged in this round.</li>';
+  }
   function render(w, d) {
     var doc = w.document, dark = isDark(w), pal = PLAYER_COLORS[dark ? 'dark' : 'light'];
     var m = d.money;
@@ -1145,6 +1175,15 @@
       h.push('<section class="card wide"><h2>Stock market</h2><p class="sub">Where every company stands on the market. Your own companies are outlined' + (me ? '' : ' once you pick your name under <b>I am…</b>') + '. Hover a company to find it everywhere.</p>');
       if (gLast > 0) h.push('<div class="gslide"><span>Round</span><input type="range" id="gr-i" min="0" max="' + gLast + '" value="' + gIdx + '"><b id="gr-l">' + esc(gIdx === gLast ? 'Now' : d.gridHist[gIdx].label) + '</b></div>');
       h.push('<div id="gr-b">' + gridBody(d, dark, me, gIdx, m) + '</div></section>');
+    }
+
+    // Game log with a round slider
+    if (d.gameLog && d.gameLog.rounds.length) {
+      var GL = d.gameLog, glLast = GL.rounds.length - 1, glIdx = ST.glIdx != null && ST.glGame === d.id && ST.glIdx <= glLast ? ST.glIdx : glLast;
+      h.push('<section class="card wide"><h2>Game log</h2><p class="sub">Drag the slider (or use ◀ ▶ and the arrow keys) to read the game round by round. Search looks through the whole game.</p>' +
+        '<div class="gslide"><span>Round</span><button id="gl-p" title="Previous round">◀</button><input type="range" id="gl-i" min="0" max="' + glLast + '" value="' + glIdx + '"><button id="gl-n" title="Next round">▶</button><b id="gl-l">' + esc(GL.rounds[glIdx].label) + '</b></div>' +
+        '<div class="gltools"><input type="search" id="gl-q" placeholder="Search the whole log…" value="' + esc(ST.glQ || '') + '">' + (me && GL.meRound >= 0 ? ' <button id="gl-me" class="lnk">jump to my last move</button>' : '') + '</div>' +
+        '<ul class="feed gl" id="gl-b">' + glBody(d, glIdx, ST.glQ) + '</ul></section>');
     }
 
     // Stock ticker
@@ -1339,6 +1378,21 @@
       doc.getElementById('gr-b').innerHTML = gridBody(d, dark, me, iv, m);
       if (ST.hlCorp) hlSet(ST.hlCorp);
     };
+    // game log slider, search and jump (only the list is redrawn)
+    var gli = doc.getElementById('gl-i');
+    if (gli && d.gameLog) {
+      var glSet = function (v) {
+        var mx = d.gameLog.rounds.length - 1; v = Math.min(Math.max(v, 0), mx); gli.value = v; ST.glIdx = v; ST.glGame = d.id;
+        doc.getElementById('gl-l').textContent = d.gameLog.rounds[v].label;
+        doc.getElementById('gl-b').innerHTML = glBody(d, v, ST.glQ); doc.getElementById('gl-b').scrollTop = 0;
+      };
+      gli.oninput = function () { glSet(+gli.value); };
+      doc.getElementById('gl-p').onclick = function () { glSet(+gli.value - 1); };
+      doc.getElementById('gl-n').onclick = function () { glSet(+gli.value + 1); };
+      doc.getElementById('gl-q').oninput = function () { ST.glQ = this.value; ST.glGame = d.id; doc.getElementById('gl-b').innerHTML = glBody(d, +gli.value, ST.glQ); };
+      var glm = doc.getElementById('gl-me');
+      if (glm) glm.onclick = function () { ST.glQ = ''; doc.getElementById('gl-q').value = ''; glSet(d.gameLog.meRound); var mn = doc.querySelector('#gl-b li.mine'); if (mn && mn.scrollIntoView) mn.scrollIntoView({ block: 'center' }); };
+    }
     glideChanges(w, d, dark);
     // your-turn sound, once per turn
     var turnKey = d.id + ':' + myTurn;
@@ -1402,8 +1456,8 @@
   // ---------- Layout: collapse and reorder sections, remembered per mode ----------------
   // Two layouts are kept in this browser: 'live' (game in progress) and 'review' (finished game).
   var DEFAULT_ORDER = {
-    live: ['now', 'what-just-happened', 'trains-phases', 'stock-round-helper', 'stock-market', 'corporations', 'bank-depot', 'standings', 'stock-ticker', 'portfolios', 'company-revenue-per-operating-round', 'player-value-over-time', 'share-price', 'minors-private-companies', 'tile-manifest'],
-    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'company-revenue-per-operating-round', 'share-price', 'portfolios', 'trains-phases', 'corporations', 'bank-depot', 'minors-private-companies', 'tile-manifest']
+    live: ['now', 'what-just-happened', 'trains-phases', 'stock-round-helper', 'stock-market', 'corporations', 'bank-depot', 'standings', 'stock-ticker', 'portfolios', 'company-revenue-per-operating-round', 'player-value-over-time', 'share-price', 'minors-private-companies', 'game-log', 'tile-manifest'],
+    review: ['stock-ticker', 'stock-market', 'standings', 'game-log', 'player-value-over-time', 'company-revenue-per-operating-round', 'share-price', 'portfolios', 'trains-phases', 'corporations', 'bank-depot', 'minors-private-companies', 'tile-manifest']
   };
   function slug(txt) { return String(txt).toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
   function loadLayout(mode) {
