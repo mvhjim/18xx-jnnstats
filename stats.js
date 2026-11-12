@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.9.3';
+  var VERSION = '0.10.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -606,7 +606,8 @@
         if (lastMineId && gid > 0 && gid <= lastMineId) glMe = glR.length - 1;
       }
       if (!glR[0].lines.length && glR.length > 1) glR.shift(), glMe = glMe > 0 ? glMe - 1 : glMe;
-      gameLog = { rounds: glR, meRound: glMe, meId: lastMineId };
+      var glRun = 0, glCuts = glR.map(function (r3) { r3.lines.forEach(function (l3) { if (l3.id > glRun) glRun = l3.id; }); return glRun; });
+      gameLog = { rounds: glR, meRound: glMe, meId: lastMineId, cuts: glCuts };
     } catch (e) { gameLog = null; }
 
     // Which company a closed one went into: read from the engine's own log lines
@@ -709,6 +710,7 @@
     '@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){' + DARKVARS + '}}',
     ':root[data-theme="dark"]{' + DARKVARS + '}',
     '*{box-sizing:border-box}body{margin:0;background:var(--surface-0);color:var(--text-primary);font:13px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}',
+    '.hr3{display:flex;align-items:center;gap:8px;margin-top:6px;padding:4px 8px;border-radius:8px;font-size:12px;color:var(--text-secondary);border:1px solid var(--grid)}.hr3 input{flex:1;min-width:80px}.hr3.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--text)}.hr3 b{white-space:nowrap}.tt-note{color:var(--text-muted)}',
     'header{position:sticky;top:0;z-index:5;background:var(--surface-1);border-bottom:1px solid var(--border);padding:7px 14px}',
     '.hr1{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center}.hr1 .grow{flex:1}.hr2{color:var(--text-muted);font-size:11.5px;margin-top:3px}header.compact .hr2{display:none}',
     'header h1{font-size:15px;margin:0;font-weight:650}header .kv{color:var(--text-secondary)}header .kv b{color:var(--text-primary);font-weight:600}',
@@ -1143,12 +1145,12 @@
     var doc = w.document, dark = isDark(w), pal = PLAYER_COLORS[dark ? 'dark' : 'light'];
     var m = d.money;
     var me = myName(d.players.map(function (p) { return p.name; }));
-    var myTurn = !!me && !d.finished && !!d.live && d.live.acting.indexOf(me) >= 0;
+    var myTurn = !!me && !d.finished && !d.tt && !!d.live && d.live.acting.indexOf(me) >= 0;
     var soundOn = lsGet('xxStats.sound') === '1', armed = !!w.__xxAudio;
     doc.title = (myTurn ? '● Your turn · ' : '') + d.roundLabel + ' · ' + d.title + ' · ' + d.id + ' · 18xx-JNNstats';
     var th = themePref(); if (th) doc.documentElement.setAttribute('data-theme', th); else doc.documentElement.removeAttribute('data-theme');
-    if (ST.lookGame !== d.id) { ST.lookGame = d.id; ST.lookId = d.feed.length ? d.feed[0].id : 0; }
-    ST.maxFeedId = d.feed.length ? d.feed[0].id : 0;
+    if (ST.lookGame !== d.id && !d.tt) { ST.lookGame = d.id; ST.lookId = d.feed.length ? d.feed[0].id : 0; }
+    if (!d.tt) ST.maxFeedId = d.feed.length ? d.feed[0].id : 0;
     var leader = Math.max.apply(null, d.players.map(function (p) { return p.value; }));
     var ranked = d.players.slice().sort(function (a, b) { return b.value - a.value; });
     var maxVal = leader || 1;
@@ -1165,6 +1167,7 @@
       '<button class="ib" id="snd" title="' + (soundOn ? (armed ? 'Sound on: plays when it becomes your turn. Click to switch off.' : 'Click once to arm the sound (browsers need a click)') : 'Sound off. Click to play a sound when it becomes your turn.') + '">' + (soundOn ? (armed ? '🔔' : '🔔?') : '🔕') + '</button>' +
       '<button class="ib" id="rf" title="Refresh now">⟳</button>' +
       '<button class="ib" id="sn" title="Move this window to the right half of the screen">◨</button>' +
+      '<button class="ib" id="tt" title="History: step back through the game round by round">⏱</button>' +
       '<button class="ib" id="th" title="Switch between dark and light">' + (dark ? '🌙' : '☀') + '</button>' +
       '<details class="menu" id="mn"' + (ST.menuOpen ? ' open' : '') + '><summary class="ib" title="More">⋯</summary><div class="mp2">' +
         '<button id="lr" title="Restore the default order and expand all sections">Reset <span id="lm">layout</span></button>' +
@@ -1174,7 +1177,11 @@
       (newer ? ' · <a class="upd" href="' + REPO_URL + '/blob/main/CHANGELOG.md" target="_blank" rel="noopener" title="A newer version exists. If you pinned a version, read the changelog, then update your bookmark.">⬆ v' + esc(ST.latest) + ' available</a>' : '') +
       ' · ' + d.actions + ' actions · updated ' + d.updated.toLocaleTimeString() + ' · ' + esc(ST.statusText || '') +
       (ST.verify ? ' · <span class="' + (ST.verify.ok ? 'st-good' : 'st-warn') + '" title="After each round the whole game is replayed from scratch and compared with the live numbers">' + (ST.verify.ok ? '✓ verified' : '⚠ corrected') + ' at ' + esc(ST.verify.at) + '</span>' : '') +
-      '</div></header><main>');
+      (ST.ttOpen && ST.rounds && ST.rounds.length > 1 ? (function () {
+        var tl = ST.rounds.length - 1, ti = d.tt ? d.tt.idx : tl;
+        return '<div class="hr3' + (d.tt ? ' on' : '') + '"><span>⏱ History</span><button class="ib" id="tt-p" title="Previous round">◀</button><input type="range" id="tt-i" min="0" max="' + tl + '" value="' + ti + '"><button class="ib" id="tt-n" title="Next round">▶</button><b id="tt-l">' + (d.tt ? 'the game after ' + esc(d.tt.label) : 'Now') + '</b>' + (d.tt ? ' <span class="tt-note">paused, read only</span> <button class="lnk" id="tt-x">back to now</button>' : '') + '</div>';
+      })() : '') +
+      '</header><main>');
 
     // ---------- Live sections: Now, What just happened, Stock round helper -----------------
     var L = d.live;
@@ -1473,11 +1480,13 @@
       var glm = doc.getElementById('gl-me');
       if (glm) glm.onclick = function () { ST.glQ = ''; doc.getElementById('gl-q').value = ''; glSet(d.gameLog.meRound); var mn = doc.querySelector('#gl-b li.mine'); if (mn && mn.scrollIntoView) mn.scrollIntoView({ block: 'center' }); };
     }
-    glideChanges(w, d, dark);
-    // your-turn sound, once per turn
-    var turnKey = d.id + ':' + myTurn;
-    if (myTurn && ST.turnKey !== turnKey && ST.turnKey != null && soundOn) beep(w);
-    ST.turnKey = turnKey;
+    if (!d.tt) {
+      glideChanges(w, d, dark);
+      // your-turn sound, once per turn
+      var turnKey = d.id + ':' + myTurn;
+      if (myTurn && ST.turnKey !== turnKey && ST.turnKey != null && soundOn) beep(w);
+      ST.turnKey = turnKey;
+    }
     doc.getElementById('me').onchange = function () { lsSet('xxStats.me', this.value); ST.pfPlayer = null; ST.feedTab = null; rerender(); };
     doc.getElementById('th').onclick = function () { lsSet('xxStats.theme', dark ? 'light' : 'dark'); rerender(); };
     var mn = doc.getElementById('mn'); if (mn) mn.ontoggle = function () { ST.menuOpen = mn.open; };
@@ -1522,6 +1531,17 @@
     if (seenBtn) seenBtn.onclick = function () { markSeen(); rerender(); };
     doc.documentElement.onmouseleave = markSeen; // leaving the window counts as having looked
     doc.getElementById('rf').onclick = function () { refresh(true); };
+    var ttb = doc.getElementById('tt');
+    if (ttb) ttb.onclick = function () { if (ST.ttOpen) { if (ST.tt) { ttExit(); } else { ST.ttOpen = false; rerender(); } } else { ST.ttOpen = true; rerender(); } };
+    var tti = doc.getElementById('tt-i');
+    if (tti) {
+      var ttLast = ST.rounds.length - 1, ttCur = function () { return ST.tt ? ST.tt.idx : ttLast; };
+      tti.oninput = function () { var v = +tti.value; doc.getElementById('tt-l').textContent = v >= ttLast ? 'Now' : 'the game after ' + ST.rounds[v].label; };
+      tti.onchange = function () { doc.getElementById('tt-l').textContent = 'loading…'; ttGo(+tti.value); };
+      doc.getElementById('tt-p').onclick = function () { doc.getElementById('tt-l').textContent = 'loading…'; ttGo(ttCur() - 1); };
+      doc.getElementById('tt-n').onclick = function () { doc.getElementById('tt-l').textContent = 'loading…'; ttGo(ttCur() + 1); };
+      var ttx = doc.getElementById('tt-x'); if (ttx) ttx.onclick = function () { ttExit(); };
+    }
     doc.getElementById('sn').onclick = function () { snapRight(w); };
     doc.getElementById('gf').onsubmit = function (ev) { ev.preventDefault(); ST.giVal = ''; ST.menuOpen = false; var mm = String(doc.getElementById('gi').value).match(/(\d{3,})/); if (mm) { ST.gameId = mm[1]; ST.pfPlayer = null; w.document.body.innerHTML = '<p style="padding:20px">Loading game ' + mm[1] + '…</p>'; refresh(true); } };
     function drawPf(i) {
@@ -1680,10 +1700,35 @@
     var gm = ST.game, w = ST.win; if (!gm || !w || w.closed) return;
     var fin = gm.raw.status === 'finished';
     ST.statusText = fin ? 'finished game' : ST.unsub ? 'live: updates as moves are made' : 'checks every ' + (REFRESH_MS / 1000) + ' s';
-    var d = extract(gm.g, gm.raw);
+    var d;
+    if (ST.tt && ST.tt.game) { d = extract(ST.tt.game.g, ST.tt.game.raw); d.tt = { idx: ST.tt.idx, label: ST.tt.label }; }
+    else {
+      d = extract(gm.g, gm.raw);
+      ST.rounds = d.gameLog ? d.gameLog.rounds.map(function (r, i) { return { label: r.label, cut: d.gameLog.cuts[i] }; }) : [];
+    }
     window.__xxLast = d;
     render(w, d);
   }
+  // History mode: replay the game up to the end of a chosen round and draw every tile from that state
+  function ttGo(idx) {
+    var gm = ST.game; if (!gm || !ST.rounds || ST.rounds.length < 2) return;
+    var last = ST.rounds.length - 1; idx = Math.max(0, Math.min(idx, last));
+    if (idx >= last) { ttExit(); return; }
+    var key = gm.id + ':' + idx;
+    if (!ST.ttCache || ST.ttCacheGame !== gm.id) { ST.ttCache = {}; ST.ttCacheGame = gm.id; }
+    var apply = function (tg) { ST.ttOpen = true; ST.tt = { idx: idx, label: ST.rounds[idx].label, game: tg }; rerender(); };
+    if (ST.ttCache[key]) { apply(ST.ttCache[key]); return; }
+    setTimeout(function () {
+      try {
+        var cut = ST.rounds[idx].cut, j = {}; Object.keys(gm.raw).forEach(function (k) { j[k] = gm.raw[k]; });
+        j.actions = gm.raw.actions.filter(function (a) { return a.id <= cut; }); j.status = 'active';
+        var tg = { g: loadGame(JSON.stringify(j)), raw: j };
+        var ks = Object.keys(ST.ttCache); if (ks.length >= 12) delete ST.ttCache[ks[0]];
+        ST.ttCache[key] = tg; apply(tg);
+      } catch (e) { ST.tt = null; showError(e); }
+    }, 30);
+  }
+  function ttExit() { ST.tt = null; ST.ttOpen = false; refresh(true); }
   function showError(e) {
     console.error('18xx-JNNstats', e);
     try { ST.win.document.body.innerHTML = '<div class="err"><b>Could not build stats.</b><br>' + esc(e && e.message || e) + '</div>'; } catch (_) {}
@@ -1761,6 +1806,7 @@
 
   function refresh(force) {
     var w = ST.win; if (!w || w.closed) { clearInterval(ST.timer); ST.timer = null; if (ST.unsub) ST.unsub(); return Promise.resolve(); }
+    if (ST.tt) { if (!force) return Promise.resolve(); ST.tt = null; ST.ttOpen = false; }
     if (ST.busy) { ST.pending = true; ST.pendingForce = ST.pendingForce || !!force; return ST.busy; }
     var id = String(gameId());
     subscribe(id);
