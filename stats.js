@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.15.0';
+  var VERSION = '0.16.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -747,7 +747,7 @@
         var get = function (n) { if (!byCorp[n]) { byCorp[n] = { corp: n, trains: [], total: null, kind: '', extra: [] }; order.push(n); } return byCorp[n]; };
         rd3.lines.forEach(function (ln) {
           var mm = /^(.+?) runs an? (.+?) train for (.+?): (.*)$/.exec(ln.msg);
-          if (mm) { get(mm[1]).trains.push({ train: mm[2], rev: mm[3], stops: mm[4] }); return; }
+          if (mm) { var cr = get(mm[1]); if (!cr.act && ln.id > 0) cr.act = ln.id; cr.trains.push({ train: mm[2], rev: mm[3], stops: mm[4] }); return; }
           mm = /^(.+?) runs for (.+?) and pays (.+)$/.exec(ln.msg);
           if (mm) { var c3 = get(mm[1]); c3.total = mm[2]; c3.kind = 'pays ' + mm[3]; return; }
           mm = /^(.+?) pays out (.+?) = (.+?) per share/.exec(ln.msg);
@@ -1510,6 +1510,36 @@
     return cv;
   }
   // Body of the Routes & revenue card: one operating round, a row per train
+  // Route efficiency: replay the game to just before a company's run, let the engine's own auto-router
+  // find routes there, and compare. Read only; the game copy is thrown away. One run at a time.
+  function bestRun(raw, corp, act) {
+    return new Promise(function (resolve, reject) {
+      var done = false, to = setTimeout(function () { if (!done) { done = true; reject(new Error('timed out')); } }, 60000);
+      setTimeout(function () {
+        try {
+          var j = {}; Object.keys(raw).forEach(function (k) { j[k] = raw[k]; });
+          j.actions = raw.actions.filter(function (x) { return x.id < act; }); j.status = 'active'; delete j.result;
+          var g = Opal.Engine.Game.$load(Opal.JSON.$parse(JSON.stringify(j)));
+          var ent = g.$current_entity();
+          if (!ent || s(ent.$name()) !== corp) throw new Error('state mismatch');
+          var router = Opal.Engine.AutoRouter.$new(g);
+          router.$compute(ent, Opal.hash({ route_timeout: 6, path_timeout: 12, callback: function (routes) {
+            if (done) return; done = true; clearTimeout(to);
+            try { resolve({ best: num(g.$routes_revenue(routes)), n: routes.length }); } catch (e) { reject(e); }
+          } }));
+        } catch (e) { if (!done) { done = true; clearTimeout(to); reject(e); } }
+      }, 30);
+    });
+  }
+  function bestCell(d, c) {
+    if (!c.act || !d.id) return '';
+    var key = d.id + '|' + c.corp + '|' + c.act, r = ST.rtBest && ST.rtBest[key];
+    if (!r) return ' <button class="lnk rt-chk" data-c="' + esc(c.corp) + '" data-a="' + c.act + '" title="Replays the game to just before this run and lets the site\'s own auto-router find the best routes it can (about 15 seconds)">check best</button>';
+    if (r.s === 'run') return ' <small class="st-same">checking…</small>';
+    if (r.s === 'err') return ' <small class="st-same" title="' + esc(r.msg || '') + '">could not check</small>';
+    var actual = c.trains.reduce(function (a, x) { return a + (parseFloat(String(x.rev).replace(/[^\d.]/g, '')) || 0); }, 0);
+    return r.best > actual ? ' <small class="st-warn" title="The auto-router\'s best routes at that moment. It may not be the true maximum, and it ignores what you might have wanted to leave for other trains.">best found ' + r.best + ' (+' + (r.best - actual) + ', ran ' + Math.round(actual / r.best * 100) + '%)</small>' : ' <small class="st-good">✓ matched the best found (' + r.best + ')</small>';
+  }
   function rtBody(d, k, col) {
     var R = d.routes[Math.min(Math.max(k, 0), d.routes.length - 1)], rows = '';
     R.corps.forEach(function (c) {
@@ -1518,9 +1548,10 @@
       c.trains.forEach(function (t, i) {
         rows += '<tr><td>' + (i === 0 ? sw + '<b>' + esc(c.corp) + '</b>' : '') + '</td><td>' + trainGlyph(d.title, t.train) + esc(t.train) + '</td><td class="n">' + esc(t.rev) + '</td><td class="stp">' + esc(t.stops) + (t.same ? ' <small class="st-same" title="The same train ran the same stops as in this company\'s previous run">= same</small>' : '') + '</td></tr>';
       });
-      rows += '<tr class="tot"><td></td><td>total' + (c.extra.length ? ' (+ ' + esc(c.extra.join(', ')) + ' extra)' : '') + '</td><td class="n">' + esc(c.total || '') + (c.delta ? ' <small class="' + (c.delta < 0 ? 'st-warn' : 'st-good') + '" title="Compared with this company\'s previous run">' + (c.delta < 0 ? '▼ ' : '▲ ') + esc(String(Math.abs(c.delta))) + '</small>' : '') + '</td><td>' + esc(c.kind || '') + '</td></tr>';
+      rows += '<tr class="tot"><td></td><td>total' + (c.extra.length ? ' (+ ' + esc(c.extra.join(', ')) + ' extra)' : '') + '</td><td class="n">' + esc(c.total || '') + (c.delta ? ' <small class="' + (c.delta < 0 ? 'st-warn' : 'st-good') + '" title="Compared with this company\'s previous run">' + (c.delta < 0 ? '▼ ' : '▲ ') + esc(String(Math.abs(c.delta))) + '</small>' : '') + '</td><td>' + esc(c.kind || '') + bestCell(d, c) + '</td></tr>';
     });
-    return '<table class="rt"><thead><tr><th>Company</th><th>Train</th><th>Revenue</th><th>Stops (as the engine logs them)</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    var anyChk = R.corps.some(function (c) { return c.act && c.trains.length && !(ST.rtBest && ST.rtBest[d.id + '|' + c.corp + '|' + c.act]); });
+    return (anyChk ? '<p class="sub" style="margin:0 0 6px"><button class="lnk rt-all">check every company in this round</button> <small style="color:var(--text-muted)">replays to just before each run and asks the site\'s own auto-router for the best routes it can find; about 15 seconds each</small></p>' : '') + '<table class="rt"><thead><tr><th>Company</th><th>Train</th><th>Revenue</th><th>Stops (as the engine logs them)</th></tr></thead><tbody>' + rows + '</tbody></table>';
   }
   function render(w, d) {
     var doc = w.document, dark = isDark(w), pal = PLAYER_COLORS[dark ? 'dark' : 'light'];
@@ -1990,6 +2021,20 @@
       var rtSet = function (v) { v = Math.min(Math.max(v, 0), d.routes.length - 1); rts.value = v; ST.rtIdx = v; ST.rtGame = d.id; doc.getElementById('rt-b').innerHTML = rtBody(d, v, rtCol2); rtMapDraw(); };
       var rtmb = doc.getElementById('rt-mb');
       if (rtmb) rtmb.onclick = function () { ST.rtMap = !ST.rtMap; rtmb.textContent = ST.rtMap ? '▾ Hide the map sketch' : '🗺 Show the routes on a map sketch'; rtMapDraw(); };
+      var rtb = doc.getElementById('rt-b');
+      if (rtb) rtb.onclick = function (e) {
+        var all = e.target && e.target.closest ? e.target.closest('.rt-all') : null;
+        if (all) { var qs = Array.prototype.map.call(rtb.querySelectorAll('.rt-chk'), function (x) { return [x.getAttribute('data-c'), +x.getAttribute('data-a')]; }); ST.rtBest = ST.rtBest || {};
+          var step = function (i) { if (i >= qs.length || !ST.game || !ST.game.raw) return; var k2 = d.id + '|' + qs[i][0] + '|' + qs[i][1]; if (ST.rtBest[k2]) return step(i + 1); ST.rtBest[k2] = { s: 'run' }; try { rtSet(+rts.value); } catch (e3) {}
+            bestRun(ST.game.raw, qs[i][0], qs[i][1]).then(function (r) { ST.rtBest[k2] = { s: 'ok', best: r.best }; }, function (err) { ST.rtBest[k2] = { s: 'err', msg: String(err && err.message || err) }; }).then(function () { try { rtSet(+rts.value); } catch (e4) {} step(i + 1); }); };
+          step(0); return; }
+        var b = e.target && e.target.closest ? e.target.closest('.rt-chk') : null; if (!b) return;
+        var corp = b.getAttribute('data-c'), act = +b.getAttribute('data-a'), key = d.id + '|' + corp + '|' + act;
+        ST.rtBest = ST.rtBest || {}; if (ST.rtBest[key] || !ST.game || !ST.game.raw) return;
+        ST.rtBest[key] = { s: 'run' }; rtSet(+rts.value);
+        bestRun(ST.game.raw, corp, act).then(function (r) { ST.rtBest[key] = { s: 'ok', best: r.best }; }, function (err) { ST.rtBest[key] = { s: 'err', msg: String(err && err.message || err) }; })
+          .then(function () { try { rtSet(+rts.value); } catch (e2) {} });
+      };
       rtMapDraw();
       rts.onchange = function () { rtSet(+rts.value); };
       doc.getElementById('rt-p').onclick = function () { rtSet(+rts.value - 1); };

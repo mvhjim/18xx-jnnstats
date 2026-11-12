@@ -2,6 +2,11 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.16.0] - 2026-11-12
+
+### Added
+- **Route efficiency** in *Routes & revenue*: press *check best* on a company's run (or *check every company in this round*). The tool replays the game to just before that run, lets the site's own auto-router find the best routes it can, and shows whether the run matched it or how much was left on the table. It takes about 15 seconds per company, runs only when you ask, and never touches the real game. The auto-router may not find the true maximum, so read "best found" as a good yardstick, not a verdict.
+
 ## [0.15.0] - 2026-11-12
 
 ### Added
