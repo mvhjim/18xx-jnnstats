@@ -33,3 +33,4 @@ Good test games are recent finished games of the titles you touched; the 18xx.ga
 4. jsDelivr caches files for up to 12 hours. To publish at once, **wait about 5 minutes after pushing** (jsDelivr needs that long to see the new commit), then open
    `https://purge.jsdelivr.net/gh/mvhjim/18xx-jnnstats@main/stats.js` in a browser.
 5. Check it: open `https://cdn.jsdelivr.net/gh/mvhjim/18xx-jnnstats@main/stats.js` and look for the new `VERSION`. If it still shows the old one, purge again.
+   jsDelivr limits how often one file can be purged. If the purge page says `"throttled": true`, wait the number of seconds in `throttlingReset` and try again, or simply wait: the update arrives on its own within 12 hours.
