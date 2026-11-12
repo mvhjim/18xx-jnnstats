@@ -182,6 +182,11 @@
       };
     });
 
+    // Some titles have a non-human "player" such as a bank (The Old Prince 1871): keep it out of the standings
+    var humanNames = {}, botPlayers = [];
+    (raw.players || []).forEach(function (p) { humanNames[p.name] = 1; });
+    if (Object.keys(humanNames).length) players = players.filter(function (p) { if (humanNames[p.name]) return true; botPlayers.push(p); return false; });
+
     // Value history: dedupe consecutive identical labels (keep last), align by index
     var vh = { labels: [], series: players.map(function () { return []; }) };
     var n0 = players.length ? players[0].hist.length : 0;
@@ -635,6 +640,10 @@
       priority: nameOf(call(g, 'priority_deal_player')), market: market, rush: rush, end: endInfo, hasPreview: !!divStep };
 
     var notes = cfg.notes ? cfg.notes(g) : [];
+    botPlayers.forEach(function (bp) {
+      var hh = curSnap && curSnap.hold[bp.name] ? curSnap.hold[bp.name] : {}, parts = Object.keys(hh).map(function (cn) { return cn + ' ' + hh[cn].pct + '%'; });
+      notes.push(bp.name + ' is not a player and is left out of the standings (cash ' + money(bp.cash) + (parts.length ? ', holds ' + parts.join(', ') : '') + ').');
+    });
     return {
       id: raw.id, title: raw.title, status: raw.status, finished: finished, description: raw.description,
       roundLabel: roundLabel, phase: curPhase, trainLimit: s(call(phase, 'train_limit', corpObjs[0])) || '',
