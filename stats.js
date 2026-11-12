@@ -1621,7 +1621,7 @@
   var OLD = window.__xxStats;
   if (OLD) { try { clearInterval(OLD.timer); clearInterval(OLD.bTimer); } catch (e) {} try { if (OLD.unsub) OLD.unsub(); } catch (e) {} }
   var ST = window.__xxStats = { token: Date.now() + '-' + Math.random(), win: OLD && OLD.win, version: VERSION };
-  ST.api = { extract: extract, loadGame: loadGame, applyActions: applyActions, ensureTitle: ensureTitle, render: render };
+  ST.api = { extract: extract, loadGame: loadGame, applyActions: applyActions, ensureTitle: ensureTitle, render: render, shareImage: shareImage };
 
   // Runs inside the stats window itself, so it keeps working when the game page is reloaded or
   // closed: it then shows that updates have stopped instead of silently showing old numbers.
