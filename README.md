@@ -6,6 +6,13 @@ A live stats window for [18xx.games](https://18xx.games). Click a bookmark while
 
 It replays the game with **18xx.games' own rules engine**, so the numbers follow each title's real rules and match the site exactly. In testing, every finished game's replayed final scores matched the official result to the dollar.
 
+
+![The stats window: stock market, standings and player value chart](docs/screenshot-overview.png)
+
+![The game log, one colour per player](docs/screenshot-game-log.png)
+
+*Screenshots from a finished game, with the players shown as Player 1–4.*
+
 ## Install (once, about a minute)
 
 You add a bookmark by hand. No browser extension, nothing to download.
