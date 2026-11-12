@@ -63,20 +63,21 @@ Always:
 
 ## Tested titles
 
-Tested on **46 games across 19 titles**. For all **31 finished games** with a recorded result, the replayed final scores match the site's official result exactly.
+Tested on **82 games across 20 titles**. For all **67 finished games** with a recorded result, the replayed final scores match the site's official result exactly, including The Old Prince 1871, 1877: Stockholm Tramways and 1849: Kingdom of the Two Sicilies (12 games each).
 
 The stock market grid was additionally checked on live and finished games of these titles: every company with a share price stands on the square with that price.
 
 | Title | Market grid |
 |---|---|
 | 1830, 1856, 1870, 1889 | grid (11 rows) |
+| 1849: Kingdom of the Two Sicilies | grid (10 rows) |
 | 1861 | grid (10 rows) |
 | 18Ireland, 18MEX | grid (8 rows) |
 | The Old Prince 1871 | grid (7 rows) |
 | 1866 | grid (4 rows) |
 | 1817 | single row |
 | 1846 | single row |
-| 1862, 1864: Forty-Niner, 1822PNW, 18USA | single row |
+| 1862, 1864: Forty-Niner, 1822PNW, 18USA, 1877: Stockholm Tramways | single row |
 
 Titles with no moves played yet when this was written (1822, 1824, 1844, 1850, 1860, 1880, 18NY, 18VA, 18Chesapeake, 18SJ, Harzbahn 1873, Rolling Stock Stars) load their rules from the site in the same way but are untested here. Reports are welcome.
 

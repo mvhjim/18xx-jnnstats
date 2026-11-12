@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.7.0';
+  var VERSION = '0.7.1';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 

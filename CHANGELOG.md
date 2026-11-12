@@ -2,6 +2,15 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.7.1] - 2026-11-12
+
+### Fixed
+- Titles with a non-human "player" (the Union Bank in The Old Prince 1871) no longer show it as a ranked player; a note says what it holds.
+
+### Added
+- Ko-fi link in the README and the GitHub sponsor button.
+- Tested on 36 more finished games (The Old Prince 1871, 1877: Stockholm Tramways, 1849: Kingdom of the Two Sicilies): all final scores match the official results.
+
 ## [0.7.0] - 2026-11-12
 
 ### Added
