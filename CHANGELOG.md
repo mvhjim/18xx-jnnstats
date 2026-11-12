@@ -2,6 +2,14 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.24.0] - 2026-11-13
+
+### Changed
+- **Better charts.** Player value, Share price and Revenue now use Apache ECharts (loaded from jsDelivr, pinned to one version and checked with an integrity hash; the earlier charts remain as the fallback if it cannot load). Phase changes are shaded as bands, lead changes are marked on the Player value chart, lines are labelled at their end, and a crosshair tooltip lists everyone at that point. Log scale and % change still work.
+- **Company profit and loss** is a stacked bar chart (trains, tiles, tokens) with ◆ for revenue; the table is one click away.
+- **Cash flow per player** is a heat grid (blue in, orange out) with the breakdown on hover; the table is one click away.
+- **One-line takeaways** under Player value, Share price, Profit and loss and Cash flow.
+
 ## [0.23.1] - 2026-11-13
 
 ### Changed

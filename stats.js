@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.23.1';
+  var VERSION = '0.24.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -1013,7 +1013,7 @@
     '.gslide{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--text-secondary)}.gslide input{flex:1;min-width:80px}',
     '.zl{display:flex;flex-wrap:wrap;gap:4px 12px;margin:8px 0 0;font-size:11.5px;color:var(--text-secondary)}.zl i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1px solid var(--border)}',
     '.dq{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px}.dq .chip{font-variant-numeric:tabular-nums}.dq .chip.next{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:650}.bl{font-size:12px;color:var(--text-muted);margin:6px 0 2px}',
-    '.cmt{margin-left:8px;font-size:12px}.cmt .cm.on{font-weight:700;text-decoration:none;color:var(--text-primary)}',
+    '.take{margin:2px 0 8px;font-size:12.5px;color:var(--text-secondary)}.take b{color:var(--text-primary)}.pvt{margin-left:8px;font-size:12px}.pvt .on{font-weight:700;text-decoration:none;color:var(--text-primary)}.cmt{margin-left:8px;font-size:12px}.cmt .cm.on{font-weight:700;text-decoration:none;color:var(--text-primary)}',
     '.rpmv{margin:0 0 4px;font-size:12px;color:var(--text-secondary)}',
     '.badges{display:flex;flex-wrap:wrap;gap:10px}.bdg{display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:10px;padding:8px 12px;min-width:200px;font-size:13px}.bdg .bi{font-size:26px}.bdg .bn{font-weight:650}',
     '.mbars{display:grid;gap:5px}.mb{display:grid;grid-template-columns:92px 1fr auto;gap:2px 10px;align-items:center;font-size:12.5px}.mbt{height:16px}.mbf{display:flex;height:100%;gap:2px;border-radius:0 4px 4px 0;overflow:hidden}.mbf i{display:block;min-width:2px}.mbn{font-weight:600}.mbd{grid-column:2/4;color:var(--text-muted);font-size:11.5px;margin:-2px 0 4px}.pies{display:flex;flex-wrap:wrap;gap:14px 26px}.pie1{display:flex;flex-direction:column;gap:4px;min-width:150px;font-size:12px}.pie1 svg{width:110px;height:110px;flex:none}.pie1 .pl{display:flex;flex-direction:column;gap:2px}.kml{list-style:none;margin:0;padding:0}.kml li{padding:4px 0;border-bottom:1px solid var(--grid);font-size:13px}.kmi{display:inline-block;width:1.5em}',
@@ -1167,6 +1167,104 @@
     return '#999';
   }
   function trSw(d, name) { return '<i class="sw" style="background:' + trainColor(d, name) + ';border-radius:2px" title="train type"></i>'; }
+  // ---- ECharts (loaded from jsDelivr with a pinned version and an integrity hash; the plain SVG charts remain as the fallback)
+  var EC_URL = 'https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js', EC_SRI = 'sha384-Mx5lkUEQPM1pOJCwFtUICyX45KNojXbkWdYhkKUKsbv391mavbfoAmONbzkgYPzR';
+  function ensureEcharts(w) {
+    if (w.echarts) return Promise.resolve(w.echarts);
+    if (w.__ecP) return w.__ecP;
+    w.__ecP = new Promise(function (res, rej) {
+      var sc = w.document.createElement('script'); sc.src = EC_URL; sc.integrity = EC_SRI; sc.crossOrigin = 'anonymous';
+      sc.onload = function () { res(w.echarts); }; sc.onerror = function () { w.__ecP = null; rej(new Error('echarts')); };
+      w.document.head.appendChild(sc);
+    });
+    return w.__ecP;
+  }
+  function ecInk(dark) { return { ink: dark ? '#c3c2b7' : '#52514e', mut: '#898781', grid: dark ? '#2c2c2a' : '#e1e0d9', surf: dark ? '#1a1a19' : '#fcfcfb', strong: dark ? '#f0efec' : '#0b0b0b' }; }
+  function ecInit(w, el, h) {
+    el.innerHTML = ''; el.style.height = h + 'px'; el.style.position = 'relative';
+    var ch = w.echarts.init(el, null, { renderer: 'svg', width: el.clientWidth || 600, height: h });
+    (w.__ecInst = w.__ecInst || []).push(ch);
+    if (w.ResizeObserver) { var ro = new w.ResizeObserver(function () { try { ch.resize({ width: 'auto', height: h }); } catch (e) {} }); ro.observe(el); ch.__ro = ro; }
+    return ch;
+  }
+  function ecDisposeAll(w) { (w.__ecInst || []).forEach(function (c) { try { if (c.__ro) c.__ro.disconnect(); c.dispose(); } catch (e) {} }); w.__ecInst = []; }
+  function ecTip(model, extra) {
+    return function (params) {
+      var ps = (Array.isArray(params) ? params : [params]).filter(function (p) { return p.value != null && p.value !== '-' && p.seriesType === 'line'; });
+      if (!ps.length) return '';
+      var idx = ps[0].dataIndex;
+      ps.sort(function (a, b) { return (b.value != null && typeof b.value === 'object' ? b.value.value : b.value) - (a.value != null && typeof a.value === 'object' ? a.value.value : a.value); });
+      return '<div style="font-size:12px"><div style="color:#898781;margin-bottom:3px">' + esc(ps[0].axisValueLabel || ps[0].name) + '</div>' + ps.map(function (p) {
+        var v = typeof p.value === 'object' && p.value !== null && !Array.isArray(p.value) ? p.value.value : p.value;
+        return '<div style="display:flex;justify-content:space-between;gap:14px"><span><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:' + p.color + ';margin-right:5px"></i>' + esc(p.seriesName) + '</span><b>' + esc(model.fmt(v)) + '</b></div>';
+      }).join('') + (extra ? extra(idx) : '') + '</div>';
+    };
+  }
+  function ecLine(w, el, model, o) {
+    var C = ecInk(o.dark), dark = o.dark, labels = model.labels, ch = ecInit(w, el, o.height || 300);
+    var bands = [];
+    (o.phases || []).forEach(function (ph, i, arr) {
+      var a = labels.indexOf(ph.label); if (a < 0 || i % 2) return;
+      var nxt = arr.slice(i + 1).map(function (x) { return labels.indexOf(x.label); }).filter(function (x) { return x > a; })[0];
+      bands.push([{ name: ph.name, xAxis: labels[a], itemStyle: { color: dark ? 'rgba(255,255,255,.045)' : 'rgba(11,11,11,.045)' } }, { xAxis: labels[nxt != null ? nxt : labels.length - 1] }]);
+    });
+    var series = model.series.map(function (s, i) {
+      var col = displayColor(s.color, dark), data = s.values.map(function (v, k) {
+        if (v == null || (o.log && v <= 0)) return null;
+        if (s.kinds) { var kd = s.kinds[k]; return { value: v, itemStyle: { color: kd === 'withhold' || kd === 'none' ? C.surf : col, borderColor: col, borderWidth: 1.6 } }; }
+        return v;
+      });
+      var so = { name: s.name, type: 'line', data: data, color: col, symbol: 'circle', symbolSize: s.kinds ? 6 : 5, showSymbol: !!s.kinds, connectNulls: false,
+        lineStyle: { width: s.bold ? 3 : 2, type: s.dashed ? 'dashed' : 'solid' }, emphasis: { focus: 'series', lineStyle: { width: 3 } },
+        endLabel: { show: model.series.length <= 12, formatter: '{a}', color: C.ink, fontSize: 10.5, distance: 5 }, labelLayout: { moveOverlap: 'shiftY' } };
+      if (i === 0 && bands.length) so.markArea = { silent: true, label: { position: 'insideTop', color: C.mut, fontSize: 9 }, data: bands };
+      var pts = (o.marks || []).filter(function (mk) { return mk.series === s.name && s.values[mk.idx] != null; });
+      if (pts.length) so.markPoint = { symbol: 'circle', symbolSize: 9, label: { show: false }, itemStyle: { color: col, borderColor: C.surf, borderWidth: 2 }, tooltip: { formatter: function (p) { return esc(p.name); } },
+        data: pts.map(function (mk) { return { name: mk.text, coord: [labels[mk.idx], s.values[mk.idx]] }; }) };
+      return so;
+    });
+    ch.setOption({
+      animationDuration: 450, textStyle: { fontFamily: 'inherit' }, aria: { enabled: true },
+      grid: { left: 50, right: model.series.length <= 12 ? 78 : 16, top: 14, bottom: 26 },
+      tooltip: { trigger: 'axis', axisPointer: { type: 'line', lineStyle: { color: C.mut, type: 'dashed' } }, backgroundColor: C.surf, borderColor: C.grid, textStyle: { color: C.ink, fontSize: 12 }, formatter: ecTip(model, o.extra), confine: true },
+      xAxis: { type: 'category', data: labels, boundaryGap: false, axisLine: { lineStyle: { color: C.grid } }, axisTick: { show: false }, axisLabel: { color: C.mut, fontSize: 10, hideOverlap: true } },
+      yAxis: { type: o.log ? 'log' : 'value', splitLine: { lineStyle: { color: C.grid } }, axisLabel: { color: C.mut, fontSize: 10, formatter: function (v) { return model.fmt(v); } }, scale: ST.chartMode === 'pct' },
+      dataZoom: [{ type: 'inside', zoomOnMouseWheel: 'ctrl', moveOnMouseMove: true, moveOnMouseWheel: false }],
+      series: series
+    });
+    return ch;
+  }
+  function ecPL(w, el, rows, o) {
+    var C = ecInk(o.dark), dark = o.dark, ch = ecInit(w, el, Math.max(160, rows.length * 44 + 56)), m = o.m;
+    var kc = dark ? ['#3987e5', '#199e70', '#c98500'] : ['#2a78d6', '#1baf7a', '#eda100'], names = rows.map(function (r) { return r.corp; });
+    var kinds = [['Trains', 'trn'], ['Tiles', 'tile'], ['Tokens', 'tok']];
+    ch.setOption({
+      animationDuration: 450, textStyle: { fontFamily: 'inherit' }, aria: { enabled: true },
+      legend: { top: 0, textStyle: { color: C.ink, fontSize: 11 }, itemWidth: 10, itemHeight: 10, data: ['Trains', 'Tiles', 'Tokens', 'Revenue'] },
+      grid: { left: 64, right: 24, top: 30, bottom: 22 },
+      tooltip: { trigger: 'item', backgroundColor: C.surf, borderColor: C.grid, textStyle: { color: C.ink, fontSize: 12 }, confine: true, formatter: function (p) { var v = Array.isArray(p.value) ? p.value[0] : p.value; return esc(p.name || p.value[1]) + ' · ' + esc(p.seriesName) + ': <b>' + esc(m(v)) + '</b>'; } },
+      yAxis: { type: 'category', data: names, inverse: true, axisTick: { show: false }, axisLine: { show: false }, axisLabel: { color: C.ink, fontSize: 11.5 } },
+      xAxis: { type: 'value', splitLine: { lineStyle: { color: C.grid } }, axisLabel: { color: C.mut, fontSize: 10, formatter: function (v) { return m(v); } } },
+      series: kinds.map(function (k, i) { return { name: k[0], type: 'bar', stack: 's', barWidth: 18, color: kc[i], data: rows.map(function (r) { return r[k[1]]; }), itemStyle: { borderColor: C.surf, borderWidth: 2, borderRadius: i === 2 ? [0, 4, 4, 0] : 0 }, emphasis: { focus: 'series' } }; })
+        .concat([{ name: 'Revenue', type: 'scatter', symbol: 'diamond', symbolSize: 11, color: C.strong, itemStyle: { borderColor: C.surf, borderWidth: 2 }, z: 5, data: rows.map(function (r) { return { value: [r.rev, r.corp], name: r.corp }; }) }])
+    });
+    return ch;
+  }
+  function ecHeat(w, el, cash, players, o) {
+    var C = ecInk(o.dark), dark = o.dark, m = o.m, ch = ecInit(w, el, Math.max(130, players.length * 34 + 60));
+    var labs = cash.map(function (c) { return c.label; }), data = [], mx = 1;
+    players.forEach(function (p, yi) { cash.forEach(function (c, xi) { var q = c.pp[p.name]; if (!q) return; var net = q.div + q.priv + q.sales - q.buys; mx = Math.max(mx, Math.abs(net)); data.push([xi, yi, net, q]); }); });
+    ch.setOption({
+      animationDuration: 450, textStyle: { fontFamily: 'inherit' }, aria: { enabled: true },
+      grid: { left: 80, right: 14, top: 8, bottom: 40 },
+      tooltip: { backgroundColor: C.surf, borderColor: C.grid, textStyle: { color: C.ink, fontSize: 12 }, confine: true, formatter: function (p) { var q = p.value[3]; return esc(labs[p.value[0]]) + ' · <b>' + esc(players[p.value[1]].name) + '</b><br>net ' + (p.value[2] >= 0 ? '+' : '−') + esc(m(Math.abs(p.value[2]))) + '<br><span style="color:#898781">dividends ' + esc(m(q.div)) + ', privates ' + esc(m(q.priv)) + ', sales ' + esc(m(q.sales)) + ', bought ' + esc(m(q.buys)) + '</span>'; } },
+      xAxis: { type: 'category', data: labs, splitArea: { show: false }, axisTick: { show: false }, axisLine: { show: false }, axisLabel: { color: C.mut, fontSize: 9.5, hideOverlap: true } },
+      yAxis: { type: 'category', data: players.map(function (p) { return p.name; }), inverse: true, axisTick: { show: false }, axisLine: { show: false }, axisLabel: { color: C.ink, fontSize: 11.5 } },
+      visualMap: { show: false, min: -mx, max: mx, inRange: { color: [dark ? '#d95926' : '#eb6834', dark ? '#383835' : '#f0efec', dark ? '#3987e5' : '#2a78d6'] } },
+      series: [{ type: 'heatmap', data: data, itemStyle: { borderColor: C.surf, borderWidth: 2, borderRadius: 3 }, emphasis: { itemStyle: { borderColor: C.strong } } }]
+    });
+    return ch;
+  }
   function pieSvg(parts, size) {
     var tot = parts.reduce(function (a, p) { return a + p.v; }, 0), r = size / 2 - 2, cx = size / 2, cy = size / 2, a0 = -Math.PI / 2, out = '';
     if (!tot) return '';
@@ -1956,8 +2054,12 @@
 
     // Value history
     var vModel = modeModel({ labels: d.valueHistory.labels, fmt: m, series: d.players.map(function (p, i) { return { name: p.name, color: pal[p.idx % pal.length], values: d.valueHistory.series[i], bold: p.name === me }; }) });
+    var lm = [], prevLead = -1;
+    vModel.labels.forEach(function (lb, k) { var bi = -1, bv = -Infinity; vModel.series.forEach(function (s, i) { var v = s.values[k]; if (v != null && v > bv) { bv = v; bi = i; } }); if (prevLead >= 0 && bi >= 0 && bi !== prevLead) lm.push({ series: vModel.series[bi].name, idx: k, text: vModel.series[bi].name + ' takes the lead' }); if (bi >= 0) prevLead = bi; });
+    var vTake = '';
+    try { var vr = d.players.slice().sort(function (a, b) { return b.value - a.value; }); if (vr.length > 1) vTake = '<p class="take"><b>' + esc(vr[0].name) + '</b> ' + (d.finished ? 'won' : 'leads') + ' by <b>' + esc(m(vr[0].value - vr[1].value)) + '</b> · ' + (lm.length ? lm.length + (lm.length === 1 ? ' lead change' : ' lead changes') : 'no lead changes') + '</p>'; } catch (eT) {}
     var vChart = lineChart(vModel, { title: 'Player value over time', dark: dark, events: d.events, log: ST.chartMode === 'log', snap: ST.chartMode === 'pct' });
-    h.push('<section class="card"><h2>Player value over time</h2><p class="sub">Value at the end of each round ' + modeBar() + '</p>' + legend(vModel.series) + '<div class="chart" id="c-value">' + vChart.svg + '<div class="tip"></div></div></section>');
+    h.push('<section class="card"><h2>Player value over time</h2><p class="sub">Value at the end of each round ' + modeBar() + '</p>' + vTake + legend(vModel.series) + '<div class="chart" id="c-value">' + vChart.svg + '<div class="tip"></div></div></section>');
 
     // Revenue
     var rModel = { labels: d.revenue.labels, fmt: m, series: d.revenue.series };
@@ -1974,8 +2076,10 @@
 
     // Share prices
     var pModel = modeModel({ labels: d.prices.labels, fmt: m, series: d.prices.series });
+    var pTake = '';
+    try { var pg = d.prices.series.map(function (s) { var vs = s.values.filter(function (v) { return v != null; }); return { n: s.name, a: vs[0], b: vs[vs.length - 1], hi: Math.max.apply(null, vs) }; }).filter(function (x) { return x.a > 0; }); if (pg.length) { pg.sort(function (a, b) { return b.b / b.a - a.b / a.a; }); var up = pg[0]; pTake = '<p class="take">Biggest climb: <b>' + esc(up.n) + '</b> ' + esc(m(up.a)) + ' → ' + esc(m(up.b)) + (up.hi > up.b ? ' (peak ' + esc(m(up.hi)) + ')' : '') + '</p>'; } } catch (eP) {}
     var pChart = lineChart(pModel, { title: 'Share price', dark: dark, events: d.events, log: ST.chartMode === 'log', snap: ST.chartMode === 'pct' });
-    h.push('<section class="card"><h2>Share price</h2><p class="sub">Market price at the end of each round ' + modeBar() + '</p>' + legend(pModel.series, dark) + '<div class="chart" id="c-price">' + pChart.svg + '<div class="tip"></div></div></section>');
+    h.push('<section class="card"><h2>Share price</h2><p class="sub">Market price at the end of each round ' + modeBar() + '</p>' + pTake + legend(pModel.series, dark) + '<div class="chart" id="c-price">' + pChart.svg + '<div class="tip"></div></div></section>');
 
     // Portfolio
     var meIdx = d.players.map(function (p) { return p.name; }).indexOf(me);
@@ -2348,16 +2452,20 @@
         (AN2.trains || []).forEach(function (t) { if (tk21[t.buyer] !== undefined) plG(t.buyer).trn += t.price; });
         (AN2.track || []).forEach(function (x) { var o = plG(x.corp); o.tile += x.tileCost; o.tok += x.tokenCost; });
         var plRows = Object.keys(pl).map(function (k) { return pl[k]; }).filter(function (o) { return o.rev || o.trn || o.tile || o.tok; }).sort(function (a, b) { return b.rev - a.rev; });
-        if (plRows.length) h.push('<section class="card wide"><h2>Company profit and loss</h2><p class="sub">For each company over the whole game: revenue from its runs, how much went to shareholders and how much it kept, and what it spent on trains, tiles and tokens. The last column is what the treasury kept after spending (negative means the spending came from elsewhere: share sales, loans or the president). Train purchases include trains bought from other companies.</p><div class="tw"><table><thead><tr><th>Company</th><th>Revenue</th><th>Paid out</th><th>Kept</th><th>Trains</th><th>Tiles</th><th>Tokens</th><th>Kept after spending</th></tr></thead><tbody>' +
-          plRows.map(function (o) { var net = o.kept - o.trn - o.tile - o.tok; return '<tr><td>' + c21(tk21[o.corp]) + '<b>' + esc(o.corp) + '</b></td><td>' + esc(m(o.rev)) + '</td><td>' + esc(m(o.rev - o.kept)) + '</td><td>' + esc(m(o.kept)) + '</td><td>' + esc(m(o.trn)) + '</td><td>' + esc(m(o.tile)) + '</td><td>' + esc(m(o.tok)) + '</td><td><span class="' + (net >= 0 ? 'st-good' : 'st-warn') + '">' + sg21(net) + '</span></td></tr>'; }).join('') + '</tbody></table></div></section>');
+        var plChartOn = !!w.echarts && ST.plView !== 'table', plTake = '';
+        try { var plTop = plRows[0], plSp = plRows.slice().sort(function (a, b) { return b.trn - a.trn; })[0]; plTake = '<p class="take"><b>' + esc(plTop.corp) + '</b> earned the most (' + esc(m(plTop.rev)) + ')' + (plSp && plSp.trn ? ' · <b>' + esc(plSp.corp) + '</b> spent the most on trains (' + esc(m(plSp.trn)) + ')' : '') + '</p>'; } catch (eL) {}
+        if (plRows.length) h.push('<section class="card wide"><h2>Company profit and loss</h2>' + (w.echarts ? '<p class="sub"><span class="pvt">' + [['chart', 'Chart'], ['table', 'Table']].map(function (x) { return '<button class="lnk pv' + ((x[0] === 'chart') === plChartOn ? ' on' : '') + '" data-pv="pl:' + x[0] + '">' + x[1] + '</button>'; }).join(' · ') + '</span></p>' : '') + plTake + (plChartOn ? '<p class="sub">Spending on trains, tiles and tokens for each company over the whole game. ◆ marks its revenue.</p><div class="chart" id="c-pl"></div>' : '') + '<div class="plt"' + (plChartOn ? ' style="display:none"' : '') + '><p class="sub">For each company over the whole game: revenue from its runs, how much went to shareholders and how much it kept, and what it spent on trains, tiles and tokens. The last column is what the treasury kept after spending (negative means the spending came from elsewhere: share sales, loans or the president). Train purchases include trains bought from other companies.</p><div class="tw"><table><thead><tr><th>Company</th><th>Revenue</th><th>Paid out</th><th>Kept</th><th>Trains</th><th>Tiles</th><th>Tokens</th><th>Kept after spending</th></tr></thead><tbody>' +
+          plRows.map(function (o) { var net = o.kept - o.trn - o.tile - o.tok; return '<tr><td>' + c21(tk21[o.corp]) + '<b>' + esc(o.corp) + '</b></td><td>' + esc(m(o.rev)) + '</td><td>' + esc(m(o.rev - o.kept)) + '</td><td>' + esc(m(o.kept)) + '</td><td>' + esc(m(o.trn)) + '</td><td>' + esc(m(o.tile)) + '</td><td>' + esc(m(o.tok)) + '</td><td><span class="' + (net >= 0 ? 'st-good' : 'st-warn') + '">' + sg21(net) + '</span></td></tr>'; }).join('') + '</tbody></table></div></div></section>');
       }
       // cash flow per player
       if (AN2 && AN2.cash && AN2.cash.length) {
         var tot = {}; d.players.forEach(function (p) { tot[p.name] = { inn: 0, out: 0 }; });
         AN2.cash.forEach(function (c) { d.players.forEach(function (p) { var o = c.pp[p.name]; if (o) { tot[p.name].inn += o.div + o.priv + o.sales; tot[p.name].out += o.buys; } }); });
-        h.push('<section class="card wide"><h2>Cash flow per player</h2><p class="sub">Money in (dividends, private companies, share sales) and money out (shares bought, auctions won) for each player in each round. The number shown is the net change from those; train funding and emergency buys are not in the log, so they are not included.</p><div class="tw" style="max-height:380px;overflow-y:auto"><table><thead><tr><th>Round</th>' + d.players.map(function (p) { return '<th>' + esc(p.name) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+        var cashOn = !!w.echarts && ST.cashView !== 'table', cashTake = '';
+        try { var cb = null; AN2.cash.forEach(function (c) { d.players.forEach(function (p) { var o = c.pp[p.name]; if (!o) return; var net = o.div + o.priv + o.sales - o.buys; if (!cb || net > cb.net) cb = { net: net, who: p.name, at: c.label }; }); }); if (cb && cb.net > 0) cashTake = '<p class="take">Biggest single round: <b>' + esc(cb.who) + '</b> ' + esc(sg21(cb.net)) + ' at ' + esc(cb.at) + '</p>'; } catch (eC) {}
+        h.push('<section class="card wide"><h2>Cash flow per player</h2>' + (w.echarts ? '<p class="sub"><span class="pvt">' + [['chart', 'Heat grid'], ['table', 'Table']].map(function (x) { return '<button class="lnk pv' + ((x[0] === 'chart') === cashOn ? ' on' : '') + '" data-pv="cash:' + x[0] + '">' + x[1] + '</button>'; }).join(' · ') + '</span></p>' : '') + cashTake + (cashOn ? '<p class="sub"><span style="color:#2a78d6">■</span> money in &nbsp;<span style="color:#eb6834">■</span> money out. Net change per round; hover a cell for the breakdown.</p><div class="chart" id="c-cash"></div>' : '') + '<div class="plt"' + (cashOn ? ' style="display:none"' : '') + '><p class="sub">Money in (dividends, private companies, share sales) and money out (shares bought, auctions won) for each player in each round. The number shown is the net change from those; train funding and emergency buys are not in the log, so they are not included.</p><div class="tw" style="max-height:380px;overflow-y:auto"><table><thead><tr><th>Round</th>' + d.players.map(function (p) { return '<th>' + esc(p.name) + '</th>'; }).join('') + '</tr></thead><tbody>' +
           '<tr style="font-weight:700"><td style="text-align:left">Total</td>' + d.players.map(function (p) { var o = tot[p.name]; return '<td title="' + esc('in ' + m(o.inn) + ', out ' + m(o.out)) + '">' + sg21(o.inn - o.out) + '</td>'; }).join('') + '</tr>' +
-          AN2.cash.slice().reverse().map(function (c) { return '<tr><td style="text-align:left">' + esc(c.label) + '</td>' + d.players.map(function (p) { var o = c.pp[p.name]; if (!o) return '<td></td>'; var net = o.div + o.priv + o.sales - o.buys; return '<td title="' + esc('dividends ' + m(o.div) + ', privates ' + m(o.priv) + ', sales ' + m(o.sales) + ', bought ' + m(o.buys)) + '">' + (net ? '<span class="' + (net >= 0 ? 'st-good' : 'st-warn') + '">' + sg21(net) + '</span>' : '<span style="color:var(--text-muted)">·</span>') + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table></div></section>');
+          AN2.cash.slice().reverse().map(function (c) { return '<tr><td style="text-align:left">' + esc(c.label) + '</td>' + d.players.map(function (p) { var o = c.pp[p.name]; if (!o) return '<td></td>'; var net = o.div + o.priv + o.sales - o.buys; return '<td title="' + esc('dividends ' + m(o.div) + ', privates ' + m(o.priv) + ', sales ' + m(o.sales) + ', bought ' + m(o.buys)) + '">' + (net ? '<span class="' + (net >= 0 ? 'st-good' : 'st-warn') + '">' + sg21(net) + '</span>' : '<span style="color:var(--text-muted)">·</span>') + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table></div></div></section>');
       }
       // ownership over time
       if (AN2 && AN2.own && AN2.own.labels.length > 1) {
@@ -2508,6 +2616,7 @@
     h.push('</main>');
 
     var scrollY = w.scrollY || 0;
+    ecDisposeAll(w);
     doc.body.innerHTML = h.join('');
     applyLayout(w, d.finished ? 'review' : 'live');
     try { decorateNames(doc, d, pal, dark); } catch (eDn) {}
@@ -2518,6 +2627,21 @@
     });
     attachHover(doc, doc.getElementById('c-rev'), rModel, rChart);
     attachHover(doc, doc.getElementById('c-price'), pModel, pChart);
+    // ECharts layer: replaces the three SVG line charts when the library is available (pinned + integrity-checked); the SVG versions stay as the fallback
+    if (w.echarts) {
+      try {
+        var phs = (d.events || []).filter(function (e) { return e.kind === 'phase'; }).map(function (e) { return { label: e.label, name: e.text.replace(/ begins$/, '') }; });
+        var ecOpt = { dark: dark, log: ST.chartMode === 'log', phases: phs };
+        var ev = doc.getElementById('c-value'), er = doc.getElementById('c-rev'), ep = doc.getElementById('c-price');
+        if (ev) { ecLine(w, ev, vModel, { dark: dark, log: ecOpt.log, phases: phs, marks: lm, height: 320, extra: function (i) { var vs = vModel.series.map(function (s) { return s.values[i]; }).filter(function (v) { return v != null; }); return vs.length > 1 ? '<div style="margin-top:3px;color:#898781">spread ' + esc(m(Math.max.apply(null, vs) - Math.min.apply(null, vs))) + '</div>' : ''; } }); var lg = ev.parentNode.querySelector('.legend'); if (lg) lg.style.display = 'none'; }
+        if (er) { ecLine(w, er, rModel, { dark: dark, phases: phs, height: 300 }); var lg2 = er.parentNode.querySelector('.legend'); if (lg2) lg2.style.display = 'none'; }
+        if (ep) { ecLine(w, ep, pModel, { dark: dark, log: ecOpt.log, phases: phs, height: 300 }); var lg3 = ep.parentNode.querySelector('.legend'); if (lg3) lg3.style.display = 'none'; }
+        var epl = doc.getElementById('c-pl'); if (epl && typeof plRows !== 'undefined') ecPL(w, epl, plRows, { dark: dark, m: m });
+        var ecs = doc.getElementById('c-cash'); if (ecs && d.analysis && d.analysis.cash) ecHeat(w, ecs, d.analysis.cash, d.players, { dark: dark, m: m });
+      } catch (eEc) { console.warn('18xx-JNNstats: chart library failed, using plain charts', eEc); }
+    } else if (!w.__ecFail) {
+      ensureEcharts(w).then(function () { if (ST.win === w && !w.closed) rerender(); }, function () { w.__ecFail = true; });
+    }
     // flash numbers that changed since the last update
     var vals = {};
     Array.prototype.forEach.call(doc.querySelectorAll('[data-f]'), function (el) {
@@ -2603,6 +2727,7 @@
       };
       if (ST.rpPlay) rpStart();
     }
+    Array.prototype.forEach.call(doc.querySelectorAll('.pv'), function (b) { b.onclick = function () { var q = b.getAttribute('data-pv').split(':'); if (q[0] === 'pl') ST.plView = q[1]; else ST.cashView = q[1]; rerender(); }; });
     Array.prototype.forEach.call(doc.querySelectorAll('.cm'), function (b) { b.onclick = function () { ST.chartMode = b.getAttribute('data-cm'); rerender(); }; });
     Array.prototype.forEach.call(doc.querySelectorAll('.km-rp'), function (b) { b.onclick = function () {
       ST.rpIdx = +b.getAttribute('data-f'); ST.rpGame = d.id; ST.rpSub = null; ST.rpPlay = false; rerender();
