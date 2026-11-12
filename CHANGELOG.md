@@ -2,6 +2,16 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.11.0] - 2026-11-12
+
+### Added
+- **Routes & revenue** card: pick an operating round and see every company's trains, the revenue of each, the stops it ran (as the engine logs them) and whether the company paid out or withheld. It follows the history slider.
+- **Game log:** every line has a small ↗ link that opens 18xx.games at that exact move.
+- **Pinned games:** the header shows "pinned to version …" when the site has frozen the game to an older version of the rules.
+
+### Tests
+- `tests/regression.js` now also compares bank cash, phase and the game-end trigger with the engine itself at six points in each game, and checks that the Routes table matches the log.
+
 ## [0.10.2] - 2026-11-12
 
 ### Changed

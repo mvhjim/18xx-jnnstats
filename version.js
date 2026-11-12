@@ -1,1 +1,1 @@
-window.__xxLatest = '0.10.2';
+window.__xxLatest = '0.11.0';

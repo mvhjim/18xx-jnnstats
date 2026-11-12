@@ -19,6 +19,8 @@ For each game it checks that:
 - the replayed final scores equal the official result (`exact`),
 - every company with a share price stands on the market square with that price,
 - every section of the dashboard renders without an error.
+- at six points in the game, bank cash, phase and the game-end trigger match the engine itself (`engine` column),
+- the Routes & revenue table holds as many trains as the log has "runs a ... train" lines.
 
 ## `live-simulation.js` - does live play work?
 

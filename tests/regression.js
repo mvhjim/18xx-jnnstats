@@ -27,6 +27,25 @@
           if (f !== c.price) gridBad++;
         });
         row.grid = d.grid ? gridBad + ' of ' + n + ' wrong' : 'no grid';
+        // cross-check against the engine itself: bank cash, phase, game-end trigger (at up to 6 points in the game) and the Routes table
+        var xbad = [];
+        if (Math.round(d.bank) !== Math.round(d.bank2.cash)) xbad.push('bank cash differs inside the tool');
+        var runLines = 0; d.gameLog.rounds.forEach(function (r) { r.lines.forEach(function (l) { if (/^.+? runs an? .+? train for .+?: /.test(l.msg)) runLines++; }); });
+        var tableTrains = 0; d.routes.forEach(function (r) { r.corps.forEach(function (c) { tableTrains += c.trains.length; }); });
+        if (runLines !== tableTrains) xbad.push('route table has ' + tableTrains + ' trains, log has ' + runLines);
+        var cuts = d.gameLog.cuts.filter(function (c, k, arr) { return c > 0 && (k === 0 || c !== arr[k - 1]); }), pick = [];
+        for (var q = 0; q < 6 && cuts.length; q++) pick.push(cuts[Math.floor(q * (cuts.length - 1) / 5)]);
+        for (var pi = 0; pi < pick.length; pi++) {
+          var j2 = JSON.parse(text); j2.actions = j.actions.filter(function (a) { return a.id <= pick[pi]; }); j2.status = 'active'; j2.result = {};
+          var g2 = A.loadGame(JSON.stringify(j2)), d2 = A.extract(g2, j2);
+          if (String(g2.$finished()) === 'true') continue; // the engine writes no end-of-game text once the game is over
+          var desc = g2.$game_ending_description(), engineSays = desc !== Opal.nil && desc != null && String(desc) !== '';
+          var weSay = !!(d2.live && d2.live.end && d2.live.end.triggered);
+          if (engineSays !== weSay) xbad.push('after action ' + pick[pi] + ': game-end trigger engine=' + engineSays + ' tool=' + weSay);
+          if (Math.round(d2.bank) !== Math.round(g2.$bank().$cash())) xbad.push('after action ' + pick[pi] + ': bank cash differs from engine');
+          if (d2.phase !== String(g2.$phase().$name())) xbad.push('after action ' + pick[pi] + ': phase differs from engine');
+        }
+        row.engine = xbad.length ? xbad.join('; ') : 'ok (' + pick.length + ' points)';
         try { var w = holder.contentWindow; w.document.body.innerHTML = ''; A.render(w, d); row.render = 'ok'; } catch (e) { row.render = 'ERROR ' + String(e).slice(0, 100); }
       } catch (e) { row.error = String(e).slice(0, 160); }
       window.__xxTestRows.push(row);

@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.10.2';
+  var VERSION = '0.11.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -610,6 +610,30 @@
       gameLog = { rounds: glR, meRound: glMe, meId: lastMineId, cuts: glCuts };
     } catch (e) { gameLog = null; }
 
+    // Routes & revenue: read from the engine's own "runs a <train> train for <revenue>: <stops>" lines, per round
+    var routeTable = [];
+    try {
+      if (gameLog) gameLog.rounds.forEach(function (rd3, ri3) {
+        var byCorp = {}, order = [];
+        var get = function (n) { if (!byCorp[n]) { byCorp[n] = { corp: n, trains: [], total: null, kind: '', extra: [] }; order.push(n); } return byCorp[n]; };
+        rd3.lines.forEach(function (ln) {
+          var mm = /^(.+?) runs an? (.+?) train for (.+?): (.*)$/.exec(ln.msg);
+          if (mm) { get(mm[1]).trains.push({ train: mm[2], rev: mm[3], stops: mm[4] }); return; }
+          mm = /^(.+?) runs for (.+?) and pays (.+)$/.exec(ln.msg);
+          if (mm) { var c3 = get(mm[1]); c3.total = mm[2]; c3.kind = 'pays ' + mm[3]; return; }
+          mm = /^(.+?) pays out (.+?) = (.+?) per share/.exec(ln.msg);
+          if (mm) { var c4 = get(mm[1]); c4.total = mm[2]; c4.kind = 'pays out ' + mm[3] + ' per share'; return; }
+          mm = /^(.+?) withholds (.+)$/.exec(ln.msg);
+          if (mm) { var c5 = get(mm[1]); if (!c5.total) { c5.total = mm[2]; c5.kind = 'withholds'; } else c5.kind += ' · keeps ' + mm[2]; return; }
+          mm = /^(.+?) does not run$/.exec(ln.msg);
+          if (mm) { get(mm[1]).kind = 'does not run'; return; }
+          mm = /^(.+?) receives (.+?) additional revenue/.exec(ln.msg);
+          if (mm && byCorp[mm[1]]) byCorp[mm[1]].extra.push(mm[2]);
+        });
+        if (order.length) routeTable.push({ round: ri3, label: rd3.label, corps: order.map(function (n) { return byCorp[n]; }) });
+      });
+    } catch (e) { routeTable = []; }
+
     // Which company a closed one went into: read from the engine's own log lines
     try {
       if (gameLog) {
@@ -708,7 +732,7 @@
       ticker: ticker, portfolio: portfolio, holdings: holdings, minors: minorList, companies: companyList, snapErr: SNAP && SNAP.err,
       nextTrain: nextTrain ? { name: s(nextTrain.$name()), sym: s(call(nextTrain, 'sym')), price: num(nextTrain.$price()) } : null,
       upcomingCount: upcoming.length, notes: notes, updated: new Date(), live: live, feed: feed, certNote: certNote, loanInfo: loanInfo, cheapest: cheapest,
-      grid: grid, gridHist: gridHist, bank2: bankInfo, tiles: tileInfo, recap: recap, gameLog: gameLog
+      grid: grid, gridHist: gridHist, bank2: bankInfo, tiles: tileInfo, recap: recap, gameLog: gameLog, routes: routeTable, pin: (raw.settings && raw.settings.pin) ? String(raw.settings.pin) : ''
     };
   }
 
@@ -768,7 +792,7 @@
     '.mk{display:grid;grid-template-columns:repeat(var(--cols),minmax(34px,1fr));gap:2px;overflow-x:auto}',
     '.mc{border:1px solid var(--grid);border-radius:5px;padding:2px 3px;min-height:40px;font-size:11px;min-width:0}.mc.empty{border-color:transparent}.mp{color:var(--text-secondary);font-variant-numeric:tabular-nums;font-size:10.5px}',
     '.cp{display:block;border-radius:4px;padding:0 3px;margin-top:2px;font-size:10.5px;font-weight:700;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default}.cp.mine{outline:2px solid var(--accent);outline-offset:1px}.cp.gh{background:transparent!important;border:1.5px dashed;font-weight:600}',
-    '.bankrow{display:flex;flex-wrap:wrap;gap:6px 22px;margin:0 0 10px}.bankrow .bb{flex:1 1 200px;min-width:0}.bankrow .bb:first-child{flex:2 1 260px}.bankrow .bl{margin-top:0}.feed.gl{max-height:420px}.feed li.gl{display:grid;grid-template-columns:92px 1fr;gap:8px;padding-left:0;border-left:4px solid var(--pc,transparent)}.feed li.gl .gu{padding-left:6px;color:var(--text-secondary);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.feed li.gl.me{background:color-mix(in srgb,var(--pc) 14%,transparent)}.feed li.gl.me .gu{color:var(--text);font-weight:700}.feed li.gl.head{border-left-color:transparent}.feed li.mine .gm{font-weight:600;color:var(--accent)}.glr{color:var(--text-muted);font-size:10.5px}.gltools{display:flex;gap:8px;align-items:center;margin:0 0 8px}.gltools input{flex:1;min-width:80px}',
+    '.bankrow{display:flex;flex-wrap:wrap;gap:6px 22px;margin:0 0 10px}.bankrow .bb{flex:1 1 200px;min-width:0}.bankrow .bb:first-child{flex:2 1 260px}.bankrow .bl{margin-top:0}.feed.gl{max-height:420px}.feed li.gl{display:grid;grid-template-columns:92px 1fr;gap:8px;padding-left:0;border-left:4px solid var(--pc,transparent)}.feed li.gl .gu{padding-left:6px;color:var(--text-secondary);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.feed li.gl.me{background:color-mix(in srgb,var(--pc) 14%,transparent)}.feed li.gl.me .gu{color:var(--text);font-weight:700}.feed li.gl.head{border-left-color:transparent}.feed li.mine .gm{font-weight:600;color:var(--accent)}.glr{color:var(--text-muted);font-size:10.5px}.gla{color:var(--text-muted);text-decoration:none;font-size:11px;margin-left:4px;opacity:.55}.gla:hover{opacity:1;color:var(--accent)}.rt td,.rt th{padding:3px 8px;text-align:left;vertical-align:top;white-space:normal}.rt td.n{text-align:right;white-space:nowrap}.rt .stp{color:var(--text-secondary);font-size:11.5px;word-break:break-word}.rtsel{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--text-secondary)}.rt tr.tot td{border-top:1px solid var(--border);font-weight:600}.gltools{display:flex;gap:8px;align-items:center;margin:0 0 8px}.gltools input{flex:1;min-width:80px}',
     '.gslide{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--text-secondary)}.gslide input{flex:1;min-width:80px}',
     '.zl{display:flex;flex-wrap:wrap;gap:4px 12px;margin:8px 0 0;font-size:11.5px;color:var(--text-secondary)}.zl i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1px solid var(--border)}',
     '.dq{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px}.dq .chip{font-variant-numeric:tabular-nums}.dq .chip.next{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:650}.bl{font-size:12px;color:var(--text-muted);margin:6px 0 2px}',
@@ -1153,7 +1177,7 @@
     var li = function (f, pre, runs) {
       var who = f.u && !f.head ? f.u : '', first = !runs || who !== prev; prev = who;
       return '<li class="gl' + (f.head ? ' head' : '') + (G.meId && f.id === G.meId ? ' mine' : '') + (who && who === me ? ' me' : '') + '"' + (who && col[who] ? ' style="--pc:' + col[who] + '"' : '') + '>' +
-        '<span class="gu">' + (who && first ? esc(who) : '') + '</span><span class="gm">' + (pre ? '<small class="glr">' + esc(pre) + '</small> ' : '') + esc(f.msg) + '</span></li>';
+        '<span class="gu">' + (who && first ? esc(who) : '') + '</span><span class="gm">' + (pre ? '<small class="glr">' + esc(pre) + '</small> ' : '') + esc(f.msg) + (f.id > 0 && ST.origin ? ' <a class="gla" target="_blank" rel="noopener" href="' + esc(ST.origin + '/game/' + d.id + '?action=' + f.id) + '" title="Open the game on 18xx.games as it stood after this move">↗</a>' : '') + '</span></li>';
     };
     q = (q || '').trim().toLowerCase();
     if (q) {
@@ -1163,6 +1187,19 @@
     }
     var rr = G.rounds[Math.min(Math.max(idx, 0), G.rounds.length - 1)];
     return rr.lines.length ? rr.lines.map(function (f) { return li(f, '', true); }).join('') : '<li class="head">Nothing logged in this round.</li>';
+  }
+  // Body of the Routes & revenue card: one operating round, a row per train
+  function rtBody(d, k, col) {
+    var R = d.routes[Math.min(Math.max(k, 0), d.routes.length - 1)], rows = '';
+    R.corps.forEach(function (c) {
+      var sw = col[c.corp] ? '<i class="sw" style="background:' + col[c.corp] + '"></i>' : '';
+      if (!c.trains.length) { rows += '<tr class="tot"><td>' + sw + esc(c.corp) + '</td><td colspan="3">' + esc(c.kind || 'did not run') + '</td></tr>'; return; }
+      c.trains.forEach(function (t, i) {
+        rows += '<tr><td>' + (i === 0 ? sw + '<b>' + esc(c.corp) + '</b>' : '') + '</td><td>' + esc(t.train) + '</td><td class="n">' + esc(t.rev) + '</td><td class="stp">' + esc(t.stops) + '</td></tr>';
+      });
+      rows += '<tr class="tot"><td></td><td>total' + (c.extra.length ? ' (+ ' + esc(c.extra.join(', ')) + ' extra)' : '') + '</td><td class="n">' + esc(c.total || '') + '</td><td>' + esc(c.kind || '') + '</td></tr>';
+    });
+    return '<table class="rt"><thead><tr><th>Company</th><th>Train</th><th>Revenue</th><th>Stops (as the engine logs them)</th></tr></thead><tbody>' + rows + '</tbody></table>';
   }
   function render(w, d) {
     var doc = w.document, dark = isDark(w), pal = PLAYER_COLORS[dark ? 'dark' : 'light'];
@@ -1199,6 +1236,7 @@
     h.push('<div class="hr2"><a href="' + REPO_URL + '" target="_blank" rel="noopener" style="color:inherit">18xx-JNNstats v' + VERSION + ' by jimiste</a>' +
       (newer ? ' · <a class="upd" href="' + REPO_URL + '/blob/main/CHANGELOG.md" target="_blank" rel="noopener" title="A newer version exists. If you pinned a version, read the changelog, then update your bookmark.">⬆ v' + esc(ST.latest) + ' available</a>' : '') +
       ' · ' + d.actions + ' actions · updated ' + d.updated.toLocaleTimeString() + ' · ' + esc(d.tt ? 'viewing history' : ST.statusText || '') +
+      (d.pin ? ' · <span class="st-warn" title="The site froze this game to an older version of the rules after a design change. The numbers here are replayed with that older version.">📌 pinned to version ' + esc(d.pin) + '</span>' : '') +
       (ST.verify ? ' · <span class="' + (ST.verify.ok ? 'st-good' : 'st-warn') + '" title="After each round the whole game is replayed from scratch and compared with the live numbers">' + (ST.verify.ok ? '✓ verified' : '⚠ corrected') + ' at ' + esc(ST.verify.at) + '</span>' : '') +
       (ST.ttOpen && ST.rounds && ST.rounds.length > 1 ? (function () {
         var tl = ST.rounds.length - 1, ti = d.tt ? d.tt.idx : tl;
@@ -1330,6 +1368,13 @@
     var rModel = { labels: d.revenue.labels, fmt: m, series: d.revenue.series };
     var rChart = lineChart(rModel, { title: 'Company revenue per OR', dark: dark });
     h.push('<section class="card"><h2>Company revenue per operating round</h2><p class="sub">● paid out &nbsp;◉ half &nbsp;○ withheld / no run &nbsp;┄ minor</p>' + legend(rModel.series, dark) + '<div class="chart" id="c-rev">' + rChart.svg + '<div class="tip"></div></div></section>');
+    if (d.routes && d.routes.length) {
+      var rtCol = {}; d.ticker.forEach(function (t) { rtCol[t.name] = displayColor(t.color, dark); });
+      var rtLast = d.routes.length - 1, rtIdx = ST.rtIdx != null && ST.rtGame === d.id && ST.rtIdx <= rtLast ? ST.rtIdx : rtLast;
+      h.push('<section class="card wide"><h2>Routes &amp; revenue</h2><p class="sub">What each company ran in an operating round: train, revenue and stops, as the engine logs them.</p>' +
+        '<div class="rtsel"><button id="rt-p" title="Earlier round">◀</button><select id="rt-s">' + d.routes.map(function (r, i) { return '<option value="' + i + '"' + (i === rtIdx ? ' selected' : '') + '>' + esc(r.label) + '</option>'; }).join('') + '</select><button id="rt-n" title="Later round">▶</button></div>' +
+        '<div class="tw" id="rt-b">' + rtBody(d, rtIdx, rtCol) + '</div></section>');
+    }
 
     // Share prices
     var pModel = { labels: d.prices.labels, fmt: m, series: d.prices.series };
@@ -1492,6 +1537,15 @@
       doc.getElementById('gr-b').innerHTML = gridBody(d, dark, me, iv, m);
       if (ST.hlCorp) hlSet(ST.hlCorp);
     };
+    // routes card: round picker
+    var rts = doc.getElementById('rt-s');
+    if (rts && d.routes) {
+      var rtCol2 = {}; d.ticker.forEach(function (t) { rtCol2[t.name] = displayColor(t.color, dark); });
+      var rtSet = function (v) { v = Math.min(Math.max(v, 0), d.routes.length - 1); rts.value = v; ST.rtIdx = v; ST.rtGame = d.id; doc.getElementById('rt-b').innerHTML = rtBody(d, v, rtCol2); };
+      rts.onchange = function () { rtSet(+rts.value); };
+      doc.getElementById('rt-p').onclick = function () { rtSet(+rts.value - 1); };
+      doc.getElementById('rt-n').onclick = function () { rtSet(+rts.value + 1); };
+    }
     // game log slider, search and jump (only the list is redrawn)
     var gli = doc.getElementById('gl-i');
     if (gli && d.gameLog) {
@@ -1594,8 +1648,8 @@
   // ---------- Layout: collapse and reorder sections, remembered per mode ----------------
   // Two layouts are kept in this browser: 'live' (game in progress) and 'review' (finished game).
   var DEFAULT_ORDER = {
-    live: ['now', 'what-just-happened', 'trains-phases-bank', 'stock-round-helper', 'stock-market', 'standings', 'player-value-over-time', 'stock-ticker', 'portfolios', 'corporations', 'company-revenue-per-operating-round', 'share-price', 'game-log', 'minors-private-companies', 'tile-manifest'],
-    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'game-log', 'company-revenue-per-operating-round', 'share-price', 'portfolios', 'corporations', 'trains-phases-bank', 'minors-private-companies', 'tile-manifest']
+    live: ['now', 'what-just-happened', 'trains-phases-bank', 'stock-round-helper', 'stock-market', 'standings', 'player-value-over-time', 'stock-ticker', 'portfolios', 'corporations', 'company-revenue-per-operating-round', 'routes-revenue', 'share-price', 'game-log', 'minors-private-companies', 'tile-manifest'],
+    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'game-log', 'company-revenue-per-operating-round', 'routes-revenue', 'share-price', 'portfolios', 'corporations', 'trains-phases-bank', 'minors-private-companies', 'tile-manifest']
   };
   function slug(txt) { return String(txt).toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
   function loadLayout(mode) {
@@ -1690,7 +1744,7 @@
   // A second click on the bookmark (or a newer version of this script) replaces the running one.
   var OLD = window.__xxStats;
   if (OLD) { try { clearInterval(OLD.timer); clearInterval(OLD.bTimer); } catch (e) {} try { if (OLD.unsub) OLD.unsub(); } catch (e) {} }
-  var ST = window.__xxStats = { token: Date.now() + '-' + Math.random(), win: OLD && OLD.win, version: VERSION };
+  var ST = window.__xxStats = { token: Date.now() + '-' + Math.random(), win: OLD && OLD.win, version: VERSION, origin: window.location.origin };
   ST.api = { extract: extract, loadGame: loadGame, applyActions: applyActions, ensureTitle: ensureTitle, render: render, shareImage: shareImage };
 
   // Runs inside the stats window itself, so it keeps working when the game page is reloaded or
