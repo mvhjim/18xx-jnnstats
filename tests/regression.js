@@ -48,6 +48,9 @@
         var ids2 = {}; (d.hexMap ? d.hexMap.hexes : []).forEach(function (h) { ids2[h.id] = 1; });
         var stopN = 0, stopOk = 0; d.routes.forEach(function (r) { r.corps.forEach(function (c) { c.trains.forEach(function (tr) { tr.stops.split('-').forEach(function (x) { var k = x.replace(/[\[\]()]/g, '').split(' + ')[0].trim(); stopN++; if (ids2[k]) stopOk++; }); }); }); });
         row.map = !d.hexMap ? 'no hex data' : Math.round(100 * stopOk / Math.max(stopN, 1)) + '% of route stops found on the map (' + d.hexMap.hexes.length + ' hexes)';
+        try { var AN = d.analysis, trainLines = 0, divLines = 0; d.gameLog.rounds.forEach(function (r2) { r2.lines.forEach(function (l2) { if (/ buys an? \S+ train for .* from /.test(l2.msg)) trainLines++; if (/ pays out .*per share \(/.test(l2.msg)) divLines++; }); });
+          var divSum = AN && AN.money ? AN.money.reduce(function (a2, p2) { return a2 + p2.div; }, 0) : 0;
+          row.cards = !AN ? 'no analysis' : (AN.trains ? AN.trains.length : 0) + ' of ' + trainLines + ' train buys parsed; ' + AN.track.length + ' track rows, ' + AN.val.length + ' valuation rows, ' + AN.moments.length + ' moments, dividends to players ' + divSum + ' from ' + divLines + ' payouts'; } catch (e) { row.cards = 'ERROR ' + String(e).slice(0, 100); }
         row.replay = d.replay ? d.replay.labels.length + ' frames, ' + d.replay.hx.filter(function (z) { return z; }).length + ' with a board' : 'no replay';
         row.engine = xbad.length ? xbad.join('; ') : 'ok (' + pick.length + ' points)';
         try { var w = holder.contentWindow; w.document.body.innerHTML = ''; A.render(w, d); row.render = 'ok'; } catch (e) { row.render = 'ERROR ' + String(e).slice(0, 100); }

@@ -2,6 +2,17 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.15.0] - 2026-11-12
+
+### Added
+Six new cards, all read from the engine's own log and the value history (no extra requests):
+- **Track spending vs revenue:** per company, tiles laid, tokens placed, what they cost, and the revenue the company has run against it.
+- **Where the money came from:** a pie per player: dividends, private companies' income and share sales.
+- **Valuation:** share price against the last three payouts per share, with yield per OR and payback in ORs.
+- **Train purchases:** who bought which train, from the depot or another company, and the price against the first depot price.
+- **Key moments:** lead changes, the biggest value swings and the best single run, each with a ↗ link to the game at that moment.
+- **Score range** (live games): value now, and a rough low to high range after the expected number of remaining ORs, with the likely ranking.
+
 ## [0.14.0] - 2026-11-12
 
 ### Added
