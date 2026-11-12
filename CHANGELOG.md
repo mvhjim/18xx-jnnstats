@@ -2,6 +2,12 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.22.0] - 2026-11-12
+
+### Added
+- **Compare up to four games:** the compare card takes one to three other game numbers (separated by spaces); the table and the "how the games ran" rows get a column per game, and the chart follows one player across all of them.
+- **Friends over time:** *Load history* reads the public profile pages of the players in this game (scores only, nothing is replayed) and shows a head-to-head record for every pair, every game the same players finished together with winners marked, a final-score chart for progress game after game, and for a running game a pace benchmark (heading for vs usual final). A switch limits it to this title or all titles.
+
 ## [0.21.0] - 2026-11-12
 
 ### Added

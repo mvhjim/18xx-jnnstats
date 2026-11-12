@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.21.0';
+  var VERSION = '0.22.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -332,6 +332,7 @@
         bankrupt: bool(call(p, 'bankrupt')), hist: hist
       };
     });
+    (raw.players || []).forEach(function (rp) { players.forEach(function (pp) { if (pp.name === rp.name) pp.uid = rp.id; }); });
 
     // Some titles have a non-human "player" such as a bank (The Old Prince 1871): keep it out of the standings
     var humanNames = {}, botPlayers = [];
@@ -1650,20 +1651,55 @@
     f.companies = d.ticker.length;
     return f;
   }
-  function loadCompare(w, d, id) {
-    ST.cmp = { gid: d.id, id: id, busy: true, msg: 'Loading game ' + id + ' and replaying it, this takes a few seconds…' };
+  function loadCompare(w, d, ids) {
+    ST.cmp = { gid: d.id, ids: ids, items: [], busy: true, msg: 'Loading ' + ids.length + (ids.length === 1 ? ' game' : ' games') + ' and replaying, this takes a few seconds each…' };
     rerender();
-    return fetch('/api/game/' + id, { credentials: 'same-origin' }).then(function (r) { return r.text(); }).then(function (text) {
-      var raw = JSON.parse(text);
-      if (!raw.actions || !raw.actions.length) throw new Error('Game ' + id + ' was not found, or has no moves (archived games cannot be replayed).');
-      if (raw.title !== d.title) throw new Error('Game ' + id + ' is ' + raw.title + ', this game is ' + d.title + '. Only games of the same title can be compared.');
-      var p1 = String(d.pin || ''), p2 = String(raw.settings && raw.settings.pin || '');
-      if (p1 !== p2) throw new Error('The two games use different engine versions (' + (p1 || 'latest') + ' and ' + (p2 || 'latest') + '), so their numbers are not comparable.');
-      return new Promise(function (res) { setTimeout(function () { res([text, raw]); }, 40); });
-    }).then(function (a) {
-      var g2 = loadGame(a[0]); var d2 = extract(g2, a[1]);
-      ST.cmp = { gid: d.id, id: id, d2: d2, facts: cmpFacts(d2) }; rerender();
-    }).catch(function (e) { ST.cmp = { gid: d.id, id: id, msg: String(e && e.message || e) }; rerender(); });
+    var items = [], chain = Promise.resolve();
+    ids.forEach(function (id) {
+      chain = chain.then(function () {
+        return fetch('/api/game/' + id, { credentials: 'same-origin' }).then(function (r) { return r.text(); }).then(function (text) {
+          var raw = JSON.parse(text);
+          if (!raw.actions || !raw.actions.length) throw new Error('Game ' + id + ' was not found, or has no moves (archived games cannot be replayed).');
+          if (raw.title !== d.title) throw new Error('Game ' + id + ' is ' + raw.title + ', this game is ' + d.title + '. Only games of the same title can be compared.');
+          var p1 = String(d.pin || ''), p2 = String(raw.settings && raw.settings.pin || '');
+          if (p1 !== p2) throw new Error('Game ' + id + ' uses a different engine version (' + (p2 || 'latest') + ' against ' + (p1 || 'latest') + '), so the numbers are not comparable.');
+          return new Promise(function (res) { setTimeout(function () { res([text, raw]); }, 40); });
+        }).then(function (a) {
+          var g2 = loadGame(a[0]); var d2 = extract(g2, a[1]);
+          items.push({ id: id, d2: d2, facts: cmpFacts(d2) });
+        });
+      });
+    });
+    return chain.then(function () { ST.cmp = { gid: d.id, ids: ids, items: items }; rerender(); })
+      .catch(function (e) { ST.cmp = { gid: d.id, ids: ids, items: items, msg: String(e && e.message || e) }; rerender(); });
+  }
+  // Opal prints a page's data as Opal.hash(...) calls; read the few shapes used (no eval)
+  function parseOpal(src) {
+    var i = 0, n = src.length;
+    var ws = function () { while (i < n && /\s/.test(src[i])) i++; };
+    function val() {
+      ws(); var c = src[i];
+      if (c === '"') { var j = i + 1; while (j < n && src[j] !== '"') { if (src[j] === '\\') j++; j++; } var str = JSON.parse(src.slice(i, j + 1)); i = j + 1; return str; }
+      if (c === '[') { i++; var arr = []; ws(); if (src[i] === ']') { i++; return arr; } for (;;) { arr.push(val()); ws(); if (src[i] === ',') { i++; continue; } if (src[i] === ']') { i++; return arr; } throw new Error('parse'); } }
+      if (src.substr(i, 10) === 'Opal.hash(') { i += 10; var o = {}; ws(); if (src[i] === ')') { i++; return o; } for (;;) { var k = val(); ws(); if (src[i] !== ',') throw new Error('parse'); i++; o[k] = val(); ws(); if (src[i] === ',') { i++; continue; } if (src[i] === ')') { i++; return o; } throw new Error('parse'); } }
+      if (src.substr(i, 8) === 'Opal.nil') { i += 8; return null; }
+      var mm = /^(true|false|-?\d+(?:\.\d+)?(?:e[+-]?\d+)?)/.exec(src.slice(i, i + 40)); if (!mm) throw new Error('parse'); i += mm[0].length;
+      return mm[0] === 'true' ? true : mm[0] === 'false' ? false : parseFloat(mm[0]);
+    }
+    return val();
+  }
+  // A player's finished games from their public profile page (scores only, no replay needed)
+  function loadProfile(uid) {
+    ST.profiles = ST.profiles || {};
+    if (ST.profiles[uid]) return Promise.resolve(ST.profiles[uid]);
+    return fetch('/profile/' + uid, { credentials: 'same-origin' }).then(function (r) { return r.text(); }).then(function (html) {
+      var a = html.indexOf("Opal.App.$attach('app', "), b = html.indexOf('</script>', a);
+      if (a < 0 || b < 0) throw new Error('profile page not understood');
+      var data = parseOpal(html.slice(a + 23, html.lastIndexOf(')', b)));
+      var games = (data.games || []).filter(function (g) { return g && g.result && Object.keys(g.result).length && (g.status === 'finished' || g.status === 'archived'); })
+        .map(function (g) { return { id: g.id, title: g.title, at: g.finished_at || g.updated_at || 0, players: (g.players || []).map(function (p) { return { id: p.id, name: p.name }; }), result: g.result }; });
+      ST.profiles[uid] = games; return games;
+    });
   }
   // Route efficiency: replay the game to just before a company's run, let the engine's own auto-router
   // find routes there, and compare. Read only; the game copy is thrown away. One run at a time.
@@ -2224,41 +2260,47 @@
     }
     // Compare with another game of the same title
     if (d.valueHistory.labels.length > 1 && !d.tt) {
-      var CM = ST.cmp && ST.cmp.gid === d.id ? ST.cmp : null, cmBody = '';
-      if (CM && CM.d2) {
-        var d2 = CM.d2, f1 = cmpFacts(d), f2 = CM.facts, pts = []; for (var pq = 0; pq <= 20; pq++) pts.push(pq / 20);
+      var CM = ST.cmp && ST.cmp.gid === d.id ? ST.cmp : null, cmBody = '', cModel = null, cChart = null;
+      if (CM && CM.items && CM.items.length) {
+        var games = [{ id: d.id, d2: d, facts: cmpFacts(d) }].concat(CM.items.map(function (x) { return { id: x.id, d2: x.d2, facts: x.facts }; })), pts = []; for (var pq = 0; pq <= 20; pq++) pts.push(pq / 20);
+        var names = []; games.forEach(function (gm2) { gm2.d2.players.forEach(function (p) { if (names.indexOf(p.name) < 0) names.push(p.name); }); });
         var colOf = {}; d.players.forEach(function (p) { colOf[p.name] = pal[p.idx % pal.length]; });
-        var ser = [];
-        d.players.forEach(function (p, i) { ser.push({ name: p.name + ' · #' + d.id, color: colOf[p.name], values: pts.map(function (q) { var v = d.valueHistory.series[i]; return v[Math.round(q * (v.length - 1))]; }) }); });
-        d2.players.forEach(function (p, i) { var c2 = colOf[p.name] || pal[(p.idx + d.players.length) % pal.length]; ser.push({ name: p.name + ' · #' + d2.id, color: c2, dashed: true, values: pts.map(function (q) { var v = d2.valueHistory.series[i]; return v[Math.round(q * (v.length - 1))]; }) }); });
-        var cModel = { labels: pts.map(function (q) { return Math.round(q * 100) + '%'; }), fmt: m, series: ser };
-        var cChart = lineChart(cModel, { title: 'Player value, both games', dark: dark });
-        var r1 = d.players.slice().sort(function (a, b) { return b.value - a.value; }), r2 = d2.players.slice().sort(function (a, b) { return b.value - a.value; });
-        var rank = function (arr, nm) { for (var z = 0; z < arr.length; z++) if (arr[z].name === nm) return z + 1; return null; };
-        var names = []; d.players.forEach(function (p) { names.push(p.name); }); d2.players.forEach(function (p) { if (names.indexOf(p.name) < 0) names.push(p.name); });
+        var cntG = function (nm) { return games.filter(function (gm2) { return gm2.d2.players.some(function (p) { return p.name === nm; }); }).length; }, focus = me && cntG(me) === games.length ? me : names.slice().sort(function (x, y) { return cntG(y) - cntG(x); })[0], ser = [];
+        var sample = function (v, q) { return v[Math.round(q * (v.length - 1))]; };
+        if (games.length === 2) {
+          games.forEach(function (gm2, gi) { gm2.d2.players.forEach(function (p, i) { var c2 = colOf[p.name] || pal[(p.idx + d.players.length) % pal.length]; ser.push({ name: p.name + ' · #' + gm2.id, color: c2, dashed: gi > 0, values: pts.map(function (q) { return sample(gm2.d2.valueHistory.series[i], q); }) }); }); });
+        } else {
+          games.forEach(function (gm2, gi) { gm2.d2.players.forEach(function (p, i) { if (p.name !== focus) return; ser.push({ name: p.name + ' · #' + gm2.id, color: pal[gi % pal.length], dashed: gi > 0, values: pts.map(function (q) { return sample(gm2.d2.valueHistory.series[i], q); }) }); }); });
+        }
+        cModel = { labels: pts.map(function (q) { return Math.round(q * 100) + '%'; }), fmt: m, series: ser };
+        cChart = lineChart(cModel, { title: 'Player value, compared games', dark: dark });
+        var rank = function (arr, nm) { var o = arr.slice().sort(function (a1, b1) { return b1.value - a1.value; }); for (var z = 0; z < o.length; z++) if (o[z].name === nm) return z + 1; return null; };
         var val = function (arr, nm) { for (var z = 0; z < arr.length; z++) if (arr[z].name === nm) return arr[z].value; return null; };
-        var cell = function (arr, nm, big) { var v = val(arr, nm); return v == null ? '<span style="color:var(--text-muted)">did not play</span>' : esc(m(v)) + ' <small style="color:var(--text-muted)">#' + rank(arr, nm) + '</small>'; };
-        var playRows = names.map(function (nm) { var a1 = val(d.players, nm), b1 = val(d2.players, nm); return '<tr><td><b>' + esc(nm) + '</b></td><td>' + cell(d.players, nm) + '</td><td>' + cell(d2.players, nm) + '</td><td>' + (a1 != null && b1 != null ? '<span class="' + (a1 - b1 >= 0 ? 'st-good' : 'st-warn') + '">' + (a1 - b1 >= 0 ? '+' : '−') + esc(m(Math.abs(a1 - b1))) + '</span>' : '—') + '</td></tr>'; }).join('');
+        var cell = function (arr, nm) { var v = val(arr, nm); return v == null ? '<span style="color:var(--text-muted)">did not play</span>' : esc(m(v)) + ' <small style="color:var(--text-muted)">#' + rank(arr, nm) + '</small>'; };
+        var playRows = names.map(function (nm) {
+          var a1 = val(d.players, nm), last = null; games.slice(1).forEach(function (gm2) { var v = val(gm2.d2.players, nm); if (v != null) last = v; });
+          return '<tr><td><b>' + esc(nm) + '</b></td>' + games.map(function (gm2) { return '<td>' + cell(gm2.d2.players, nm) + '</td>'; }).join('') + '<td>' + (a1 != null && last != null ? '<span class="' + (a1 - last >= 0 ? 'st-good' : 'st-warn') + '">' + (a1 - last >= 0 ? '+' : '−') + esc(m(Math.abs(a1 - last))) + '</span>' : '—') + '</td></tr>';
+        }).join('');
         var fm = function (o) { return o ? esc(o.label) + (o.pct != null ? ' <small style="color:var(--text-muted)">' + o.pct + '%</small>' : '') : '—'; };
-        var mrow = function (k, a, b) { return '<tr><td style="text-align:left">' + esc(k) + '</td><td>' + a + '</td><td>' + b + '</td></tr>'; };
-        var tn = f1.trainOrder.slice(); f2.trainOrder.forEach(function (x) { if (tn.indexOf(x) < 0) tn.push(x); });
-        var pn = f1.phases.map(function (x) { return x.name; }); f2.phases.forEach(function (x) { if (pn.indexOf(x.name) < 0) pn.push(x.name); });
+        var mrow = function (k, vals) { return '<tr><td style="text-align:left">' + esc(k) + '</td>' + vals.map(function (v) { return '<td>' + v + '</td>'; }).join('') + '</tr>'; };
+        var tn = [], pn = []; games.forEach(function (gm2) { gm2.facts.trainOrder.forEach(function (x) { if (tn.indexOf(x) < 0) tn.push(x); }); gm2.facts.phases.forEach(function (x) { if (pn.indexOf(x.name) < 0) pn.push(x.name); }); });
         var ph = function (f, nm) { for (var z = 0; z < f.phases.length; z++) if (f.phases[z].name === nm) return f.phases[z]; return null; };
         var st = function (dd) { return dd.finished ? 'finished' : esc(dd.roundLabel); };
-        cmBody = '<p class="sub">This game <b>#' + esc(d.id) + '</b> (solid lines) against <b>#' + esc(d2.id) + '</b> (dashed). Lines are lined up by how far through each game they are.</p>' +
-          '<div class="tw"><table><thead><tr><th>Player</th><th>#' + esc(d.id) + ' (' + st(d) + ')</th><th>#' + esc(d2.id) + ' (' + st(d2) + ')</th><th>Difference</th></tr></thead><tbody>' + playRows + '</tbody></table></div>' +
+        var F = function (fn) { return games.map(function (gm2) { return fn(gm2.facts, gm2); }); };
+        cmBody = '<p class="sub">This game <b>#' + esc(d.id) + '</b> (solid) against ' + CM.items.map(function (x) { return '<b>#' + esc(x.id) + '</b>'; }).join(', ') + ' (dashed). Lines are lined up by how far through each game they are.' + (games.length > 2 ? ' With several games the chart shows one player, <b>' + esc(focus) + '</b>, in each game.' : '') + '</p>' +
+          '<div class="tw"><table><thead><tr><th>Player</th>' + games.map(function (gm2) { return '<th>#' + esc(gm2.id) + ' (' + st(gm2.d2) + ')</th>'; }).join('') + '<th>This game vs latest other</th></tr></thead><tbody>' + playRows + '</tbody></table></div>' +
           legend(cModel.series, dark) + '<div class="chart" id="c-cmp">' + cChart.svg + '<div class="tip"></div></div>' +
-          '<h3 style="font-size:12px;margin:12px 0 4px">How the two games ran</h3><div class="tw"><table><thead><tr><th>&nbsp;</th><th>#' + esc(d.id) + '</th><th>#' + esc(d2.id) + '</th></tr></thead><tbody>' +
-          mrow('Operating rounds', f1.ors, f2.ors) + mrow('Companies', f1.companies, f2.companies) + mrow('Revenue run, all companies', esc(m(f1.runRev)), esc(m(f2.runRev))) +
-          mrow('Paid out to players as dividends', esc(m(f1.divs)), esc(m(f2.divs))) + mrow('Spent on trains', esc(m(f1.trainSpend)), esc(m(f2.trainSpend))) + mrow('Trains bought between companies', f1.inter, f2.inter) +
-          (f1.tileSpend || f2.tileSpend ? mrow('Spent on tile lays', esc(m(f1.tileSpend)), esc(m(f2.tileSpend))) : '') + mrow('Tokens placed', f1.tokens, f2.tokens) +
-          pn.map(function (nm) { return mrow('Phase ' + nm + ' begins', fm(ph(f1, nm)), fm(ph(f2, nm))); }).join('') +
-          tn.map(function (nm) { return mrow('First ' + nm + ' train bought', fm(f1.trains[nm]), fm(f2.trains[nm])); }).join('') +
+          '<h3 style="font-size:12px;margin:12px 0 4px">How the games ran</h3><div class="tw"><table><thead><tr><th>&nbsp;</th>' + games.map(function (gm2) { return '<th>#' + esc(gm2.id) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+          mrow('Operating rounds', F(function (f) { return f.ors; })) + mrow('Companies', F(function (f) { return f.companies; })) + mrow('Revenue run, all companies', F(function (f) { return esc(m(f.runRev)); })) +
+          mrow('Paid out to players as dividends', F(function (f) { return esc(m(f.divs)); })) + mrow('Spent on trains', F(function (f) { return esc(m(f.trainSpend)); })) + mrow('Trains bought between companies', F(function (f) { return f.inter; })) +
+          (games.some(function (gm2) { return gm2.facts.tileSpend; }) ? mrow('Spent on tile lays', F(function (f) { return esc(m(f.tileSpend)); })) : '') + mrow('Tokens placed', F(function (f) { return f.tokens; })) +
+          pn.map(function (nm) { return mrow('Phase ' + nm + ' begins', F(function (f) { return fm(ph(f, nm)); })); }).join('') +
+          tn.map(function (nm) { return mrow('First ' + nm + ' train bought', F(function (f) { return fm(f.trains[nm]); })); }).join('') +
           '</tbody></table></div><p class="sub" style="margin-top:6px">Percentages show how far through the game it happened. A game that is still running is compared as far as it has got.</p>';
       }
-      h.push('<section class="card wide"><h2>Compare with another game</h2><p class="sub">Type the number of another game of the same title (and engine version) to see how the two went, for example to follow your progress against the same friends.</p>' +
-        '<div class="tb"><input id="cmp-id" inputmode="numeric" placeholder="game number" value="' + esc(ST.cmpTxt || (CM && CM.id) || '') + '" style="font:inherit;font-size:13px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface-0);color:var(--text-primary);width:130px"><button id="cmp-go" class="ib">Compare</button>' + (CM && CM.d2 ? '<button id="cmp-x" class="ib" title="Remove the comparison">✕</button>' : '') + '</div>' +
-        (CM && CM.msg ? '<p class="sub" style="margin:8px 0 0">' + esc(CM.msg) + '</p>' : '') + cmBody + '</section>');
+      h.push('<section class="card wide"><h2>Compare with another game</h2><p class="sub">Type the number of one to three other games of the same title (and engine version), separated by spaces or commas, to see how they went, for example to follow your progress against the same friends.</p>' +
+        '<div class="tb"><input id="cmp-id" placeholder="game numbers" value="' + esc(ST.cmpTxt || (CM && CM.ids && CM.ids.join(' ')) || '') + '" style="font:inherit;font-size:13px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface-0);color:var(--text-primary);width:190px"><button id="cmp-go" class="ib">Compare</button>' + (CM && CM.items && CM.items.length ? '<button id="cmp-x" class="ib" title="Remove the comparison">Clear</button>' : '') + '</div>' +
+        (CM && CM.busy ? '<p class="sub" style="margin:8px 0 0">' + esc(CM.msg) + '</p>' : CM && CM.msg ? '<p class="sub" style="margin:8px 0 0">' + esc(CM.msg) + '</p>' : '') + cmBody + '</section>');
     }
     // Replay
     if (d.replay && d.replay.labels.length > 1) {
@@ -2385,6 +2427,46 @@
         if (parts.length) h.push('<section class="card wide"><h2>Game-end clock</h2><p class="sub">How close the game is to ending, by every route the rules allow</p>' + parts.join('') + '</section>');
       }
     } catch (e21) { h.push('<section class="card wide"><h2>More analysis</h2><p class="sub">Some of the new cards could not be built for this game (' + esc(String(e21 && e21.message || e21)) + ').</p></section>'); }
+    // ---- 0.22: friends over time, head-to-head, pace benchmark (from the players' public profile pages)
+    var fhModel = null, fhChart = null;
+    try {
+      var FH = ST.fh && ST.fh.gid === d.id ? ST.fh : null, uids = d.players.map(function (p) { return p.uid; }).filter(Boolean);
+      var fhBody = '';
+      if (FH && FH.games) {
+        var fN = function (v) { return v == null ? '—' : Math.round(v).toLocaleString('en-US'); }, byUid = {}; d.players.forEach(function (p) { if (p.uid) byUid[p.uid] = p; });
+        var titleSel = ST.fhTitle === 'all' ? 'all' : 'this', pool = FH.games.filter(function (g) { return titleSel === 'all' || g.title === d.title; });
+        var has = function (g, u) { return g.players.some(function (p) { return p.id === u; }) && g.result[u] != null; };
+        var same = pool.filter(function (g) { return uids.every(function (u) { return has(g, u); }); }).sort(function (a, b) { return a.at - b.at; });
+        var dt = function (g) { return g.at ? new Date(g.at * 1000).toISOString().slice(0, 10) : ''; };
+        // head-to-head over every game both played
+        var h2h = {}; uids.forEach(function (a) { uids.forEach(function (b) { if (a !== b) h2h[a + '|' + b] = { w: 0, l: 0, t: 0, diff: 0 }; }); });
+        pool.forEach(function (g) { uids.forEach(function (a) { uids.forEach(function (b) { if (a === b || !has(g, a) || !has(g, b)) return; var o = h2h[a + '|' + b], x = g.result[a], y = g.result[b]; if (x > y) o.w++; else if (x < y) o.l++; else o.t++; o.diff += x - y; }); }); });
+        var pcol = function (u) { return pal[byUid[u].idx % pal.length]; };
+        fhBody += '<div class="tabs"><button class="pill fht' + (titleSel === 'this' ? ' cur' : '') + '" data-t="this">' + esc(d.title) + ' only</button><button class="pill fht' + (titleSel === 'all' ? ' cur' : '') + '" data-t="all">All titles</button></div>';
+        fhBody += '<h3 style="font-size:12px;margin:10px 0 4px">Head-to-head</h3><p class="sub">Every game two players both finished: wins–losses of the player in the row against the player in the column (hover for the average score difference).</p><div class="tw"><table><thead><tr><th></th>' + uids.map(function (u) { return '<th>' + esc(byUid[u].name) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+          uids.map(function (a) { return '<tr' + (me && byUid[a].name === me ? ' class="merow"' : '') + '><td><b>' + esc(byUid[a].name) + '</b></td>' + uids.map(function (b) { if (a === b) return '<td style="color:var(--text-muted)">·</td>'; var o = h2h[a + '|' + b], n = o.w + o.l + o.t; return '<td title="' + esc(n ? 'average difference ' + fN(o.diff / n) + ' over ' + n + ' games' : 'no games together') + '">' + (n ? '<span class="' + (o.w > o.l ? 'st-good' : o.w < o.l ? 'st-warn' : '') + '">' + o.w + '–' + o.l + '</span>' + (o.t ? ' <small style="color:var(--text-muted)">' + o.t + ' tied</small>' : '') : '<span style="color:var(--text-muted)">—</span>') + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table></div>';
+        if (same.length) {
+          fhBody += '<h3 style="font-size:12px;margin:12px 0 4px">The same ' + uids.length + ' players, game by game (' + same.length + ' game' + (same.length === 1 ? '' : 's') + ')</h3><div class="tw" style="max-height:340px;overflow-y:auto"><table><thead><tr><th>Date</th><th>Game</th>' + (titleSel === 'all' ? '<th>Title</th>' : '') + uids.map(function (u) { return '<th>' + esc(byUid[u].name) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+            same.slice().reverse().map(function (g) { var best = Math.max.apply(null, uids.map(function (u) { return g.result[u]; })); return '<tr><td style="text-align:left">' + esc(dt(g)) + '</td><td><a href="/game/' + g.id + '" target="_blank" rel="noopener">#' + g.id + '</a></td>' + (titleSel === 'all' ? '<td>' + esc(g.title) + '</td>' : '') + uids.map(function (u) { var v = g.result[u]; return '<td>' + (v === best ? '<b class="st-good">' + fN(v) + '</b>' : fN(v)) + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table></div>';
+          var wins = {}; uids.forEach(function (u) { wins[u] = 0; }); same.forEach(function (g) { var best = Math.max.apply(null, uids.map(function (u) { return g.result[u]; })); uids.forEach(function (u) { if (g.result[u] === best) wins[u]++; }); });
+          fhBody += '<div class="dq" style="margin-top:6px">' + uids.map(function (u) { return '<span class="chip"><i class="sw" style="background:' + pcol(u) + '"></i>' + esc(byUid[u].name) + ' won ' + wins[u] + '</span>'; }).join('') + '</div>';
+          if (same.length >= 2 && titleSel === 'this') {
+            fhModel = { labels: same.map(function (g) { return dt(g).slice(2); }), fmt: fN, series: uids.map(function (u) { return { name: byUid[u].name, color: pcol(u), values: same.map(function (g) { return g.result[u]; }) }; }) };
+            fhChart = lineChart(fhModel, { title: 'Final score per game', dark: dark });
+            fhBody += '<h3 style="font-size:12px;margin:12px 0 4px">Progress over time</h3>' + legend(fhModel.series, dark) + '<div class="chart" id="c-fh">' + fhChart.svg + '<div class="tip"></div></div>';
+          }
+          // pace benchmark: where this live game is heading against what each player usually ends on
+          var AR = d.analysis && d.analysis.range;
+          if (!d.finished && AR && titleSel === 'this') {
+            var othr = same.filter(function (g) { return g.id !== d.id; });
+            if (othr.length) fhBody += '<h3 style="font-size:12px;margin:12px 0 4px">Pace benchmark</h3><p class="sub">Where each player is heading in this game at the current pace, against their average final score in the ' + othr.length + ' earlier game' + (othr.length === 1 ? '' : 's') + ' with the same group.</p><div class="tw"><table><thead><tr><th>Player</th><th>Usual final</th><th>Heading for</th><th>Difference</th></tr></thead><tbody>' +
+              AR.rows.map(function (r) { var u = null; d.players.forEach(function (p) { if (p.name === r.name) u = p.uid; }); if (!u) return ''; var av = othr.reduce(function (a, g) { return a + g.result[u]; }, 0) / othr.length, df = r.mid - av; return '<tr' + (me && r.name === me ? ' class="merow"' : '') + '><td><b>' + esc(r.name) + '</b></td><td>' + fN(av) + '</td><td>' + fN(r.mid) + '</td><td><span class="' + (df >= 0 ? 'st-good' : 'st-warn') + '">' + (df >= 0 ? '+' : '−') + fN(Math.abs(df)) + '</span></td></tr>'; }).join('') + '</tbody></table></div>';
+          }
+        } else fhBody += '<p class="sub" style="margin-top:8px">No finished games found with exactly these players' + (titleSel === 'this' ? ' in ' + esc(d.title) + ' (try All titles)' : '') + '.</p>';
+      }
+      if (uids.length > 1) h.push('<section class="card wide"><h2>Friends over time</h2><p class="sub">Loads the public profile pages of the players in this game, for head-to-head records, your progress game after game, and a pace benchmark for a running game. Scores only, nothing is replayed.</p>' +
+        '<div class="tb"><button id="fh-go" class="ib">' + (FH && FH.games ? 'Reload' : 'Load history') + '</button></div>' + (FH && FH.msg ? '<p class="sub" style="margin:8px 0 0">' + esc(FH.msg) + '</p>' : '') + fhBody + '</section>');
+    } catch (eFh) { h.push('<section class="card wide"><h2>Friends over time</h2><p class="sub">Could not be built (' + esc(String(eFh && eFh.message || eFh)) + ').</p></section>'); }
     // Game info
     if (d.info) {
       var I = d.info, row = function (k, v) { return v ? '<tr><td style="color:var(--text-secondary)">' + esc(k) + '</td><td style="text-align:left;white-space:normal">' + v + '</td></tr>' : ''; };
@@ -2433,6 +2515,17 @@
       doc.getElementById('gr-b').innerHTML = gridBody(d, dark, me, iv, m);
       if (ST.hlCorp) hlSet(ST.hlCorp);
     };
+    var fhGo = doc.getElementById('fh-go');
+    if (fhGo) fhGo.onclick = function () {
+      var uidsX = d.players.map(function (p) { return p.uid; }).filter(Boolean); ST.profiles = {};
+      ST.fh = { gid: d.id, msg: 'Loading ' + uidsX.length + ' profiles…' }; rerender();
+      Promise.all(uidsX.map(loadProfile)).then(function (all) {
+        var seen = {}, games = []; all.forEach(function (gs) { gs.forEach(function (g) { if (!seen[g.id]) { seen[g.id] = 1; games.push(g); } }); });
+        ST.fh = { gid: d.id, games: games }; rerender();
+      }).catch(function (e) { ST.fh = { gid: d.id, msg: 'Could not read the profile pages (' + (e && e.message || e) + ').' }; rerender(); });
+    };
+    Array.prototype.forEach.call(doc.querySelectorAll('.fht'), function (b) { b.onclick = function () { ST.fhTitle = b.getAttribute('data-t'); rerender(); }; });
+    var fhc = doc.getElementById('c-fh'); if (fhc && fhModel) attachHover(doc, fhc, fhModel, fhChart);
     var ownSel = doc.getElementById('own-c'); if (ownSel) ownSel.onchange = function () { ST.ownCorp = ownSel.value; rerender(); };
     // chart legends: click a name to show only that line (click again to show all)
     Array.prototype.forEach.call(doc.querySelectorAll('.legend'), function (lg) {
@@ -2497,7 +2590,12 @@
     if (cmpGo) {
       var cmpIn = doc.getElementById('cmp-id');
       cmpIn.oninput = function () { ST.cmpTxt = cmpIn.value; };
-      var cmpRun = function () { var id = String(cmpIn.value).replace(/\D/g, ''); ST.cmpTxt = id; if (!id) return; if (id === String(d.id)) { ST.cmp = { gid: d.id, id: id, msg: 'That is this game. Enter another game number.' }; rerender(); return; } loadCompare(w, d, id); };
+      var cmpRun = function () {
+        var ids = String(cmpIn.value).split(/[^0-9]+/).filter(Boolean).filter(function (x, i, a) { return a.indexOf(x) === i; }); ST.cmpTxt = ids.join(' '); if (!ids.length) return;
+        if (ids.indexOf(String(d.id)) >= 0) { ST.cmp = { gid: d.id, ids: ids, msg: 'One of those is this game. Enter other game numbers.' }; rerender(); return; }
+        if (ids.length > 3) { ST.cmp = { gid: d.id, ids: ids, msg: 'Enter at most three other games.' }; rerender(); return; }
+        loadCompare(w, d, ids);
+      };
       cmpGo.onclick = cmpRun; cmpIn.onkeydown = function (e) { if (e.key === 'Enter') cmpRun(); };
       var cmpX = doc.getElementById('cmp-x'); if (cmpX) cmpX.onclick = function () { ST.cmp = null; ST.cmpTxt = ''; rerender(); };
       var cc = doc.getElementById('c-cmp'); if (cc && cModel) attachHover(doc, cc, cModel, cChart);
@@ -2680,8 +2778,8 @@
   // ---------- Layout: collapse and reorder sections, remembered per mode ----------------
   // Two layouts are kept in this browser: 'live' (game in progress) and 'review' (finished game).
   var DEFAULT_ORDER = {
-    live: ['now', 'what-just-happened', 'trains-phases-bank', 'routes-revenue', 'track-spending-vs-revenue', 'train-timing', 'train-purchases', 'stock-round-helper', 'stock-market', 'standings', 'score-range', 'player-value-over-time', 'key-moments', 'post-game-report', 'badges', 'route-mistakes', 'dividend-decisions-in-hindsight', 'share-sale-timing', 'company-profit-and-loss', 'cash-flow-per-player', 'ownership-over-time', 'who-holds-what', 'president-changes', 'priority-deal-tracker', 'rust-and-obsolescence-radar', 'game-end-clock', 'tile-lay-map', 'market-movement', 'compare-with-another-game', 'replay', 'stock-ticker', 'where-the-money-came-from', 'valuation', 'withholding-vs-paying-out', 'withholds-in-detail', 'portfolios', 'corporations', 'company-revenue-per-operating-round', 'share-price', 'game-log', 'minors-private-companies', 'tile-manifest', 'game-info'],
-    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'key-moments', 'post-game-report', 'badges', 'route-mistakes', 'dividend-decisions-in-hindsight', 'share-sale-timing', 'company-profit-and-loss', 'cash-flow-per-player', 'ownership-over-time', 'who-holds-what', 'president-changes', 'priority-deal-tracker', 'tile-lay-map', 'market-movement', 'compare-with-another-game', 'replay', 'game-log', 'company-revenue-per-operating-round', 'share-price', 'where-the-money-came-from', 'valuation', 'withholding-vs-paying-out', 'withholds-in-detail', 'portfolios', 'corporations', 'trains-phases-bank', 'train-timing', 'train-purchases', 'routes-revenue', 'track-spending-vs-revenue', 'minors-private-companies', 'tile-manifest', 'game-info']
+    live: ['now', 'what-just-happened', 'trains-phases-bank', 'routes-revenue', 'track-spending-vs-revenue', 'train-timing', 'train-purchases', 'stock-round-helper', 'stock-market', 'standings', 'score-range', 'player-value-over-time', 'key-moments', 'post-game-report', 'badges', 'route-mistakes', 'dividend-decisions-in-hindsight', 'share-sale-timing', 'company-profit-and-loss', 'cash-flow-per-player', 'ownership-over-time', 'who-holds-what', 'president-changes', 'priority-deal-tracker', 'rust-and-obsolescence-radar', 'game-end-clock', 'tile-lay-map', 'market-movement', 'compare-with-another-game', 'friends-over-time', 'replay', 'stock-ticker', 'where-the-money-came-from', 'valuation', 'withholding-vs-paying-out', 'withholds-in-detail', 'portfolios', 'corporations', 'company-revenue-per-operating-round', 'share-price', 'game-log', 'minors-private-companies', 'tile-manifest', 'game-info'],
+    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'key-moments', 'post-game-report', 'badges', 'route-mistakes', 'dividend-decisions-in-hindsight', 'share-sale-timing', 'company-profit-and-loss', 'cash-flow-per-player', 'ownership-over-time', 'who-holds-what', 'president-changes', 'priority-deal-tracker', 'tile-lay-map', 'market-movement', 'compare-with-another-game', 'friends-over-time', 'replay', 'game-log', 'company-revenue-per-operating-round', 'share-price', 'where-the-money-came-from', 'valuation', 'withholding-vs-paying-out', 'withholds-in-detail', 'portfolios', 'corporations', 'trains-phases-bank', 'train-timing', 'train-purchases', 'routes-revenue', 'track-spending-vs-revenue', 'minors-private-companies', 'tile-manifest', 'game-info']
   };
   function slug(txt) { return String(txt).toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
   function loadLayout(mode) {
