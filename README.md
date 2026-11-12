@@ -38,12 +38,15 @@ The bookmark is only a loader: it fetches `stats.js` from this repository each t
 While a game is in progress:
 
 - **Now:** who is to act, the order of the round, operating rounds left in the set, priority deal, a personal tile once you pick your name under *I am…*, a train rush warning and a game-end estimate.
-- **Your-turn signal:** ● in the window title, and a sound if you switch on 🔔.
 - **What just happened:** the latest moves, with new ones marked.
+- **Since your last turn:** everything logged after your own last move, once you pick your name under *I am…*.
 - **Stock round helper:** shares available, dividend per share, yield, presidency warnings, and where the price goes if a company pays or withholds.
+- **Your turn:** a green frame around the window, ● in the title, and an optional sound.
+- **Live movement:** when shares or trains change hands, a small chip glides from the old holder to the new one, and a rusted train fades out.
 
 Always:
 
+- **Stock market:** the title's own market grid with every company on its square, the price zones, your own companies outlined, and in a live game a dashed marker for where the acting company goes if it pays out or withholds. A slider steps the grid back through earlier rounds.
 - **Stock ticker:** each company's share price, the change since the previous round, and a trend line.
 - **Standings:** player value (cash + shares at market + private companies), gap to the leader, cash, certificates against the limit.
 - **Player value over time:** the score race, round by round.
@@ -52,20 +55,43 @@ Always:
 - **Portfolios:** pick a player and see what they held over the game, stacked by company, with private companies and cash. Short positions (1817 family) go below zero.
 - **Holdings now:** who owns what percentage of each company; ★ is president, shorts in red.
 - **Trains & phases:** trains left in the bank per type, the next train, purchases until each phase change, what rusts next and which companies it hits.
+- **Bank & depot:** bank cash, the trains still to come in order, trains in the bank pool, and the shares left in the initial offering and the market.
+- **Tile manifest** (collapsed by default): how many of each tile are left, by colour; colours the current phase does not allow yet are dimmed.
+- **Hover linking:** hover a company anywhere and it lights up in every table and chart on screen.
 - **Corporations:** whether the treasury covers the cheapest train or an emergency buy is needed, train health (*safe*, *will rust*, *obsolete*, *trainless in N buys*), tokens, loans and interest.
 - **Minors & private companies:** owners over time and when each closed.
 
 ## Tested titles
 
-Tested on **46 games across 19 titles**: 1817, 1822, 1822PNW, 1830, 1846, 1849, 1856, 1861, 1862, 1864: Forty-Niner, 1866, 1867, 1870, The Old Prince 1871, 1889, 18Chesapeake, 18Ireland, 18MEX and 18USA. They include short selling, loans, mergers and acquisitions, bankruptcies, minors, private companies, train variants and optional rules.
+Tested on **46 games across 19 titles**. For all **31 finished games** with a recorded result, the replayed final scores match the site's official result exactly.
 
-For all **31 finished games** with a recorded result, the replayed final scores match the site's official result exactly.
+The stock market grid was additionally checked on live and finished games of these titles: every company with a share price stands on the square with that price.
+
+| Title | Market grid |
+|---|---|
+| 1830, 1856, 1870, 1889 | grid (11 rows) |
+| 1861 | grid (10 rows) |
+| 18Ireland, 18MEX | grid (8 rows) |
+| The Old Prince 1871 | grid (7 rows) |
+| 1866 | grid (4 rows) |
+| 1817 | single row |
+| 1846 | single row |
+| 1862, 1864: Forty-Niner, 1822PNW, 18USA | single row |
+
+Titles with no moves played yet when this was written (1822, 1824, 1844, 1850, 1860, 1880, 18NY, 18VA, 18Chesapeake, 18SJ, Harzbahn 1873, Rolling Stock Stars) load their rules from the site in the same way but are untested here. Reports are welcome.
 
 Limits: 1822 and some newer titles were only tested on early-game positions. **Archived games** keep only their final result on 18xx.games, so the window shows that result and no history.
 
-## Privacy
+## Security
 
-The script runs only in your own browser, on the 18xx.games page you have open. It reads the same public game data the site shows anyone. It never makes moves, never logs in on your behalf, and sends nothing anywhere. The only outside request is downloading `stats.js` itself from GitHub through [jsDelivr](https://www.jsdelivr.com), which 18xx.games allows.
+You are asked to run code from the internet on a page where you are logged in, so here is exactly what it does and how to keep control of it.
+
+- **It reads, it never acts.** It replays the game with the site's own engine and draws numbers. It cannot make a move, change a setting or sign you in.
+- **It only talks to 18xx.games.** The only network requests in the code are to the site's own game data (`/api/game/<number>`, the same data the page shows) and the site's own rules files. Nothing is sent to anyone else, there is no analytics, and no cookies or passwords are read.
+- **Your settings stay in your browser.** Only a few small preferences are stored locally (your name selection, the sound switch and the window layout).
+- **Names from games are escaped** before being shown, so a hostile player name cannot inject code into the stats window.
+- **The one trust point is the loader.** The bookmark downloads `stats.js` from this GitHub repository through the jsDelivr CDN. Code running on a page can in principle see everything on that page, so you are trusting this repository and that CDN, as with any bookmarklet. An extension bundled in your browser does not update itself from the web; this does, unless you pin it.
+- **How to stay in control:** read [stats.js](stats.js) (it is one readable file, GPL-licensed), read the [changelog](CHANGELOG.md) before updating, and **pin the bookmark to a commit** you have reviewed by replacing `@main` in the bookmark's address with `@` and the short commit hash from GitHub. A pinned address never changes, so nothing can be swapped in later. Switch back to `@main` when you want updates.
 
 ## Contributing
 

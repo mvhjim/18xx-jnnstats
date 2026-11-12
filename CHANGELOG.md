@@ -2,6 +2,21 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.7.0] - 2026-11-12
+
+### Added
+- **Stock market** section: the title's own market grid (single-row or multi-row), every company on its square, price zones with a legend, your own companies outlined, and in a live operating round a dashed marker for where the acting company goes if it pays out or withholds. A slider steps through earlier rounds. Checked against the engine on live and finished games of 15 titles.
+- **Bank & depot** section: bank cash, the trains still to come in order, trains in the bank pool, shares left in the initial offering and the market.
+- **Tile manifest** section (collapsed by default): tiles left by colour, with colours the phase does not allow yet dimmed.
+- **Since your last turn** section: the log lines after your own last move.
+- **Hover linking:** hover a company anywhere and it is highlighted in every table, chip and the market grid.
+- **Live movement:** chips glide from the old holder to the new one when shares or trains change hands; rusted trains fade out.
+- **Your turn:** a green frame around the stats window, in addition to the title marker and sound.
+- The player and company that are to act now are highlighted in Standings and Corporations.
+
+### Changed
+- README: security section, tested-titles table, the new sections.
+
 ## [0.6.0] - 2026-11-12
 
 ### Added
