@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.10.0';
+  var VERSION = '0.10.1';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -650,7 +650,16 @@
     var endInfo = { conditions: [], triggered: null, bankORs: null, bankDrop: null };
     try {
       var gec = g.$class().$const_get('GAME_END_CHECK');
-      if (!nil(gec)) gec.$to_a().forEach(function (kv) { endInfo.conditions.push({ reason: s(kv[0]).replace(/_/g, ' '), timing: s(kv[1]).replace(/_/g, ' ').replace(/\bor\b/g, 'OR') }); });
+      var reasonTxt = {}, evTxt = {};
+      try { g.$class().$const_get('GAME_END_REASONS_TEXT').$to_a().forEach(function (kv) { reasonTxt[s(kv[0])] = s(kv[1]); }); } catch (e1) {}
+      try { g.$class().$const_get('EVENTS_TEXT').$to_a().forEach(function (kv) { evTxt[s(kv[0])] = (kv[1] || []).map(s); }); } catch (e2) {}
+      var upEv = upcoming.map(function (t3) { try { return (t3.$events() || []).map(function (h3) { return s(h3['$[]']('type')); }); } catch (e3) { return []; } });
+      if (!nil(gec)) gec.$to_a().forEach(function (kv) {
+        var key = s(kv[0]), cnd = { key: key, reason: key.replace(/_/g, ' '), text: reasonTxt[key] || '', timing: s(kv[1]).replace(/_/g, ' ').replace(/\bor\b/g, 'OR'), via: null };
+        for (var ui = 0; ui < upcoming.length && !cnd.via; ui++) upEv[ui].forEach(function (ty) { if (!cnd.via && ty.indexOf(key + '_') === 0) cnd.via = { train: s(upcoming[ui].$name()), away: ui + 1, ev: (evTxt[ty] || [])[1] || '' }; });
+        if (!cnd.via && key === 'final_train' && upcoming.length) cnd.via = { train: s(upcoming[upcoming.length - 1].$name()), away: upcoming.length, ev: '' };
+        endInfo.conditions.push(cnd);
+      });
       var trig = call(g, 'game_end_check');
       if (trig && trig.length) endInfo.triggered = { reason: s(trig[0]).replace(/_/g, ' '), timing: s(trig[1]).replace(/_/g, ' ').replace(/\bor\b/g, 'OR') };
     } catch (e) {}
@@ -955,6 +964,20 @@
       '<path d="' + d + '" fill="none" stroke="' + col + '" stroke-width="1.6" stroke-linejoin="round"/></svg>';
   }
   // Stacked area: positives stack up from 0, negatives (short positions) stack down. model: {labels, series:[{name,color,values}], fmt}
+  // The widest value range over all players, so every player's portfolio is drawn on the same scale
+  function pfExtent(d) {
+    var mx = 0, mn = 0;
+    d.portfolio.forEach(function (pf) {
+      var n = pf.labels.length;
+      for (var i = 0; i < n; i++) {
+        var up = 0, dn = 0, add = function (v) { v = v || 0; if (v >= 0) up += v; else dn += v; };
+        add(pf.cash[i]); add(pf.priv && pf.priv[i]); add(pf.other && pf.other[i]);
+        pf.series.forEach(function (sr) { add(sr.values[i]); });
+        if (up > mx) mx = up; if (dn < mn) mn = dn;
+      }
+    });
+    return { max: mx, min: mn };
+  }
   function stackedArea(model, opts) {
     opts = opts || {};
     var W = 640, H = opts.height || 225, L = 54, R = 74, T = 10, B = 26, pw = W - L - R, ph = H - T - B;
@@ -965,7 +988,7 @@
       ser.values.forEach(function (v, i) { v = v || 0; if (v >= 0) { lo.push(up[i]); up[i] += v; hi.push(up[i]); } else { hi.push(down[i]); down[i] += v; lo.push(down[i]); } });
       return { ser: ser, lo: lo, hi: hi };
     });
-    var max = Math.max.apply(null, up.concat([1])), min = Math.min.apply(null, down.concat([0]));
+    var max = Math.max.apply(null, up.concat([1, opts.yMax || 0])), min = Math.min.apply(null, down.concat([0, opts.yMin || 0]));
     var step = niceStep((max - min) / 4); max = Math.ceil(max / step) * step; min = Math.floor(min / step) * step;
     var x = function (i) { return L + (n <= 1 ? pw / 2 : i * pw / (n - 1)); };
     var y = function (v) { return T + ph - (v - min) / (max - min || 1) * ph; };
@@ -1187,7 +1210,7 @@
     var L = d.live;
     var buysTxt = function (n) { return n === 1 ? 'on the next buy' : 'in ' + n + ' buys'; };
     if (!d.finished && L) {
-      h.push('<section class="card wide"><h2>Now</h2>');
+      h.push('<section class="card"><h2>Now</h2>');
       h.push('<p class="nowline">' + (myTurn ? '<span class="pill yours">● Your turn</span> ' : '') + 'To act: <b>' + (L.acting.length ? L.acting.map(function (a) { return a === me ? '<span class="mename">' + esc(a) + '</span>' : esc(a); }).join(', ') : '—') + '</b>' +
         (L.current && L.acting.indexOf(L.current) < 0 ? ' for <b>' + esc(L.current) + '</b>' : '') +
         ' · ' + esc(d.roundLabel) + (L.isOR && L.orsInSet ? ' <span style="color:var(--text-muted)">(operating round ' + L.orNum + ' of ' + L.orsInSet + ' in this set' + (L.orsInSet - L.orNum > 0 ? ', ' + (L.orsInSet - L.orNum) + ' more to come' : ', then a stock round') + ')</span>' : '') +
@@ -1216,11 +1239,15 @@
       }
       // Game end
       var en = L.end;
+      var endList = en.conditions.map(function (c) {
+        return '<div class="d2">• ' + esc(c.text || c.reason) + ' <span style="color:var(--text-muted)">(' + esc(c.timing) + ')</span>' +
+          (c.via ? ' — trigger train <b>' + esc(c.via.train) + '</b> is ' + (c.via.away === 1 ? 'the next one bought' : c.via.away + ' trains away') + (c.via.ev ? '. ' + esc(c.via.ev) : '') : '') + '</div>';
+      }).join('');
       h.push('<div class="tile"><div class="l">Game end</div>' +
         (en.triggered ? '<div class="v st-crit">Triggered</div><div class="d2">' + esc(en.triggered.reason) + ' → ends ' + esc(en.triggered.timing) + '</div>'
-          : en.bankORs != null ? '<div class="v">≈ ' + (en.bankORs < 10 ? en.bankORs.toFixed(1) : Math.round(en.bankORs)) + ' <small class="sm">ORs of bank left</small></div><div class="d2">Bank ' + esc(m(d.bank)) + ', falling about ' + esc(m(en.bankDrop)) + ' per OR lately.</div>'
+          : en.bankORs != null ? '<div class="v">≈ ' + (en.bankORs < 10 ? en.bankORs.toFixed(1) : Math.round(en.bankORs)) + ' <small class="sm">ORs of bank left at this pace</small></div><div class="d2">Bank ' + esc(m(d.bank)) + ', falling about ' + esc(m(en.bankDrop)) + ' per OR lately. Payouts grow as trains come, so the real number is smaller, and the other ways to end the game may come first.</div>'
           : '<div class="v sm2">not triggered</div>') +
-        (en.conditions.length ? '<div class="d2">Ends on: ' + en.conditions.map(function (c) { return esc(c.reason) + ' <span style="color:var(--text-muted)">(' + esc(c.timing) + ')</span>'; }).join(', ') + '</div>' : '') + '</div>');
+        (endList ? '<div class="d2" style="margin-top:6px"><b>The game can end when:</b></div>' + endList : '') + '</div>');
       h.push('</div></section>');
 
       // What just happened: latest moves, plus everything since your own last move
@@ -1349,7 +1376,7 @@
     }
 
 
-    h.push('<section class="card wide"><h2>Trains &amp; phases</h2><p class="sub">What is left in the bank, what is running, and what rusts next</p>');
+    h.push('<section class="card wide"><h2>Trains, phases &amp; Bank</h2><p class="sub">What is left in the bank, what is running, and what rusts next</p>');
     h.push('<div class="tiles">' + bankCashTile + '<div class="tile"><div class="l">Trains left in bank</div><div class="v">' + totalLeft + (unlimitedLeft ? ' <small style="font-size:13px;color:var(--text-muted)">+ unlimited</small>' : '') + '</div></div>');
     h.push('<div class="tile"><div class="l">Next train</div><div class="v">' + (d.nextTrain ? esc(d.nextTrain.name) + ' <small style="font-size:13px;color:var(--text-muted)">' + esc(m(d.nextTrain.price)) + '</small>' : '—') + '</div></div>');
     var nextPhase = d.phases.find(function (p) { return p.status === 'future'; });
@@ -1376,7 +1403,7 @@
         (g.pool ? '<i style="width:' + (g.pool / tot * 100) + '%;background:var(--warn)"></i>' : '') +
         (g.owned ? '<i style="width:' + (g.owned / tot * 100) + '%;background:var(--good)"></i>' : '') +
         ((g.rusted + g.removed) ? '<i style="width:' + ((g.rusted + g.removed) / tot * 100) + '%;background:var(--text-muted);opacity:.45"></i>' : '') + '</div></td>');
-      h.push('<td>' + (g.rustsOn ? esc(g.rustsOn) + (g.owned && g.rustIn > 0 ? ' <small class="st-crit">' + buysTxt(g.rustIn) + '</small>' : '') : '—') + '</td><td>' + (g.obsoleteOn ? esc(g.obsoleteOn) + (g.owned && g.obsIn > 0 ? ' <small class="st-warn">' + buysTxt(g.obsIn) + '</small>' : '') : '—') + '</td><td>' + esc(Object.keys(g.owners).map(function (o) { return o + (g.owners[o] > 1 ? '×' + g.owners[o] : ''); }).join(', ')) + '</td></tr>');
+      h.push('<td>' + (g.rustsOn ? esc(g.rustsOn) + (g.owned && g.rustIn > 0 ? ' <small class="st-crit">' + buysTxt(g.rustIn) + '</small>' : '') : '—') + '</td><td>' + (g.obsoleteOn ? esc(g.obsoleteOn) + (g.owned && g.obsIn > 0 ? ' <small class="st-warn">' + buysTxt(g.obsIn) + '</small>' : '') : '—') + '</td><td>' + Object.keys(g.owners).map(function (o) { var cc = d.corps.filter(function (x) { return x.name === o; })[0]; return (cc && cc.color ? '<i class="sw" style="background:' + displayColor(cc.color, dark) + '"></i>' : '') + esc(o + (g.owners[o] > 1 ? '×' + g.owners[o] : '')); }).join(', ') + '</td></tr>');
     });
     h.push('</tbody></table></div><p class="sub" style="margin-top:6px"><i class="sw" style="background:var(--accent)"></i>in bank <i class="sw" style="background:var(--warn);margin-left:10px"></i>bank pool <i class="sw" style="background:var(--good);margin-left:10px"></i>running <i class="sw" style="background:var(--text-muted);opacity:.45;margin-left:10px"></i>rusted / removed</p></section>');
 
@@ -1550,7 +1577,8 @@
       var pf = d.portfolio[i];
       var model = { labels: pf.labels, fmt: m, series: [{ name: 'Cash', color: dark ? '#6b6a64' : '#b9b8b2', muted: true, values: pf.cash }].concat(pf.priv.some(function (v) { return v; }) ? [{ name: 'Privates', color: dark ? '#8a7d5c' : '#c9b98f', muted: true, values: pf.priv }] : [])
         .concat(pf.other.some(function (v) { return v; }) ? [{ name: 'Other', color: dark ? '#5f7d8a' : '#9fb8c4', muted: true, values: pf.other }] : []).concat(pf.series) };
-      var ch = stackedArea(model, { dark: dark, title: pf.name + ' portfolio' });
+      var ext = pfExtent(d);
+      var ch = stackedArea(model, { dark: dark, title: pf.name + ' portfolio', yMax: ext.max, yMin: ext.min });
       el.innerHTML = legend(model.series, dark) + ch.svg + '<div class="tip"></div>';
       attachHover(doc, el, model, ch, function (k) {
         var tot = model.series.reduce(function (a, s) { return a + (s.values[k] || 0); }, 0);
@@ -1566,14 +1594,15 @@
   // ---------- Layout: collapse and reorder sections, remembered per mode ----------------
   // Two layouts are kept in this browser: 'live' (game in progress) and 'review' (finished game).
   var DEFAULT_ORDER = {
-    live: ['now', 'what-just-happened', 'trains-phases', 'stock-round-helper', 'stock-market', 'standings', 'player-value-over-time', 'stock-ticker', 'portfolios', 'corporations', 'company-revenue-per-operating-round', 'share-price', 'game-log', 'minors-private-companies', 'tile-manifest'],
-    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'game-log', 'company-revenue-per-operating-round', 'share-price', 'portfolios', 'corporations', 'trains-phases', 'minors-private-companies', 'tile-manifest']
+    live: ['now', 'what-just-happened', 'trains-phases-bank', 'stock-round-helper', 'stock-market', 'standings', 'player-value-over-time', 'stock-ticker', 'portfolios', 'corporations', 'company-revenue-per-operating-round', 'share-price', 'game-log', 'minors-private-companies', 'tile-manifest'],
+    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'game-log', 'company-revenue-per-operating-round', 'share-price', 'portfolios', 'corporations', 'trains-phases-bank', 'minors-private-companies', 'tile-manifest']
   };
   function slug(txt) { return String(txt).toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
   function loadLayout(mode) {
     try {
       var v = JSON.parse(localStorage.getItem('xxStats.layout.' + mode) || 'null');
       if (v && v.order) { // sections added in newer versions slot in at their default place
+        ['order', 'collapsed'].forEach(function (kk) { if (v[kk]) v[kk] = v[kk].map(function (x) { return x === 'trains-phases' ? 'trains-phases-bank' : x; }); });
         DEFAULT_ORDER[mode].forEach(function (k, i) { if (v.order.indexOf(k) < 0) { v.order.splice(Math.min(i, v.order.length), 0, k); if (k === 'tile-manifest' || k === 'minors-private-companies') (v.collapsed = v.collapsed || []).push(k); } });
         return v;
       }
