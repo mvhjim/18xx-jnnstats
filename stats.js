@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.6.0';
+  var VERSION = '0.7.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -56,12 +56,13 @@
   function nameOf(o) { return o && rt(o, 'name') ? s(o.$name()) : ''; }
   function takeSnapshot(g) {
     var rd = g.round, short = s(rd.$class().$short_name());
-    var snap = { label: short + ' ' + s(g.$turn()) + (short === 'OR' ? '.' + s(call(rd, 'round_num')) : ''), prices: {}, hold: {}, cash: {}, priv: {}, value: {}, minors: {}, companies: {}, corpCash: {} };
+    var snap = { label: short + ' ' + s(g.$turn()) + (short === 'OR' ? '.' + s(call(rd, 'round_num')) : ''), prices: {}, hold: {}, cash: {}, priv: {}, value: {}, minors: {}, companies: {}, corpCash: {}, pos: {} };
     var corps = g.$corporations();
     snap.bank = num(call(call(g, 'bank'), 'cash'));
     snap.certLimit = num(call(g, 'cert_limit', g.$players()[0]) || call(g, 'cert_limit'));
     corps.forEach(function (c) {
-      var sp = call(c, 'share_price'); if (sp) snap.prices[s(c.$name())] = num(call(sp, 'price'));
+      var sp = call(c, 'share_price');
+      if (sp) { snap.prices[s(c.$name())] = num(call(sp, 'price')); var co = call(sp, 'coordinates'); if (co && co.length) snap.pos[s(c.$name())] = [num(co[0]), num(co[1])]; }
       snap.corpCash[s(c.$name())] = num(call(c, 'cash'));
     });
     g.$players().forEach(function (p) {
@@ -273,7 +274,7 @@
     try { nowSnap = takeSnapshot(g); nowSnap.label = 'Now'; } catch (e) {}
     if (nowSnap) {
       var lastSnap = snaps[snaps.length - 1];
-      var sig = function (x) { return JSON.stringify([x.prices, x.hold, x.cash]); };
+      var sig = function (x) { return JSON.stringify([x.prices, x.hold, x.cash, x.pos]); };
       if (!lastSnap || sig(lastSnap) !== sig(nowSnap)) snaps.push(nowSnap);
     }
     // collapse repeated labels (keep the last of each)
@@ -457,19 +458,24 @@
 
     // Price preview: where the share price goes if the company pays out its last revenue, or withholds
     var divStep = findDivStep(r) || g.__xxDivStep || null;
-    function previewPrice(c, revenue) {
+    function previewSP(c, revenue) {
       try {
         var hsh = divStep.$share_price_change(c, revenue);
         if (nil(hsh)) return null;
         var dir = hsh.$fetch('share_direction', Opal.nil), times = hsh.$fetch('share_times', Opal.nil);
-        var cur = num(call(call(c, 'share_price'), 'price'));
-        if (nil(dir)) return cur;
-        var dd = Array.isArray(dir) ? dir : [dir], tm = Array.isArray(times) ? times : [times], dirs = [];
-        dd.forEach(function (x, i) { for (var k = 0; k < (num(tm[i]) || 1); k++) dirs.push(x); });
-        var sp = g.$stock_market().$find_share_price(c, dirs);
-        return nil(sp) ? null : num(sp.$price());
+        var sp;
+        if (nil(dir)) sp = call(c, 'share_price');
+        else {
+          var dd = Array.isArray(dir) ? dir : [dir], tm = Array.isArray(times) ? times : [times], dirs = [];
+          dd.forEach(function (x, i) { for (var k = 0; k < (num(tm[i]) || 1); k++) dirs.push(x); });
+          sp = g.$stock_market().$find_share_price(c, dirs);
+        }
+        if (nil(sp) || !sp) return null;
+        var co = call(sp, 'coordinates');
+        return { price: num(sp.$price()), pos: co && co.length ? [num(co[0]), num(co[1])] : null };
       } catch (e) { return null; }
     }
+    function previewPrice(c, revenue) { var x = previewSP(c, revenue); return x ? x.price : null; }
     var market = corps.filter(function (c) { return !c.closed && c.price != null; }).map(function (c) {
       var co = corpObj[c.name];
       var ohs = c.oh.slice().sort(function (a, b) { return (a.t * 100 + a.r) - (b.t * 100 + b.r); });
@@ -487,9 +493,88 @@
         estRevenue: lastRun ? lastRun.revenue : null,
         ifPay: divStep && lastRun && co ? previewPrice(co, lastRun.revenue) : null,
         ifHold: divStep && co ? previewPrice(co, 0) : null,
+        ifPayPos: divStep && lastRun && co ? (previewSP(co, lastRun.revenue) || {}).pos || null : null,
+        ifHoldPos: divStep && co ? (previewSP(co, 0) || {}).pos || null : null,
         orState: isOR && done ? done.state : null,
         pres: pres, chal: chal, need: need, canTake: need != null && need <= c.ipoShares + c.marketShares };
     });
+
+    // Stock market grid: the engine's own cells, plus where each company stands (now, and at the end of each round)
+    var grid = null, gridHist = [];
+    try {
+      var mk = g.$stock_market().$market(), gcells = [], gzones = {}, gcols = 0;
+      mk.forEach(function (row) {
+        var rr = [];
+        row.forEach(function (c) {
+          if (nil(c)) { rr.push(null); return; }
+          var tys = (call(c, 'types') || []).map(s).filter(Boolean);
+          tys.forEach(function (ty) { gzones[ty] = 1; });
+          rr.push({ p: num(c.$price()), t: tys, c: (call(c, 'corporations') || []).map(nameOf) });
+        });
+        gcols = Math.max(gcols, rr.length); gcells.push(rr);
+      });
+      var ghost = null;
+      if (isOR && market.length) {
+        var gm = market.filter(function (k) { return k.name === curEnt; })[0];
+        if (gm && (gm.ifPayPos || gm.ifHoldPos)) ghost = { corp: gm.name, color: gm.color, pay: gm.ifPayPos, hold: gm.ifHoldPos, rev: gm.estRevenue };
+      }
+      grid = { cells: gcells, cols: gcols, zones: Object.keys(gzones), ghost: ghost };
+      gridHist = snaps.map(function (sn) { return { label: sn.label, pos: sn.pos || {} }; });
+    } catch (e) { grid = null; }
+
+    // Bank & depot: trains still to come (in order), trains in the bank pool, shares in the IPO and the market
+    var runs = function (arr) {
+      var out = [];
+      arr.forEach(function (t) {
+        var nm = s(t.$name()), pr = num(t.$price()), lastR = out[out.length - 1];
+        if (lastR && lastR.name === nm && lastR.price === pr) lastR.n++; else out.push({ name: nm, price: pr, n: 1 });
+      });
+      return out;
+    };
+    var bankInfo = { cash: num(g.$bank().$cash()), up: runs(upcoming), pool: runs(discarded),
+      ipo: corps.filter(function (c) { return !c.closed && c.ipoShares > 0; }).map(function (c) { return { name: c.name, color: c.color, n: c.ipoShares, pct: c.sharePct }; }),
+      mpool: corps.filter(function (c) { return !c.closed && c.marketShares > 0; }).map(function (c) { return { name: c.name, color: c.color, n: c.marketShares, pct: c.sharePct }; }) };
+
+    // Tile manifest: how many of each tile are left in the supply
+    var tileInfo = null;
+    try {
+      var allT = call(g, 'all_tiles') || [], remT = call(g, 'tiles') || [];
+      if (allT.length || remT.length) {
+        var tt = {};
+        var addT = function (arr, key) { arr.forEach(function (x) {
+          var col = s(x.$color()), nm = s(x.$name()), kk = col + ':' + nm, o = tt[kk] || (tt[kk] = { color: col, name: nm, total: 0, left: 0, unl: false });
+          o[key]++; if (bool(call(x, 'unlimited'))) o.unl = true;
+        }); };
+        addT(allT, 'total'); addT(remT, 'left');
+        var phCols = (call(phase, 'tiles') || []).map(s);
+        var byCol = {};
+        Object.keys(tt).forEach(function (kk) { var o = tt[kk]; if (o.total < o.left) o.total = o.left; (byCol[o.color] = byCol[o.color] || []).push(o); });
+        var colOrder = ['yellow', 'green', 'brown', 'gray', 'grey', 'blue', 'red', 'purple'];
+        var colKeys = Object.keys(byCol).sort(function (a, b) { var ia = colOrder.indexOf(a), ib = colOrder.indexOf(b); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || (a < b ? -1 : 1); });
+        tileInfo = { phaseColors: phCols, groups: colKeys.map(function (ck) {
+          var items = byCol[ck].sort(function (a, b) { var na = parseInt(a.name, 10), nb = parseInt(b.name, 10); return (isNaN(na) ? 1e9 : na) - (isNaN(nb) ? 1e9 : nb) || (a.name < b.name ? -1 : 1); });
+          return { color: ck, available: !phCols.length || phCols.indexOf(ck) >= 0, items: items, left: items.reduce(function (a, o) { return a + (o.unl ? 0 : o.left); }, 0) };
+        }) };
+      }
+    } catch (e) { tileInfo = null; }
+
+    // Since your last move: everything logged after the last action by the player chosen under "I am"
+    var recap = null;
+    try {
+      var meN = lsGet('xxStats.me'), meRaw = meN ? (raw.players || []).filter(function (p) { return p.name === meN; })[0] : null;
+      if (meRaw) {
+        var lastMine = 0;
+        for (var ai = raw.actions.length - 1; ai >= 0; ai--) if (raw.actions[ai].user === meRaw.id) { lastMine = raw.actions[ai].id; break; }
+        if (lastMine) {
+          var rl = [];
+          for (var li = log.length - 1; li >= 0 && rl.length < 120; li--) {
+            var aid = num(call(log[li], 'action_id')); if (aid <= lastMine) break;
+            var lm = s(call(log[li], 'message')); if (lm) rl.push({ msg: lm, head: /^-- /.test(lm) });
+          }
+          recap = { since: lastMine, lines: rl, total: rl.length };
+        }
+      }
+    } catch (e) { recap = null; }
 
     // Train rush: could the companies still to act buy enough trains to trigger the next phase?
     var rush = null;
@@ -558,7 +643,8 @@
       trainGroups: groups, phases: phases, risk: risk,
       ticker: ticker, portfolio: portfolio, holdings: holdings, minors: minorList, companies: companyList, snapErr: SNAP && SNAP.err,
       nextTrain: nextTrain ? { name: s(nextTrain.$name()), sym: s(call(nextTrain, 'sym')), price: num(nextTrain.$price()) } : null,
-      upcomingCount: upcoming.length, notes: notes, updated: new Date(), live: live, feed: feed, certNote: certNote, loanInfo: loanInfo, cheapest: cheapest
+      upcomingCount: upcoming.length, notes: notes, updated: new Date(), live: live, feed: feed, certNote: certNote, loanInfo: loanInfo, cheapest: cheapest,
+      grid: grid, gridHist: gridHist, bank2: bankInfo, tiles: tileInfo, recap: recap
     };
   }
 
@@ -608,6 +694,17 @@
     '.up{color:var(--good)}.down{color:var(--crit)}.flat{color:var(--text-muted)}',
     '.tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}.tabs button{font:inherit;font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:var(--surface-0);color:var(--text-secondary);cursor:pointer}.tabs button.on{background:var(--accent);border-color:var(--accent);color:#fff}',
     '.pres{color:var(--warn);font-weight:700}.short{color:var(--crit);font-weight:600}.cellv{display:block;font-size:11px;color:var(--text-muted)}',
+    '.mk{display:grid;grid-template-columns:repeat(var(--cols),minmax(34px,1fr));gap:2px;overflow-x:auto}.mk.one{grid-template-columns:repeat(auto-fill,minmax(46px,1fr))}',
+    '.mc{border:1px solid var(--grid);border-radius:5px;padding:2px 3px;min-height:40px;font-size:11px;min-width:0}.mc.empty{border-color:transparent}.mp{color:var(--text-secondary);font-variant-numeric:tabular-nums;font-size:10.5px}',
+    '.cp{display:block;border-radius:4px;padding:0 3px;margin-top:2px;font-size:10.5px;font-weight:700;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default}.cp.mine{outline:2px solid var(--accent);outline-offset:1px}.cp.gh{background:transparent!important;border:1.5px dashed;font-weight:600}',
+    '.gslide{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--text-secondary)}.gslide input{flex:1;min-width:80px}',
+    '.zl{display:flex;flex-wrap:wrap;gap:4px 12px;margin:8px 0 0;font-size:11.5px;color:var(--text-secondary)}.zl i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1px solid var(--border)}',
+    '.dq{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px}.dq .chip{font-variant-numeric:tabular-nums}.dq .chip.next{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:650}.bl{font-size:12px;color:var(--text-muted);margin:6px 0 2px}',
+    '.tg2{margin:0 0 10px}.tg2 .tcs{display:flex;flex-wrap:wrap;gap:4px}.tcp{border:1px solid var(--border);border-radius:6px;padding:1px 7px;font-size:12px;font-variant-numeric:tabular-nums}.tcp.z{opacity:.4;text-decoration:line-through}.tg2.na{opacity:.55}',
+    'tr.actrow{background:color-mix(in srgb,var(--good) 14%,transparent)}.act{color:var(--good);font-weight:700}',
+    '[data-corp].hl{background-image:linear-gradient(color-mix(in srgb,var(--accent) 22%,transparent),color-mix(in srgb,var(--accent) 22%,transparent));outline:2px solid var(--accent);outline-offset:-2px;animation:hlp 1.1s ease-in-out infinite}@keyframes hlp{50%{outline-color:color-mix(in srgb,var(--accent) 35%,transparent)}}@media (prefers-reduced-motion:reduce){[data-corp].hl{animation:none}}',
+    'html.myturn::after{content:"";position:fixed;inset:0;pointer-events:none;box-shadow:inset 0 0 0 5px var(--good);z-index:30;animation:glow 2.4s ease-in-out infinite}@keyframes glow{50%{box-shadow:inset 0 0 0 5px color-mix(in srgb,var(--good) 30%,transparent)}}@media (prefers-reduced-motion:reduce){html.myturn::after{animation:none}}',
+    '.glide{position:fixed;left:0;top:0;z-index:40;padding:1px 8px;border-radius:999px;font-weight:700;font-size:12px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.3);margin:-10px 0 0 -24px;white-space:nowrap}',
     '.tl{display:flex;flex-wrap:wrap;gap:4px;align-items:center}.tl span.o{border:1px solid var(--border);border-radius:6px;padding:0 6px}.tl small{color:var(--text-muted)}'
   ].join('\n');
 
@@ -774,6 +871,103 @@
     hit.addEventListener('mouseleave', function () { tip.style.display = 'none'; xh.setAttribute('visibility', 'hidden'); });
   }
 
+  var ZONES = { par: ['#1a7f37', 'par price'], close: ['#c62828', 'company closes'], endgame: ['#7b1fa2', 'ends the game'], unlimited: ['#2a78d6', 'no limit on shares'],
+    no_cert_limit: ['#00897b', 'no certificate limit'], multiple_buy: ['#8e24aa', 'buy several at once'], liquidation: ['#e65100', 'liquidation'], acquisition: ['#ef6c00', 'acquisition'],
+    convert_range: ['#f9a825', 'conversion range'], safe_par: ['#2e7d32', 'safe par'], repar: ['#558b2f', 'repar'], ignore_one_sale: ['#78909c', 'one sale ignored'] };
+  var ZFALL = ['#6d4c41', '#00838f', '#ad1457', '#4e342e', '#455a64'];
+  function zoneInfo(ty, all) { if (ZONES[ty]) return ZONES[ty]; return [ZFALL[Math.max(0, all.indexOf(ty)) % ZFALL.length], ty.replace(/_/g, ' ')]; }
+  function chipTxt(col) { return luminance(col) > 0.45 ? '#111' : '#fff'; }
+  // Body of the stock market section: slider label, the grid itself, and the legend
+  function gridBody(d, dark, me, idx, m) {
+    var G = d.grid, hist = d.gridHist, last = hist.length - 1, i = Math.min(Math.max(idx, 0), Math.max(last, 0)), isNow = i === last;
+    var pos = hist.length ? hist[i].pos : {}, byCell = {}, pres = {}, colr = {};
+    d.corps.forEach(function (c) { pres[c.name] = c.president; colr[c.name] = c.color; });
+    d.ticker.forEach(function (tk) { if (!colr[tk.name]) colr[tk.name] = tk.color; });
+    Object.keys(pos).forEach(function (cn) { var k = pos[cn][0] + ',' + pos[cn][1]; (byCell[k] = byCell[k] || []).push(cn); });
+    if (isNow) G.cells.forEach(function (row, ri) { row.forEach(function (c, ci) { if (c && c.c.length) byCell[ri + ',' + ci] = c.c.slice(); }); });
+    var ghosts = {};
+    if (isNow && G.ghost) {
+      [['pay', '▲', 'pays out'], ['hold', '■', 'withholds']].forEach(function (g2) {
+        var p2 = G.ghost[g2[0]]; if (!p2) return;
+        (ghosts[p2[0] + ',' + p2[1]] = ghosts[p2[0] + ',' + p2[1]] || []).push({ sym: g2[1], what: g2[2] });
+      });
+    }
+    var oneD = G.cells.length === 1, h = [];
+    h.push('<div class="mk' + (oneD ? ' one' : '') + '" style="--cols:' + G.cols + '">');
+    G.cells.forEach(function (row, ri) {
+      for (var ci = 0; ci < G.cols; ci++) {
+        var c = row[ci];
+        if (!c) { h.push('<div class="mc empty"></div>'); continue; }
+        var zi = c.t.length ? zoneInfo(c.t[0], G.zones) : null, here = byCell[ri + ',' + ci] || [];
+        var bg = zi ? 'color-mix(in srgb,' + zi[0] + ' ' + (dark ? 30 : 22) + '%,var(--surface-1))' : 'var(--surface-1)';
+        h.push('<div class="mc" style="background:' + bg + '" title="' + esc(m(c.p) + (c.t.length ? ' · ' + c.t.map(function (x) { return zoneInfo(x, G.zones)[1]; }).join(', ') : '') + (here.length ? ' · ' + here.join(', ') : '')) + '"><div class="mp">' + c.p + '</div>');
+        here.forEach(function (cn) {
+          var col = displayColor(colr[cn] || '#9a9a9a', dark);
+          h.push('<span class="cp' + (me && pres[cn] === me ? ' mine' : '') + '" data-corp="' + esc(cn) + '" style="background:' + col + ';color:' + chipTxt(col) + '">' + esc(cn) + '</span>');
+        });
+        (ghosts[ri + ',' + ci] || []).forEach(function (gh) {
+          var col = displayColor(G.ghost.color || '#9a9a9a', dark);
+          h.push('<span class="cp gh" data-corp="' + esc(G.ghost.corp) + '" style="border-color:' + col + ';color:' + col + '" title="' + esc(G.ghost.corp + ' ' + gh.what + (G.ghost.rev != null ? ' (' + m(G.ghost.rev) + ', its last run)' : '')) + '">' + gh.sym + esc(G.ghost.corp) + '</span>');
+        });
+        h.push('</div>');
+      }
+    });
+    h.push('</div><div class="zl">' + G.zones.map(function (z) { var zi2 = zoneInfo(z, G.zones); return '<span><i style="background:color-mix(in srgb,' + zi2[0] + ' ' + (dark ? 30 : 22) + '%,var(--surface-1))"></i>' + esc(zi2[1]) + '</span>'; }).join('') +
+      (isNow && G.ghost ? '<span><span class="cp gh" style="display:inline;border-color:var(--text-muted);color:var(--text-secondary)">▲ ■</span> where <b>' + esc(G.ghost.corp) + '</b> goes if it pays out (▲) or withholds (■), if it earns its last revenue again</span>' : '') + '</div>');
+    return h.join('');
+  }
+  // Short animated chips that glide from the old holder to the new one when shares or trains change hands
+  function glideChip(w, from, to, text, color) {
+    try {
+      var a = from.getBoundingClientRect(), b = to.getBoundingClientRect();
+      if (!a.width || !b.width) return;
+      var el = w.document.createElement('div'); el.className = 'glide'; el.textContent = text;
+      el.style.background = color; el.style.color = chipTxt(color);
+      w.document.body.appendChild(el);
+      if (typeof el.animate !== 'function') { el.remove(); return; }
+      var x0 = a.left + Math.min(a.width, 200) / 2, y0 = a.top + a.height / 2, x1 = b.left + Math.min(b.width, 200) / 2, y1 = b.top + b.height / 2;
+      var an = el.animate([{ transform: 'translate(' + x0 + 'px,' + y0 + 'px)', opacity: 0 }, { transform: 'translate(' + x0 + 'px,' + y0 + 'px)', opacity: 1, offset: 0.12 },
+        { transform: 'translate(' + x1 + 'px,' + y1 + 'px)', opacity: 1, offset: 0.85 }, { transform: 'translate(' + x1 + 'px,' + y1 + 'px)', opacity: 0 }], { duration: 1500, easing: 'ease-in-out' });
+      an.onfinish = function () { el.remove(); };
+    } catch (e) {}
+  }
+  function glideChanges(w, d, dark) {
+    var doc = w.document, cur = { game: d.id, hold: {}, ipo: {}, pool: {}, trains: {}, depot: {}, pct: {} };
+    d.holdings.rows.forEach(function (r2) { cur.hold[r2.name] = {}; Object.keys(r2.cells).forEach(function (cn) { cur.hold[r2.name][cn] = r2.cells[cn].pct; }); });
+    d.bank2.ipo.forEach(function (x) { cur.ipo[x.name] = x.n * x.pct; cur.pct[x.name] = x.pct; });
+    d.bank2.mpool.forEach(function (x) { cur.pool[x.name] = x.n * x.pct; cur.pct[x.name] = x.pct; });
+    d.corps.forEach(function (c) { cur.trains[c.name] = c.trains.map(function (t) { return t.name; }); });
+    d.trainGroups.forEach(function (g2) { cur.depot[g2.sym] = g2.available; });
+    var prev = ST.prevMove; ST.prevMove = cur;
+    var reduced = false; try { reduced = w.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+    if (!prev || prev.game !== d.id || reduced || d.finished) return;
+    var colr = {}; d.corps.forEach(function (c) { colr[c.name] = c.color; });
+    var q = function (sel) { return doc.querySelector(sel); }, n = 0;
+    var elOf = function (k) { return k.indexOf('p:') === 0 ? q('tr[data-prow="' + k.slice(2) + '"]') : q('tr[data-mrow="' + k.slice(2) + '"]') || q('tr[data-crow="' + k.slice(2) + '"]') || q('[data-bank="' + (k.indexOf('i:') === 0 ? 'ipo' : 'pool') + '"]'); };
+    // shares: pair every place that lost a share with one that gained it
+    d.corps.map(function (c) { return c.name; }).forEach(function (cn) {
+      var delta = {};
+      Object.keys(cur.hold).forEach(function (pn) { var dv = (cur.hold[pn][cn] || 0) - (((prev.hold[pn] || {})[cn]) || 0); if (dv) delta['p:' + pn] = dv; });
+      var di = (cur.ipo[cn] || 0) - (prev.ipo[cn] || 0), dp = (cur.pool[cn] || 0) - (prev.pool[cn] || 0);
+      if (di) delta['i:' + cn] = di; if (dp) delta['m:' + cn] = dp;
+      var src = Object.keys(delta).filter(function (k) { return delta[k] < 0; }), dst = Object.keys(delta).filter(function (k) { return delta[k] > 0; });
+      src.forEach(function (sk, i) { var dk = dst[i] || dst[0]; if (!dk || n >= 8) return; var a3 = elOf(sk), b3 = elOf(dk); if (a3 && b3) { glideChip(w, a3, b3, '+' + Math.abs(delta[sk]) + '% ' + cn, displayColor(colr[cn] || '#9a9a9a', dark)); n++; } });
+    });
+    // trains: from the depot or another company to the buyer; a train that disappears has rusted
+    var gone = [], got = [];
+    Object.keys(cur.trains).forEach(function (cn) {
+      var before = (prev.trains[cn] || []).slice();
+      cur.trains[cn].forEach(function (nm) { var ix = before.indexOf(nm); if (ix >= 0) before.splice(ix, 1); else got.push({ corp: cn, name: nm }); });
+      before.forEach(function (nm) { gone.push({ corp: cn, name: nm }); });
+    });
+    got.forEach(function (g3) {
+      if (n >= 8) return;
+      var gi = gone.findIndex(function (x) { return x.name === g3.name; }), from;
+      if (gi >= 0) { from = q('tr[data-crow="' + gone[gi].corp + '"]'); gone.splice(gi, 1); } else from = q('[data-bank="depot"]');
+      var to = q('tr[data-crow="' + g3.corp + '"]'); if (from && to) { glideChip(w, from, to, g3.name + '-train', '#2a78d6'); n++; }
+    });
+    gone.forEach(function (g3) { if (n >= 8) return; var el = q('tr[data-crow="' + g3.corp + '"]'); if (el) { glideChip(w, el, el, g3.name + ' rusted', '#c62828'); n++; } });
+  }
   function render(w, d) {
     var doc = w.document, dark = isDark(w), pal = PLAYER_COLORS[dark ? 'dark' : 'light'];
     var m = d.money;
@@ -808,7 +1002,7 @@
         ' · ' + esc(d.roundLabel) + (L.isOR && L.orsInSet ? ' <span style="color:var(--text-muted)">(operating round ' + L.orNum + ' of ' + L.orsInSet + ' in this set' + (L.orsInSet - L.orNum > 0 ? ', ' + (L.orsInSet - L.orNum) + ' more to come' : ', then a stock round') + ')</span>' : '') +
         (L.priority ? ' · Priority deal: <b>' + esc(L.priority) + '</b>' : '') + '</p>');
       if (L.order.length) h.push('<div class="chips">' + L.order.map(function (o) {
-        return '<span class="chip ' + o.state + '" title="' + (o.state === 'done' ? 'has acted' : o.state === 'current' ? 'acting now' : 'still to act') + (o.owner ? ' · president ' + esc(o.owner) : '') + '">' + (o.color ? '<i class="sw" style="background:' + displayColor(o.color, dark) + '"></i>' : '') + (o.state === 'done' ? '✓ ' : o.state === 'current' ? '▶ ' : '') + esc(o.name) + '</span>';
+        return '<span class="chip ' + o.state + '"' + (o.color ? ' data-corp="' + esc(o.name) + '"' : '') + ' title="' + (o.state === 'done' ? 'has acted' : o.state === 'current' ? 'acting now' : 'still to act') + (o.owner ? ' · president ' + esc(o.owner) : '') + '">' + (o.color ? '<i class="sw" style="background:' + displayColor(o.color, dark) + '"></i>' : '') + (o.state === 'done' ? '✓ ' : o.state === 'current' ? '▶ ' : '') + esc(o.name) + '</span>';
       }).join('') + '</div>');
       h.push('<div class="tiles">');
       // Me
@@ -838,6 +1032,13 @@
         (en.conditions.length ? '<div class="d2">Ends on: ' + en.conditions.map(function (c) { return esc(c.reason) + ' <span style="color:var(--text-muted)">(' + esc(c.timing) + ')</span>'; }).join(', ') + '</div>' : '') + '</div>');
       h.push('</div></section>');
 
+      // Since your last move
+      if (me && d.recap) {
+        var rc = d.recap;
+        h.push('<section class="card"><h2>Since your last turn</h2><p class="sub">' + (rc.lines.length ? rc.total + (rc.total >= 120 ? '+' : '') + ' log lines since your last move (newest first)' : 'Nothing has happened since your last move.') + '</p><ul class="feed">' +
+          rc.lines.map(function (f) { return '<li class="' + (f.head ? 'head' : '') + '">' + esc(f.msg) + '</li>'; }).join('') + '</ul></section>');
+      }
+
       // Feed
       h.push('<section class="card"><h2>What just happened</h2><p class="sub">Latest moves, newest first. <span class="newdot"></span> = since you last looked here <button id="seen" class="lnk">mark all as seen</button></p><ul class="feed">' +
         d.feed.map(function (f) { return '<li class="' + (f.head ? 'head' : '') + (ST.lookId != null && f.id > ST.lookId ? ' new' : '') + '">' + esc(f.msg) + '</li>'; }).join('') + '</ul></section>');
@@ -852,12 +1053,20 @@
               (k.chal ? (k.need <= 1 ? ' <span class="st-crit">⚠ ' + esc(k.chal.name) + ' (' + k.chal.pct + '%) takes it with 1 more share' + (k.canTake ? '' : ', none available now') + '</span>'
                 : k.need === 2 ? ' <span class="st-warn">' + esc(k.chal.name) + ' (' + k.chal.pct + '%) needs 2 more</span>'
                 : ' <span style="color:var(--text-muted)">next: ' + esc(k.chal.name) + ' ' + k.chal.pct + '%</span>') : '');
-          h.push('<tr><td><i class="sw" style="background:' + displayColor(k.color, dark) + '"></i><b>' + esc(k.name) + '</b>' + (k.orState === 'done' ? ' <small style="color:var(--text-muted)">ran</small>' : k.orState === 'current' ? ' <small class="st-warn">▶ now</small>' : '') + '</td><td data-f="mk:' + esc(k.name) + '">' + esc(m(k.price)) + '</td><td>' + (k.ipo ? k.ipo + ' × ' + k.sharePct + '%' : '<span style="color:var(--text-muted)">0</span>') + '</td><td>' + (k.pool ? k.pool + ' × ' + k.sharePct + '%' : '<span style="color:var(--text-muted)">0</span>') + '</td>' +
+          h.push('<tr data-corp="' + esc(k.name) + '" data-mrow="' + esc(k.name) + '"><td><i class="sw" style="background:' + displayColor(k.color, dark) + '"></i><b>' + esc(k.name) + '</b>' + (k.orState === 'done' ? ' <small style="color:var(--text-muted)">ran</small>' : k.orState === 'current' ? ' <small class="st-warn">▶ now</small>' : '') + '</td><td data-f="mk:' + esc(k.name) + '">' + esc(m(k.price)) + '</td><td>' + (k.ipo ? k.ipo + ' × ' + k.sharePct + '%' : '<span style="color:var(--text-muted)">0</span>') + '</td><td>' + (k.pool ? k.pool + ' × ' + k.sharePct + '%' : '<span style="color:var(--text-muted)">0</span>') + '</td>' +
             '<td>' + (k.dps == null ? '—' : esc(m(k.dps)) + (k.lastKind && k.lastKind !== 'payout' ? ' <small style="color:var(--text-muted)">' + esc(k.lastKind) + '</small>' : '')) + '</td><td>' + (k.yield == null ? '—' : k.yield.toFixed(1) + '%') + '</td>' +
             '<td title="' + (k.estRevenue != null ? 'if it pays out ' + esc(m(k.estRevenue)) : '') + '">' + arrow(k.ifPay) + '</td><td>' + arrow(k.ifHold) + '</td><td style="text-align:left">' + prs + '</td></tr>');
         });
         h.push('</tbody></table></div></section>');
       }
+    }
+
+    // Stock market grid
+    if (d.grid && d.grid.cells.length) {
+      var gLast = d.gridHist.length - 1, gIdx = ST.gridIdx != null && ST.gridIdx < gLast ? ST.gridIdx : gLast;
+      h.push('<section class="card wide"><h2>Stock market</h2><p class="sub">Where every company stands on the market. Your own companies are outlined' + (me ? '' : ' once you pick your name under <b>I am…</b>') + '. Hover a company to find it everywhere.</p>');
+      if (gLast > 0) h.push('<div class="gslide"><span>Round</span><input type="range" id="gr-i" min="0" max="' + gLast + '" value="' + gIdx + '"><b id="gr-l">' + esc(gIdx === gLast ? 'Now' : d.gridHist[gIdx].label) + '</b></div>');
+      h.push('<div id="gr-b">' + gridBody(d, dark, me, gIdx, m) + '</div></section>');
     }
 
     // Stock ticker
@@ -867,7 +1076,7 @@
         var dlt = tk.prev != null ? tk.price - tk.prev : 0, pct = tk.prev ? dlt / tk.prev * 100 : 0;
         var cls = dlt > 0 ? 'up' : dlt < 0 ? 'down' : 'flat', arrow = dlt > 0 ? '▲' : dlt < 0 ? '▼' : '■';
         var tot = tk.first ? (tk.price - tk.first) / tk.first * 100 : 0;
-        h.push('<div class="tk' + (tk.closed ? ' closed' : '') + '" title="' + esc(tk.name) + ': ' + esc(m(tk.first)) + ' → ' + esc(m(tk.price)) + ' over the game (' + (tot >= 0 ? '+' : '') + tot.toFixed(0) + '%)"><div><span class="nm"><i class="sw" style="background:' + displayColor(tk.color, dark) + '"></i>' + esc(tk.name) + '</span>' + (tk.closed ? ' <small>closed</small>' : '') +
+        h.push('<div class="tk' + (tk.closed ? ' closed' : '') + '" data-corp="' + esc(tk.name) + '" title="' + esc(tk.name) + ': ' + esc(m(tk.first)) + ' → ' + esc(m(tk.price)) + ' over the game (' + (tot >= 0 ? '+' : '') + tot.toFixed(0) + '%)"><div><span class="nm"><i class="sw" style="background:' + displayColor(tk.color, dark) + '"></i>' + esc(tk.name) + '</span>' + (tk.closed ? ' <small>closed</small>' : '') +
           '<div class="px" data-f="tp:' + esc(tk.name) + '">' + esc(m(tk.price)) + '</div><div class="ch ' + cls + '">' + arrow + ' ' + (dlt ? (dlt > 0 ? '+' : '−') + esc(m(Math.abs(dlt))) + ' (' + Math.abs(pct).toFixed(1) + '%)' : 'unchanged') + '</div></div>' + sparkline(tk.spark, tk.color, dark) + '</div>');
       });
       h.push('</div></section>');
@@ -878,7 +1087,8 @@
     ranked.forEach(function (p, i) {
       var c = pal[p.idx % pal.length];
       var certCls = p.certLimit && p.certs >= p.certLimit ? 'st-crit' : p.certLimit && p.certs >= p.certLimit - 1 ? 'st-warn' : '';
-      h.push('<tr' + (p.name === me ? ' class="merow"' : '') + '><td>' + (i + 1) + '</td><td style="text-align:left"><i class="sw" style="background:' + c + '"></i>' + esc(p.name) + (p.name === me ? ' <small>(me)</small>' : '') + (p.bankrupt ? ' <span class="pill">bankrupt</span>' : '') + '</td><td><b data-f="pv:' + esc(p.name) + '">' + esc(m(p.value)) + '</b></td>');
+      var isAct = !d.finished && L && L.acting.indexOf(p.name) >= 0;
+      h.push('<tr data-prow="' + esc(p.name) + '" class="' + (p.name === me ? 'merow' : '') + (isAct ? ' actrow' : '') + '"><td>' + (i + 1) + '</td><td style="text-align:left">' + (isAct ? '<span class="act" title="to act now">▶</span> ' : '') + '<i class="sw" style="background:' + c + '"></i>' + esc(p.name) + (p.name === me ? ' <small>(me)</small>' : '') + (p.bankrupt ? ' <span class="pill">bankrupt</span>' : '') + '</td><td><b data-f="pv:' + esc(p.name) + '">' + esc(m(p.value)) + '</b></td>');
       h.push('<td><div class="bar"><i style="width:' + (p.value / maxVal * 100).toFixed(1) + '%;background:' + c + '"></i></div></td>');
       h.push('<td>' + (i === 0 ? '—' : '−' + esc(m(leader - p.value))) + '</td><td data-f="pc:' + esc(p.name) + '">' + esc(m(p.cash)) + '</td><td class="' + certCls + '" title="' + (p.certLimit ? 'room for ' + Math.max(0, p.certLimit - p.certs) + ' more' : '') + '">' + p.certs + (p.certLimit ? '/' + p.certLimit + ' <small style="color:var(--text-muted)">(' + Math.max(0, p.certLimit - p.certs) + ' free)</small>' : '') + '</td></tr>');
     });
@@ -910,13 +1120,13 @@
       var hc = d.holdings.corps;
       var anyPriv = d.holdings.rows.some(function (r) { return r.priv; });
       var anyOther = d.holdings.rows.some(function (r) { return r.other; });
-      h.push('<h2 style="margin-top:12px">Holdings now</h2><p class="sub"><span class="pres">★</span> president · value at current market price</p><div class="tw"><table><thead><tr><th>Player</th>' + hc.map(function (cn) { var col = (d.ticker.find(function (t) { return t.name === cn; }) || {}).color || '#999'; return '<th><i class="sw" style="background:' + displayColor(col, dark) + '"></i>' + esc(cn) + '</th>'; }).join('') + '<th>Shares total</th>' + (anyPriv ? '<th>Privates</th>' : '') + (anyOther ? '<th title="Other parts of player value, such as bids or debts">Other</th>' : '') + '<th>Cash</th></tr></thead><tbody>');
+      h.push('<h2 style="margin-top:12px">Holdings now</h2><p class="sub"><span class="pres">★</span> president · value at current market price</p><div class="tw"><table><thead><tr><th>Player</th>' + hc.map(function (cn) { var col = (d.ticker.find(function (t) { return t.name === cn; }) || {}).color || '#999'; return '<th data-corp="' + esc(cn) + '"><i class="sw" style="background:' + displayColor(col, dark) + '"></i>' + esc(cn) + '</th>'; }).join('') + '<th>Shares total</th>' + (anyPriv ? '<th>Privates</th>' : '') + (anyOther ? '<th title="Other parts of player value, such as bids or debts">Other</th>' : '') + '<th>Cash</th></tr></thead><tbody>');
       d.holdings.rows.forEach(function (row) {
         var tot = 0;
         h.push('<tr><td><i class="sw" style="background:' + pal[row.idx % pal.length] + '"></i>' + esc(row.name) + '</td>' + hc.map(function (cn) {
-          var c = row.cells[cn]; if (!c) return '<td style="color:var(--text-muted)">·</td>';
+          var c = row.cells[cn]; if (!c) return '<td data-corp="' + esc(cn) + '" style="color:var(--text-muted)">·</td>';
           tot += c.val;
-          return '<td><span class="' + (c.pct < 0 ? 'short' : '') + '">' + (c.pres ? '<span class="pres">★</span> ' : '') + c.pct + '%' + (c.pct < 0 ? ' short' : '') + '</span><span class="cellv">' + esc(m(c.val)) + '</span></td>';
+          return '<td data-corp="' + esc(cn) + '"><span class="' + (c.pct < 0 ? 'short' : '') + '">' + (c.pres ? '<span class="pres">★</span> ' : '') + c.pct + '%' + (c.pct < 0 ? ' short' : '') + '</span><span class="cellv">' + esc(m(c.val)) + '</span></td>';
         }).join('') + '<td><b>' + esc(m(tot)) + '</b></td>' + (anyPriv ? '<td>' + (row.priv ? esc(m(row.priv)) : '') + '</td>' : '') + (anyOther ? '<td>' + (row.other ? esc(m(row.other)) : '') + '</td>' : '') + '<td>' + esc(m(row.cash)) + '</td></tr>');
       });
       h.push('</tbody></table></div></section>');
@@ -957,7 +1167,7 @@
 
     // Corporations
     var anyLoans = d.corps.some(function (c) { return c.loans > 0; });
-    h.push('<section class="card wide"><h2>Corporations</h2><p class="sub">Treasury vs next train, train health, recent results</p><div class="tw"><table><thead><tr><th>Corp</th><th>President</th><th>Price</th><th>Treasury</th><th>' + (d.cheapest ? 'Buy cheapest train (' + esc(d.cheapest.name) + (d.cheapest.pool ? ', bank pool' : '') + ' ' + esc(m(d.cheapest.price)) + ')' : 'Buy a train') + '</th><th>Trains</th><th>Train status</th><th>Tokens left</th>' + (anyLoans ? '<th>Loans</th><th title="Interest this company owes at its next operating turn">Interest due</th>' : '') + '<th>Last revenue</th><th>Avg last 3</th></tr></thead><tbody>');
+    h.push('<section class="card wide"><h2>Corporations</h2><p class="sub">Treasury vs next train, train health, recent results</p><div class="tw"><table><thead><tr><th>Corp</th><th>President</th><th>Price</th><th>Treasury</th><th>' + (d.cheapest ? 'Buy cheapest train (' + esc(d.cheapest.name) + (d.cheapest.pool ? ', bank pool' : '') + ' ' + esc(m(d.cheapest.price)) + ')' : 'Buy a train') + '</th><th>Trains</th><th>Train status</th><th title="Station tokens not yet placed / total">Tokens left</th>' + (anyLoans ? '<th>Loans</th><th title="Interest this company owes at its next operating turn">Interest due</th>' : '') + '<th>Last revenue</th><th>Avg last 3</th></tr></thead><tbody>');
     d.corps.forEach(function (c) {
       var ohs = c.oh.slice().sort(function (a, b) { return (a.t * 100 + a.r) - (b.t * 100 + b.r); });
       var last = ohs[ohs.length - 1];
@@ -976,7 +1186,7 @@
         : c.rustIn.some(function (x) { return x >= 0; }) ? '<span class="st-warn">◐ ' + c.rustIn.filter(function (x) { return x >= 0; }).length + ' will rust</span>'
         : '<span class="st-good">✓ safe</span>';
       if (obsSoon.length) status += ' <span class="st-warn" title="Obsolete is not rusted: the train is on its way out under this title\'s rules">◔ ' + obsSoon.length + ' obsolete ' + buysTxt(Math.min.apply(null, obsSoon)) + '</span>';
-      h.push('<tr><td><i class="sw" style="background:' + displayColor(c.color, dark) + '"></i><b>' + esc(c.name) + '</b></td><td>' + esc(c.president) + '</td><td>' + (c.price != null ? esc(m(c.price)) : '—') + '</td><td data-f="ct:' + esc(c.name) + '">' + esc(m(c.cash)) + '</td><td>' + can + '</td>');
+      h.push('<tr data-corp="' + esc(c.name) + '" data-crow="' + esc(c.name) + '"' + (!d.finished && L && L.current === c.name && L.isOR ? ' class="actrow"' : '') + '><td>' + (!d.finished && L && L.current === c.name && L.isOR ? '<span class="act" title="operating now">▶</span> ' : '') + '<i class="sw" style="background:' + displayColor(c.color, dark) + '"></i><b>' + esc(c.name) + '</b></td><td>' + esc(c.president) + '</td><td>' + (c.price != null ? esc(m(c.price)) : '—') + '</td><td data-f="ct:' + esc(c.name) + '">' + esc(m(c.cash)) + '</td><td>' + can + '</td>');
       h.push('<td>' + esc(c.trains.map(function (t) { return t.name; }).join(', ') || '—') + '</td><td>' + status + '</td><td>' + (c.tokensTotal ? c.tokensLeft + '/' + c.tokensTotal : '—') + '</td>' + (anyLoans ? '<td>' + (c.loans ? c.loans + (c.maxLoans ? '/' + c.maxLoans : '') : '') + '</td><td>' + (c.interestOwed ? esc(m(c.interestOwed)) : '') + '</td>' : ''));
       h.push('<td>' + (last ? esc(m(last.revenue)) + (last.kind && last.kind !== 'payout' ? ' <small style="color:var(--text-muted)">' + esc(last.kind) + '</small>' : '') : '—') + '</td><td>' + (avg != null ? esc(m(avg)) : '—') + '</td></tr>');
     });
@@ -998,6 +1208,26 @@
       });
       h.push('</tbody></table></div><p class="sub" style="margin-top:6px">Minors also appear as dashed lines in the revenue chart.</p></section>');
     }
+    // Bank & depot
+    var B = d.bank2;
+    if (B) {
+      var trChip = function (r2, i2) { return '<span class="chip' + (i2 === 0 ? ' next' : '') + '">' + (i2 === 0 ? '▶ ' : '') + esc(r2.name) + (r2.n > 1 ? ' × ' + r2.n : '') + ' · ' + esc(m(r2.price)) + '</span>'; };
+      var shChip = function (x) { return '<span class="chip" data-corp="' + esc(x.name) + '"><i class="sw" style="background:' + displayColor(x.color || '#999', dark) + '"></i>' + esc(x.name) + ' ' + x.n + ' × ' + x.pct + '%</span>'; };
+      h.push('<section class="card"><h2>Bank &amp; depot</h2><p class="sub">What the bank still holds</p><div class="tiles"><div class="tile"><div class="l">Bank cash</div><div class="v">' + esc(m(B.cash)) + '</div></div></div>' +
+        '<div class="bl">Trains still to come, in order (the first is the next one bought)</div><div class="dq" data-bank="depot">' + (B.up.length ? B.up.map(trChip).join('') : '<span style="color:var(--text-muted)">none left</span>') + '</div>' +
+        (B.pool.length ? '<div class="bl">Trains in the bank pool (discarded, can be bought)</div><div class="dq" data-bank="trainpool">' + B.pool.map(function (r2) { return '<span class="chip">' + esc(r2.name) + (r2.n > 1 ? ' × ' + r2.n : '') + ' · ' + esc(m(r2.price)) + '</span>'; }).join('') + '</div>' : '') +
+        '<div class="bl">Shares in the initial offering</div><div class="dq" data-bank="ipo">' + (B.ipo.length ? B.ipo.map(shChip).join('') : '<span style="color:var(--text-muted)">none</span>') + '</div>' +
+        '<div class="bl">Shares in the market (bank pool)</div><div class="dq" data-bank="pool">' + (B.mpool.length ? B.mpool.map(shChip).join('') : '<span style="color:var(--text-muted)">none</span>') + '</div></section>');
+    }
+
+    // Tile manifest
+    if (d.tiles && d.tiles.groups.length) {
+      var TC = { yellow: '#f2d12e', green: '#5cae4a', brown: '#9b6b3d', gray: '#8c8c8c', grey: '#8c8c8c' };
+      h.push('<section class="card wide"><h2>Tile manifest</h2><p class="sub">Tiles left in the supply (left / total). ∞ = unlimited. Colours not yet allowed by the current phase are dimmed.</p>' + d.tiles.groups.map(function (gr) {
+        return '<div class="tg2' + (gr.available ? '' : ' na') + '"><div class="bl"><i class="sw" style="background:' + (TC[gr.color] || '#999') + '"></i><b>' + esc(gr.color) + '</b> · ' + gr.left + ' left' + (gr.available ? '' : ' · not yet available') + '</div><div class="tcs">' +
+          gr.items.map(function (o) { return '<span class="tcp' + (!o.unl && o.left === 0 ? ' z' : '') + '" title="' + esc('tile ' + o.name + ': ' + (o.unl ? 'unlimited' : o.left + ' of ' + o.total + ' left')) + '">#' + esc(o.name) + ' <small style="color:var(--text-muted)">' + (o.unl ? '∞' : o.left + '/' + o.total) + '</small></span>'; }).join('') + '</div></div>';
+      }).join('') + '</section>');
+    }
     h.push('</main>');
 
     var scrollY = w.scrollY || 0;
@@ -1017,6 +1247,21 @@
       if (ST.prevGame === d.id && ST.prevVals && ST.prevVals[k] !== undefined && ST.prevVals[k] !== v) el.classList.add('fl');
     });
     ST.prevVals = vals; ST.prevGame = d.id;
+    // glow around the window on your turn
+    doc.documentElement.className = myTurn ? 'myturn' : '';
+    // hover a company anywhere to light it up everywhere
+    var hlSet = function (cn) { Array.prototype.forEach.call(doc.querySelectorAll('[data-corp]'), function (e) { e.classList.toggle('hl', cn != null && e.getAttribute('data-corp') === cn); }); };
+    doc.body.onmouseover = function (ev) { var tg = ev.target.closest ? ev.target.closest('[data-corp]') : null, cn = tg ? tg.getAttribute('data-corp') : null; if (cn !== ST.hlCorp) { ST.hlCorp = cn; hlSet(cn); } };
+    if (ST.hlCorp) hlSet(ST.hlCorp);
+    // stock market round slider (only the grid is redrawn so dragging stays smooth)
+    var gr = doc.getElementById('gr-i');
+    if (gr) gr.oninput = function () {
+      var iv = +gr.value, gl = d.gridHist.length - 1; ST.gridIdx = iv >= gl ? null : iv;
+      doc.getElementById('gr-l').textContent = iv >= gl ? 'Now' : d.gridHist[iv].label;
+      doc.getElementById('gr-b').innerHTML = gridBody(d, dark, me, iv, m);
+      if (ST.hlCorp) hlSet(ST.hlCorp);
+    };
+    glideChanges(w, d, dark);
     // your-turn sound, once per turn
     var turnKey = d.id + ':' + myTurn;
     if (myTurn && ST.turnKey !== turnKey && ST.turnKey != null && soundOn) beep(w);
@@ -1056,19 +1301,19 @@
   // ---------- Layout: collapse and reorder sections, remembered per mode ----------------
   // Two layouts are kept in this browser: 'live' (game in progress) and 'review' (finished game).
   var DEFAULT_ORDER = {
-    live: ['now', 'what-just-happened', 'trains-phases', 'stock-round-helper', 'corporations', 'standings', 'stock-ticker', 'portfolios', 'company-revenue-per-operating-round', 'player-value-over-time', 'share-price', 'minors-private-companies'],
-    review: ['stock-ticker', 'standings', 'player-value-over-time', 'company-revenue-per-operating-round', 'share-price', 'portfolios', 'trains-phases', 'corporations', 'minors-private-companies']
+    live: ['now', 'since-your-last-turn', 'what-just-happened', 'trains-phases', 'stock-round-helper', 'stock-market', 'corporations', 'bank-depot', 'standings', 'stock-ticker', 'portfolios', 'company-revenue-per-operating-round', 'player-value-over-time', 'share-price', 'minors-private-companies', 'tile-manifest'],
+    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'company-revenue-per-operating-round', 'share-price', 'portfolios', 'trains-phases', 'corporations', 'bank-depot', 'minors-private-companies', 'tile-manifest']
   };
   function slug(txt) { return String(txt).toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
   function loadLayout(mode) {
     try {
       var v = JSON.parse(localStorage.getItem('xxStats.layout.' + mode) || 'null');
       if (v && v.order) { // sections added in newer versions slot in at their default place
-        DEFAULT_ORDER[mode].forEach(function (k, i) { if (v.order.indexOf(k) < 0) v.order.splice(Math.min(i, v.order.length), 0, k); });
+        DEFAULT_ORDER[mode].forEach(function (k, i) { if (v.order.indexOf(k) < 0) { v.order.splice(Math.min(i, v.order.length), 0, k); if (k === 'tile-manifest') (v.collapsed = v.collapsed || []).push(k); } });
         return v;
       }
     } catch (e) {}
-    return { order: DEFAULT_ORDER[mode].slice(), collapsed: [] };
+    return { order: DEFAULT_ORDER[mode].slice(), collapsed: ['tile-manifest'] };
   }
   function saveLayout(mode, lay) { try { localStorage.setItem('xxStats.layout.' + mode, JSON.stringify(lay)); } catch (e) {} }
   function applyLayout(w, mode) {
