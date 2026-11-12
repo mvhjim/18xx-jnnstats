@@ -2,6 +2,11 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.9.0] - 2026-11-12
+
+### Added
+- **Game log** section with a round slider: read the whole game round by round, search the full log, and jump to your own last move. Available in finished games (where the live log was never shown) and in live games.
+
 ## [0.8.0] - 2026-11-12
 
 ### Added

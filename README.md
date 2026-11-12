@@ -57,6 +57,7 @@ Always:
 - **Trains & phases:** trains left in the bank per type, the next train, purchases until each phase change, what rusts next and which companies it hits.
 - **Bank & depot:** bank cash, the trains still to come in order, trains in the bank pool, and the shares left in the initial offering and the market.
 - **Tile manifest** (collapsed by default): how many of each tile are left, by colour; colours the current phase does not allow yet are dimmed.
+- **Game log:** the whole log of the game, one round at a time. Drag the slider (or press ◀ ▶) to walk through the game, search the whole log for a company or player, or jump to your own last move once you pick your name under *I am…*. Works in finished and live games.
 - **Hover linking:** hover a company anywhere and it lights up in every table and chart on screen.
 - **Corporations:** whether the treasury covers the cheapest train or an emergency buy is needed, train health (*safe*, *will rust*, *obsolete*, *trainless in N buys*), tokens, loans and interest.
 - **Minors & private companies:** owners over time and when each closed.
