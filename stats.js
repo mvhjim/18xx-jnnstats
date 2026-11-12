@@ -514,7 +514,7 @@
         gcols = Math.max(gcols, rr.length); gcells.push(rr);
       });
       var ghost = null;
-      if (isOR && market.length) {
+      if (isOR && !finished && market.length) {
         var gm = market.filter(function (k) { return k.name === curEnt; })[0];
         if (gm && (gm.ifPayPos || gm.ifHoldPos)) ghost = { corp: gm.name, color: gm.color, pay: gm.ifPayPos, hold: gm.ifHoldPos, rev: gm.estRevenue };
       }
