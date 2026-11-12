@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.16.0';
+  var VERSION = '0.17.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -1510,6 +1510,42 @@
     return cv;
   }
   // Body of the Routes & revenue card: one operating round, a row per train
+  // Compare mode: facts about when things happened, as a share of the way through the game
+  function cmpFacts(d) {
+    var L = d.valueHistory.labels, n = Math.max(L.length - 1, 1), pct = function (lab) { var i = L.indexOf(lab); return i < 0 ? null : Math.round(i / n * 100); };
+    var f = { phases: [], trains: {}, trainOrder: [] };
+    (d.events || []).forEach(function (e) { if (e.kind === 'phase') f.phases.push({ name: e.text.replace(/^Phase /, '').replace(/ begins$/, ''), label: e.label, pct: pct(e.label) }); });
+    var an = d.analysis;
+    if (an && an.trains) an.trains.forEach(function (x) {
+      if (f.trains[x.train]) return;
+      var lab = String(x.round).replace(/^Operating Round /, 'OR ').replace(/^Stock Round /, 'SR ').replace(/ \(of \d+\)$/, '');
+      f.trains[x.train] = { label: lab, pct: pct(lab), price: x.price }; f.trainOrder.push(x.train);
+    });
+    f.ors = L.filter(function (l) { return /^OR /.test(l); }).length;
+    f.runRev = 0; (d.routes || []).forEach(function (R) { R.corps.forEach(function (c) { if (c.trains.length && c.totalN != null) f.runRev += c.totalN; }); });
+    f.trainSpend = an && an.trains ? an.trains.reduce(function (a, x) { return a + x.price; }, 0) : 0;
+    f.inter = an && an.trains ? an.trains.filter(function (x) { return !x.depot; }).length : 0;
+    f.tileSpend = an ? an.track.reduce(function (a, x) { return a + x.tileCost; }, 0) : 0;
+    f.tokens = an ? an.track.reduce(function (a, x) { return a + x.tokens; }, 0) : 0;
+    f.divs = an && an.money ? an.money.reduce(function (a, x) { return a + x.div; }, 0) : 0;
+    f.companies = d.ticker.length;
+    return f;
+  }
+  function loadCompare(w, d, id) {
+    ST.cmp = { gid: d.id, id: id, busy: true, msg: 'Loading game ' + id + ' and replaying it, this takes a few seconds…' };
+    rerender();
+    return fetch('/api/game/' + id, { credentials: 'same-origin' }).then(function (r) { return r.text(); }).then(function (text) {
+      var raw = JSON.parse(text);
+      if (!raw.actions || !raw.actions.length) throw new Error('Game ' + id + ' was not found, or has no moves (archived games cannot be replayed).');
+      if (raw.title !== d.title) throw new Error('Game ' + id + ' is ' + raw.title + ', this game is ' + d.title + '. Only games of the same title can be compared.');
+      var p1 = String(d.pin || ''), p2 = String(raw.settings && raw.settings.pin || '');
+      if (p1 !== p2) throw new Error('The two games use different engine versions (' + (p1 || 'latest') + ' and ' + (p2 || 'latest') + '), so their numbers are not comparable.');
+      return new Promise(function (res) { setTimeout(function () { res([text, raw]); }, 40); });
+    }).then(function (a) {
+      var g2 = loadGame(a[0]); var d2 = extract(g2, a[1]);
+      ST.cmp = { gid: d.id, id: id, d2: d2, facts: cmpFacts(d2) }; rerender();
+    }).catch(function (e) { ST.cmp = { gid: d.id, id: id, msg: String(e && e.message || e) }; rerender(); });
+  }
   // Route efficiency: replay the game to just before a company's run, let the engine's own auto-router
   // find routes there, and compare. Read only; the game copy is thrown away. One run at a time.
   function bestRun(raw, corp, act) {
@@ -1862,6 +1898,7 @@
       }).join('') + '</section>');
     }
     // Data cards (0.15)
+    var cModel = null, cChart = null;
     var AN = d.analysis, tkCol = {}; (d.ticker || []).forEach(function (t9) { tkCol[t9.name] = t9.color; });
     if (AN) {
       var lnk = function (act) { return act > 0 && ST.origin ? ' <a class="gla" target="_blank" rel="noopener" href="' + esc(ST.origin + '/game/' + d.id + '?action=' + act) + '" title="Open the game on 18xx.games as it stood at this moment">↗</a>' : ''; };
@@ -1907,6 +1944,44 @@
             return '<tr' + (me && r.name === me ? ' class="merow"' : '') + '><td><b>' + esc(r.name) + '</b></td><td>' + esc(m(r.now)) + '</td><td>' + r.r_now + '</td><td>' + esc(m(Math.round(r.low))) + ' – ' + esc(m(Math.round(r.high))) + '</td><td>' + r.r_mid + '</td></tr>';
           }).join('') + '</tbody></table></div></section>');
       }
+    }
+    // Compare with another game of the same title
+    if (d.valueHistory.labels.length > 1 && !d.tt) {
+      var CM = ST.cmp && ST.cmp.gid === d.id ? ST.cmp : null, cmBody = '';
+      if (CM && CM.d2) {
+        var d2 = CM.d2, f1 = cmpFacts(d), f2 = CM.facts, pts = []; for (var pq = 0; pq <= 20; pq++) pts.push(pq / 20);
+        var colOf = {}; d.players.forEach(function (p) { colOf[p.name] = pal[p.idx % pal.length]; });
+        var ser = [];
+        d.players.forEach(function (p, i) { ser.push({ name: p.name + ' · #' + d.id, color: colOf[p.name], values: pts.map(function (q) { var v = d.valueHistory.series[i]; return v[Math.round(q * (v.length - 1))]; }) }); });
+        d2.players.forEach(function (p, i) { var c2 = colOf[p.name] || pal[(p.idx + d.players.length) % pal.length]; ser.push({ name: p.name + ' · #' + d2.id, color: c2, dashed: true, values: pts.map(function (q) { var v = d2.valueHistory.series[i]; return v[Math.round(q * (v.length - 1))]; }) }); });
+        var cModel = { labels: pts.map(function (q) { return Math.round(q * 100) + '%'; }), fmt: m, series: ser };
+        var cChart = lineChart(cModel, { title: 'Player value, both games', dark: dark });
+        var r1 = d.players.slice().sort(function (a, b) { return b.value - a.value; }), r2 = d2.players.slice().sort(function (a, b) { return b.value - a.value; });
+        var rank = function (arr, nm) { for (var z = 0; z < arr.length; z++) if (arr[z].name === nm) return z + 1; return null; };
+        var names = []; d.players.forEach(function (p) { names.push(p.name); }); d2.players.forEach(function (p) { if (names.indexOf(p.name) < 0) names.push(p.name); });
+        var val = function (arr, nm) { for (var z = 0; z < arr.length; z++) if (arr[z].name === nm) return arr[z].value; return null; };
+        var cell = function (arr, nm, big) { var v = val(arr, nm); return v == null ? '<span style="color:var(--text-muted)">did not play</span>' : esc(m(v)) + ' <small style="color:var(--text-muted)">#' + rank(arr, nm) + '</small>'; };
+        var playRows = names.map(function (nm) { var a1 = val(d.players, nm), b1 = val(d2.players, nm); return '<tr><td><b>' + esc(nm) + '</b></td><td>' + cell(d.players, nm) + '</td><td>' + cell(d2.players, nm) + '</td><td>' + (a1 != null && b1 != null ? '<span class="' + (a1 - b1 >= 0 ? 'st-good' : 'st-warn') + '">' + (a1 - b1 >= 0 ? '+' : '−') + esc(m(Math.abs(a1 - b1))) + '</span>' : '—') + '</td></tr>'; }).join('');
+        var fm = function (o) { return o ? esc(o.label) + (o.pct != null ? ' <small style="color:var(--text-muted)">' + o.pct + '%</small>' : '') : '—'; };
+        var mrow = function (k, a, b) { return '<tr><td style="text-align:left">' + esc(k) + '</td><td>' + a + '</td><td>' + b + '</td></tr>'; };
+        var tn = f1.trainOrder.slice(); f2.trainOrder.forEach(function (x) { if (tn.indexOf(x) < 0) tn.push(x); });
+        var pn = f1.phases.map(function (x) { return x.name; }); f2.phases.forEach(function (x) { if (pn.indexOf(x.name) < 0) pn.push(x.name); });
+        var ph = function (f, nm) { for (var z = 0; z < f.phases.length; z++) if (f.phases[z].name === nm) return f.phases[z]; return null; };
+        var st = function (dd) { return dd.finished ? 'finished' : esc(dd.roundLabel); };
+        cmBody = '<p class="sub">This game <b>#' + esc(d.id) + '</b> (solid lines) against <b>#' + esc(d2.id) + '</b> (dashed). Lines are lined up by how far through each game they are.</p>' +
+          '<div class="tw"><table><thead><tr><th>Player</th><th>#' + esc(d.id) + ' (' + st(d) + ')</th><th>#' + esc(d2.id) + ' (' + st(d2) + ')</th><th>Difference</th></tr></thead><tbody>' + playRows + '</tbody></table></div>' +
+          legend(cModel.series, dark) + '<div class="chart" id="c-cmp">' + cChart.svg + '<div class="tip"></div></div>' +
+          '<h3 style="font-size:12px;margin:12px 0 4px">How the two games ran</h3><div class="tw"><table><thead><tr><th>&nbsp;</th><th>#' + esc(d.id) + '</th><th>#' + esc(d2.id) + '</th></tr></thead><tbody>' +
+          mrow('Operating rounds', f1.ors, f2.ors) + mrow('Companies', f1.companies, f2.companies) + mrow('Revenue run, all companies', esc(m(f1.runRev)), esc(m(f2.runRev))) +
+          mrow('Paid out to players as dividends', esc(m(f1.divs)), esc(m(f2.divs))) + mrow('Spent on trains', esc(m(f1.trainSpend)), esc(m(f2.trainSpend))) + mrow('Trains bought between companies', f1.inter, f2.inter) +
+          (f1.tileSpend || f2.tileSpend ? mrow('Spent on tile lays', esc(m(f1.tileSpend)), esc(m(f2.tileSpend))) : '') + mrow('Tokens placed', f1.tokens, f2.tokens) +
+          pn.map(function (nm) { return mrow('Phase ' + nm + ' begins', fm(ph(f1, nm)), fm(ph(f2, nm))); }).join('') +
+          tn.map(function (nm) { return mrow('First ' + nm + ' train bought', fm(f1.trains[nm]), fm(f2.trains[nm])); }).join('') +
+          '</tbody></table></div><p class="sub" style="margin-top:6px">Percentages show how far through the game it happened. A game that is still running is compared as far as it has got.</p>';
+      }
+      h.push('<section class="card wide"><h2>Compare with another game</h2><p class="sub">Type the number of another game of the same title (and engine version) to see how the two went, for example to follow your progress against the same friends.</p>' +
+        '<div class="tb"><input id="cmp-id" inputmode="numeric" placeholder="game number" value="' + esc(ST.cmpTxt || (CM && CM.id) || '') + '" style="font:inherit;font-size:13px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface-0);color:var(--text-primary);width:130px"><button id="cmp-go" class="ib">Compare</button>' + (CM && CM.d2 ? '<button id="cmp-x" class="ib" title="Remove the comparison">✕</button>' : '') + '</div>' +
+        (CM && CM.msg ? '<p class="sub" style="margin:8px 0 0">' + esc(CM.msg) + '</p>' : '') + cmBody + '</section>');
     }
     // Replay
     if (d.replay && d.replay.labels.length > 1) {
@@ -1998,6 +2073,16 @@
         if (ST.rpPlay) { if (+rpi.value >= d.replay.labels.length - 1) rpSet(0); rpStart(); } else if (ST.rpTimer) { clearInterval(ST.rpTimer); ST.rpTimer = null; }
       };
       if (ST.rpPlay) rpStart();
+    }
+    // compare card
+    var cmpGo = doc.getElementById('cmp-go');
+    if (cmpGo) {
+      var cmpIn = doc.getElementById('cmp-id');
+      cmpIn.oninput = function () { ST.cmpTxt = cmpIn.value; };
+      var cmpRun = function () { var id = String(cmpIn.value).replace(/\D/g, ''); ST.cmpTxt = id; if (!id) return; if (id === String(d.id)) { ST.cmp = { gid: d.id, id: id, msg: 'That is this game. Enter another game number.' }; rerender(); return; } loadCompare(w, d, id); };
+      cmpGo.onclick = cmpRun; cmpIn.onkeydown = function (e) { if (e.key === 'Enter') cmpRun(); };
+      var cmpX = doc.getElementById('cmp-x'); if (cmpX) cmpX.onclick = function () { ST.cmp = null; ST.cmpTxt = ''; rerender(); };
+      var cc = doc.getElementById('c-cmp'); if (cc && cModel) attachHover(doc, cc, cModel, cChart);
     }
     // routes card: round picker
     var rts = doc.getElementById('rt-s');
@@ -2149,8 +2234,8 @@
   // ---------- Layout: collapse and reorder sections, remembered per mode ----------------
   // Two layouts are kept in this browser: 'live' (game in progress) and 'review' (finished game).
   var DEFAULT_ORDER = {
-    live: ['now', 'what-just-happened', 'trains-phases-bank', 'routes-revenue', 'track-spending-vs-revenue', 'train-purchases', 'stock-round-helper', 'stock-market', 'standings', 'score-range', 'player-value-over-time', 'key-moments', 'replay', 'stock-ticker', 'where-the-money-came-from', 'valuation', 'portfolios', 'corporations', 'company-revenue-per-operating-round', 'share-price', 'game-log', 'minors-private-companies', 'tile-manifest', 'game-info'],
-    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'key-moments', 'replay', 'game-log', 'company-revenue-per-operating-round', 'share-price', 'where-the-money-came-from', 'valuation', 'portfolios', 'corporations', 'trains-phases-bank', 'train-purchases', 'routes-revenue', 'track-spending-vs-revenue', 'minors-private-companies', 'tile-manifest', 'game-info']
+    live: ['now', 'what-just-happened', 'trains-phases-bank', 'routes-revenue', 'track-spending-vs-revenue', 'train-purchases', 'stock-round-helper', 'stock-market', 'standings', 'score-range', 'player-value-over-time', 'key-moments', 'compare-with-another-game', 'replay', 'stock-ticker', 'where-the-money-came-from', 'valuation', 'portfolios', 'corporations', 'company-revenue-per-operating-round', 'share-price', 'game-log', 'minors-private-companies', 'tile-manifest', 'game-info'],
+    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'key-moments', 'compare-with-another-game', 'replay', 'game-log', 'company-revenue-per-operating-round', 'share-price', 'where-the-money-came-from', 'valuation', 'portfolios', 'corporations', 'trains-phases-bank', 'train-purchases', 'routes-revenue', 'track-spending-vs-revenue', 'minors-private-companies', 'tile-manifest', 'game-info']
   };
   function slug(txt) { return String(txt).toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
   function loadLayout(mode) {

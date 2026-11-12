@@ -2,6 +2,11 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.17.0] - 2026-11-12
+
+### Added
+- **Compare with another game:** type a second game number (same title, same engine version) to see both games together: final or current values per player (with the same friends lined up), a value chart with both games lined up by how far through each one is, and a table of how the games ran: operating rounds, revenue, dividends, train spending, phase timing and when each train type was first bought. The second game is loaded read only and is not stored.
+
 ## [0.16.0] - 2026-11-12
 
 ### Added
