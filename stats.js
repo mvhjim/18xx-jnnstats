@@ -595,7 +595,7 @@
       for (var gi = 0; gi < log.length; gi++) {
         var gmsg = s(call(log[gi], 'message')); if (!gmsg) continue;
         var gid = num(call(log[gi], 'action_id'));
-        if (/^-- /.test(gmsg) && /(Round|Auction|Draft)/i.test(gmsg) && !/^-- Phase/i.test(gmsg)) { glR.push({ label: gmsg.replace(/^-+\s*/, '').replace(/\s*-+$/, ''), lines: [] }); continue; }
+        if (/^-- /.test(gmsg) && /(Round|Auction|Draft)/i.test(gmsg) && !/^-- Phase/i.test(gmsg)) { glR.push({ label: gmsg.replace(/^-+\s*/, '').replace(/[\s-]+$/, ''), lines: [] }); continue; }
         glR[glR.length - 1].lines.push({ id: gid, msg: gmsg, head: /^-- /.test(gmsg) });
         if (lastMineId && gid > 0 && gid <= lastMineId) glMe = glR.length - 1;
       }
