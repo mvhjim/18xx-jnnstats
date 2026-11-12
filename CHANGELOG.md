@@ -2,6 +2,16 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.18.0] - 2026-11-12
+
+### Added
+- **Route efficiency for the whole game:** *check the whole game* in Routes & revenue runs the auto-router check over every run in turn, with a progress count and a stop button, and sums up how much was left on the table (about 15 seconds per run, so it can take a while; you can leave it running).
+- **Withholding vs paying out:** per company, how often it withheld, the revenue it kept, its longest withhold streak, and how its share price moved in those rounds against the rounds it paid.
+- **Train timing:** per player and per company, who bought which trains and when (as a share of the way through the game), what they spent, and what is held now.
+- **Badges:** comeback, most time in the lead, dividend king, biggest seller, longest withhold streak, best single run, train baron.
+- **Share view (🔗):** copies a link that opens the game with your card order and collapsed cards. It carries no names or other data.
+- Pie charts: fixed size, and hovering a slice shows what it is.
+
 ## [0.17.0] - 2026-11-12
 
 ### Added

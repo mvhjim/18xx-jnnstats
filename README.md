@@ -78,6 +78,8 @@ Always:
 - **Trains, phases & Bank:** starts with the bank (cash, the trains still to come in order, trains in the bank pool, shares left in the initial offering and the market), then trains left per type, the next train, purchases until each phase change, what rusts next and which companies it hits, and in the *Held by* column each company's colour.
 - **Tile manifest** (collapsed by default): how many of each tile are left, by colour; colours the current phase does not allow yet are dimmed.
 - **Routes & revenue:** pick an operating round to see what each company ran: train, revenue, the stops of every route, and pay out or withhold. It follows the history slider. A map sketch can draw each company's routes on the board's hex grid, to match them against the real map.
+- **More cards:** withholding vs paying out, train timing, and a few just-for-fun badges. The 🔗 button copies a link that reopens the game with your card layout.
+- **Route efficiency, whole game:** check every run against the engine's auto-router, with a summary of what was left on the table.
 - **Compare:** load a second game of the same title and see both side by side, to follow your progress against the same players.
 - **Route efficiency:** in Routes & revenue, press *check best* to compare a run with the best routes the site's own auto-router can find at that moment.
 - **Data cards:** track spending vs revenue, where each player's money came from (pies), valuation (price vs payouts), train purchases, key moments with links, and a score range for live games.

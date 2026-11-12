@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.17.0';
+  var VERSION = '0.18.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -945,7 +945,8 @@
     '.gslide{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--text-secondary)}.gslide input{flex:1;min-width:80px}',
     '.zl{display:flex;flex-wrap:wrap;gap:4px 12px;margin:8px 0 0;font-size:11.5px;color:var(--text-secondary)}.zl i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1px solid var(--border)}',
     '.dq{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px}.dq .chip{font-variant-numeric:tabular-nums}.dq .chip.next{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:650}.bl{font-size:12px;color:var(--text-muted);margin:6px 0 2px}',
-    '.pies{display:flex;flex-wrap:wrap;gap:14px 26px}.pie1{display:flex;flex-direction:column;gap:4px;min-width:150px;font-size:12px}.pie1 .pl{display:flex;flex-direction:column;gap:2px}.kml{list-style:none;margin:0;padding:0}.kml li{padding:4px 0;border-bottom:1px solid var(--grid);font-size:13px}.kmi{display:inline-block;width:1.5em}',
+    '.badges{display:flex;flex-wrap:wrap;gap:10px}.bdg{display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:10px;padding:8px 12px;min-width:200px;font-size:13px}.bdg .bi{font-size:26px}.bdg .bn{font-weight:650}',
+    '.pies{display:flex;flex-wrap:wrap;gap:14px 26px}.pie1{display:flex;flex-direction:column;gap:4px;min-width:150px;font-size:12px}.pie1 svg{width:110px;height:110px;flex:none}.pie1 .pl{display:flex;flex-direction:column;gap:2px}.kml{list-style:none;margin:0;padding:0}.kml li{padding:4px 0;border-bottom:1px solid var(--grid);font-size:13px}.kmi{display:inline-block;width:1.5em}',
     '.tg2{margin:0 0 10px}.tg2 .tcs{display:flex;flex-wrap:wrap;gap:4px}.tcp{border:1px solid var(--border);border-radius:6px;padding:1px 7px;font-size:12px;font-variant-numeric:tabular-nums}.tcp.z{opacity:.4;text-decoration:line-through}.tg2.na{opacity:.55}',
     'tr.actrow{background:color-mix(in srgb,var(--good) 14%,transparent)}.act{color:var(--good);font-weight:700}',
     '.tw table th:first-child,.tw table td:first-child{position:sticky;left:0;z-index:1;background:var(--surface-1)}',
@@ -1091,10 +1092,10 @@
     var tot = parts.reduce(function (a, p) { return a + p.v; }, 0), r = size / 2 - 2, cx = size / 2, cy = size / 2, a0 = -Math.PI / 2, out = '';
     if (!tot) return '';
     var live = parts.filter(function (p) { return p.v > 0; });
-    if (live.length === 1) return '<svg viewBox="0 0 ' + size + ' ' + size + '" width="' + size + '" height="' + size + '"><circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + live[0].c + '"/></svg>';
+    if (live.length === 1) return '<svg viewBox="0 0 ' + size + ' ' + size + '" width="' + size + '" height="' + size + '"><circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + live[0].c + '"><title>' + esc(live[0].t || '') + '</title></circle></svg>';
     live.forEach(function (p) {
       var a1 = a0 + p.v / tot * Math.PI * 2, lg = a1 - a0 > Math.PI ? 1 : 0;
-      out += '<path d="M' + cx + ' ' + cy + ' L' + (cx + r * Math.cos(a0)).toFixed(2) + ' ' + (cy + r * Math.sin(a0)).toFixed(2) + ' A' + r + ' ' + r + ' 0 ' + lg + ' 1 ' + (cx + r * Math.cos(a1)).toFixed(2) + ' ' + (cy + r * Math.sin(a1)).toFixed(2) + ' Z" fill="' + p.c + '" stroke="var(--surface-1)" stroke-width="2"/>';
+      out += '<path d="M' + cx + ' ' + cy + ' L' + (cx + r * Math.cos(a0)).toFixed(2) + ' ' + (cy + r * Math.sin(a0)).toFixed(2) + ' A' + r + ' ' + r + ' 0 ' + lg + ' 1 ' + (cx + r * Math.cos(a1)).toFixed(2) + ' ' + (cy + r * Math.sin(a1)).toFixed(2) + ' Z" fill="' + p.c + '" stroke="var(--surface-1)" stroke-width="2"><title>' + esc(p.t || '') + '</title></path>';
       a0 = a1;
     });
     return '<svg viewBox="0 0 ' + size + ' ' + size + '" width="' + size + '" height="' + size + '">' + out + '</svg>';
@@ -1567,13 +1568,23 @@
       }, 30);
     });
   }
+  function runActual(c) { return c.trains.reduce(function (a, x) { return a + (parseFloat(String(x.rev).replace(/[^\d.]/g, '')) || 0); }, 0); }
+  function rtSummary(d) {
+    var o = { tot: 0, n: 0, gap: 0, short: 0 };
+    d.routes.forEach(function (R) { R.corps.forEach(function (c) {
+      if (!c.act || !c.trains.length) return; o.tot++;
+      var r = ST.rtBest && ST.rtBest[d.id + '|' + c.corp + '|' + c.act];
+      if (r && r.s === 'ok') { o.n++; var a2 = runActual(c); if (r.best > a2) { o.gap += r.best - a2; o.short++; } }
+    }); });
+    return o;
+  }
   function bestCell(d, c) {
     if (!c.act || !d.id) return '';
     var key = d.id + '|' + c.corp + '|' + c.act, r = ST.rtBest && ST.rtBest[key];
     if (!r) return ' <button class="lnk rt-chk" data-c="' + esc(c.corp) + '" data-a="' + c.act + '" title="Replays the game to just before this run and lets the site\'s own auto-router find the best routes it can (about 15 seconds)">check best</button>';
     if (r.s === 'run') return ' <small class="st-same">checking…</small>';
     if (r.s === 'err') return ' <small class="st-same" title="' + esc(r.msg || '') + '">could not check</small>';
-    var actual = c.trains.reduce(function (a, x) { return a + (parseFloat(String(x.rev).replace(/[^\d.]/g, '')) || 0); }, 0);
+    var actual = runActual(c);
     return r.best > actual ? ' <small class="st-warn" title="The auto-router\'s best routes at that moment. It may not be the true maximum, and it ignores what you might have wanted to leave for other trains.">best found ' + r.best + ' (+' + (r.best - actual) + ', ran ' + Math.round(actual / r.best * 100) + '%)</small>' : ' <small class="st-good">✓ matched the best found (' + r.best + ')</small>';
   }
   function rtBody(d, k, col) {
@@ -1587,7 +1598,11 @@
       rows += '<tr class="tot"><td></td><td>total' + (c.extra.length ? ' (+ ' + esc(c.extra.join(', ')) + ' extra)' : '') + '</td><td class="n">' + esc(c.total || '') + (c.delta ? ' <small class="' + (c.delta < 0 ? 'st-warn' : 'st-good') + '" title="Compared with this company\'s previous run">' + (c.delta < 0 ? '▼ ' : '▲ ') + esc(String(Math.abs(c.delta))) + '</small>' : '') + '</td><td>' + esc(c.kind || '') + bestCell(d, c) + '</td></tr>';
     });
     var anyChk = R.corps.some(function (c) { return c.act && c.trains.length && !(ST.rtBest && ST.rtBest[d.id + '|' + c.corp + '|' + c.act]); });
-    return (anyChk ? '<p class="sub" style="margin:0 0 6px"><button class="lnk rt-all">check every company in this round</button> <small style="color:var(--text-muted)">replays to just before each run and asks the site\'s own auto-router for the best routes it can find; about 15 seconds each</small></p>' : '') + '<table class="rt"><thead><tr><th>Company</th><th>Train</th><th>Revenue</th><th>Stops (as the engine logs them)</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    var SM = rtSummary(d), ra = ST.rtAll && ST.rtAll.gid === d.id && ST.rtAll.running ? ST.rtAll : null;
+    var gameBar = ra ? '<p class="sub" style="margin:0 0 6px">Checking the whole game: ' + SM.n + ' of ' + SM.tot + ' runs <button class="lnk rt-stop">stop</button></p>'
+      : (SM.tot > SM.n ? '<p class="sub" style="margin:0 0 6px"><button class="lnk rt-game">check the whole game</button> <small style="color:var(--text-muted)">' + (SM.tot - SM.n) + ' runs left to check, roughly ' + Math.ceil((SM.tot - SM.n) * 15 / 60) + ' minutes; you can stop at any time</small></p>' : '');
+    var sumBar = SM.n ? '<p class="sub" style="margin:0 0 6px"><b>' + SM.n + ' of ' + SM.tot + ' runs checked:</b> ' + (SM.short ? SM.short + ' left money on the table, <span class="st-warn">' + esc(d.money(SM.gap)) + ' in total</span>' : '<span class="st-good">all matched the best found</span>') + '</p>' : '';
+    return gameBar + sumBar + (anyChk ? '<p class="sub" style="margin:0 0 6px"><button class="lnk rt-all">check every company in this round</button> <small style="color:var(--text-muted)">replays to just before each run and asks the site\'s own auto-router for the best routes it can find; about 15 seconds each</small></p>' : '') + '<table class="rt"><thead><tr><th>Company</th><th>Train</th><th>Revenue</th><th>Stops (as the engine logs them)</th></tr></thead><tbody>' + rows + '</tbody></table>';
   }
   function render(w, d) {
     var doc = w.document, dark = isDark(w), pal = PLAYER_COLORS[dark ? 'dark' : 'light'];
@@ -1619,7 +1634,7 @@
       '<button class="ib" id="th" title="Switch between dark and light">' + (dark ? '🌙' : '☀') + '</button>' +
       '<details class="menu" id="mn"' + (ST.menuOpen ? ' open' : '') + '><summary class="ib" title="More">⋯</summary><div class="mp2">' +
         '<button id="lr" title="Restore the default order and expand all sections">Reset <span id="lm">layout</span></button>' +
-        '<span style="display:flex;gap:6px;align-items:center">Text size <button id="zo" title="Smaller text">A−</button><button id="zi" title="Larger text">A+</button></span>' +
+        '<span style="display:flex;gap:6px;align-items:center">Text size <button id="zo" title="Smaller text">A−</button><button id="zi" title="Larger text">A+</button></span> <button id="sh-v" class="ib" title="Copy a link that opens this game with your card layout (no names or other data are in it)">🔗</button>' +
         '<form id="gf" style="display:flex;gap:6px"><input id="gi" placeholder="game # or link" size="14" value="' + esc(ST.giVal || '') + '"><button>Open</button></form>' +
         '<div style="color:var(--text-muted)">Look at another game, old or live.</div></div></details></span></div>');
     h.push('<div class="hr2"><a href="' + REPO_URL + '" target="_blank" rel="noopener" style="color:inherit">18xx-JNNstats v' + VERSION + ' by jimiste</a>' +
@@ -1915,7 +1930,7 @@
         h.push('<section class="card wide"><h2>Where the money came from</h2><p class="sub">Cash each player has taken in so far, by source (cash paid for shares is not counted).</p><div class="pies">' +
           AN.money.map(function (pl) {
             var tot = pl.div + pl.priv + pl.sales;
-            return '<div class="pie1"><b>' + esc(pl.name) + '</b>' + (tot ? pieSvg(SRC.map(function (sc) { return { v: pl[sc[0]], c: sc[2] }; }), 110) : '') +
+            return '<div class="pie1"><b>' + esc(pl.name) + '</b>' + (tot ? pieSvg(SRC.map(function (sc) { return { v: pl[sc[0]], c: sc[2], t: pl.name + ': ' + sc[1] + ' ' + m(pl[sc[0]]) }; }), 110) : '') +
               '<div class="pl">' + SRC.map(function (sc) { return pl[sc[0]] ? '<span><i class="sw" style="background:' + sc[2] + '"></i>' + sc[1] + ' ' + esc(m(pl[sc[0]])) + ' <small style="color:var(--text-muted)">' + Math.round(pl[sc[0]] / tot * 100) + '%</small></span>' : ''; }).join('') + '</div><small style="color:var(--text-muted)">total ' + esc(m(tot)) + '</small></div>';
           }).join('') + '</div></section>');
       }
@@ -1944,6 +1959,64 @@
             return '<tr' + (me && r.name === me ? ' class="merow"' : '') + '><td><b>' + esc(r.name) + '</b></td><td>' + esc(m(r.now)) + '</td><td>' + r.r_now + '</td><td>' + esc(m(Math.round(r.low))) + ' – ' + esc(m(Math.round(r.high))) + '</td><td>' + r.r_mid + '</td></tr>';
           }).join('') + '</tbody></table></div></section>');
       }
+    }
+    // 0.18 cards: withholding, train timing, badges
+    if (d.corps && d.corps.length && d.valueHistory.labels.length > 2) {
+      var avg = function (a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : null; };
+      var sgn = function (v) { return v == null ? '—' : (v >= 0 ? '+' : '−') + esc(m(Math.abs(Math.round(v)))); };
+      var whRows = [];
+      d.corps.forEach(function (c) {
+        if (!c.oh || !c.oh.length) return;
+        var ps = null; d.prices.series.forEach(function (sx) { if (sx.name === c.name) ps = sx; });
+        var Wn = { n: 0, rev: 0, mv: [], run: 0, best: 0 }, Pn = { n: 0, mv: [] };
+        c.oh.forEach(function (o) {
+          var i = d.prices.labels.indexOf(o.label), mv = ps && i > 0 && ps.values[i] != null && ps.values[i - 1] != null ? ps.values[i] - ps.values[i - 1] : null;
+          if (o.kind === 'withhold' && o.revenue > 0) { Wn.n++; Wn.rev += o.revenue; if (mv != null) Wn.mv.push(mv); Wn.run++; if (Wn.run > Wn.best) Wn.best = Wn.run; }
+          else if (o.kind === 'payout' || o.kind === 'half') { Pn.n++; if (mv != null) Pn.mv.push(mv); Wn.run = 0; } else Wn.run = 0;
+        });
+        if (Wn.n) whRows.push({ corp: c.name, pres: c.president, color: c.color, W: Wn, P: Pn });
+      });
+      if (whRows.length) {
+        h.push('<section class="card wide"><h2>Withholding vs paying out</h2><p class="sub">Each time a company kept its revenue instead of paying it out, and how its share price moved in those rounds compared with the rounds it paid. Price moves include everything that happened that round, not only the dividend.</p><div class="tw"><table><thead><tr><th>Company</th><th>President</th><th>Withheld</th><th>Revenue kept</th><th>Longest streak</th><th>Avg price move when withholding</th><th>Avg price move when paying</th></tr></thead><tbody>' +
+          whRows.sort(function (a, b) { return b.W.rev - a.W.rev; }).map(function (x) {
+            return '<tr><td>' + cs(x.color) + '<b>' + esc(x.corp) + '</b></td><td>' + esc(x.pres || '') + '</td><td>' + x.W.n + ' of ' + (x.W.n + x.P.n) + ' ORs</td><td>' + esc(m(x.W.rev)) + '</td><td>' + x.W.best + '</td><td>' + sgn(avg(x.W.mv)) + '</td><td>' + sgn(avg(x.P.mv)) + '</td></tr>';
+          }).join('') + '</tbody></table></div></section>');
+      }
+      // train timing
+      var AN2 = d.analysis, ttRows = {}, corpPres = {}, mapLab = function (lab) { return String(lab).replace(/^Operating Round /, 'OR ').replace(/^Stock Round /, 'SR ').replace(/ \(of \d+\)$/, ''); };
+      d.corps.forEach(function (c) { corpPres[c.name] = c; });
+      var noRun = {}; (d.routes || []).forEach(function (R) { R.corps.forEach(function (c) { if (!c.trains.length && /does not run/.test(c.kind || '')) noRun[c.corp] = (noRun[c.corp] || 0) + 1; }); });
+      if (AN2 && AN2.trains && AN2.trains.length) {
+        var byCo = {}, nLab = Math.max(d.valueHistory.labels.length - 1, 1);
+        AN2.trains.forEach(function (x) { var o = byCo[x.buyer] || (byCo[x.buyer] = { buys: [], spent: 0 }); var lab = mapLab(x.round), li = d.valueHistory.labels.indexOf(lab); o.buys.push({ lab: lab, train: x.train, price: x.price, pct: li < 0 ? null : Math.round(li / nLab * 100) }); o.spent += x.price; });
+        var pl = {}; d.players.forEach(function (p) { pl[p.name] = { name: p.name, cos: 0, bought: 0, spent: 0, first: null, held: 0 }; });
+        var coRows = Object.keys(byCo).filter(function (n) { return corpPres[n]; }).map(function (n) {
+          var c = corpPres[n], o = byCo[n], pr = pl[c.president];
+          if (pr) { pr.cos++; pr.bought += o.buys.length; pr.spent += o.spent; pr.held += c.trains.length; var f0 = o.buys[0].pct; if (f0 != null && (pr.first == null || f0 < pr.first)) pr.first = f0; }
+          return { name: n, color: c.color, pres: c.president, o: o, held: c.trains.length, norun: noRun[n] || 0 };
+        });
+        h.push('<section class="card wide"><h2>Train timing</h2><p class="sub">Who bought trains and when, counted for the player who presides the company now. Percentages show how far through the game each first purchase happened' + (d.trainLimit ? '; the current limit is ' + esc(String(d.trainLimit)) + ' trains per company' : '') + '.</p><div class="tw"><table><thead><tr><th>Player</th><th>Companies</th><th>Trains bought</th><th>Spent</th><th>First train at</th><th>Trains held now</th></tr></thead><tbody>' +
+          Object.keys(pl).map(function (k) { return pl[k]; }).filter(function (x) { return x.bought; }).sort(function (a, b) { return b.spent - a.spent; }).map(function (x) { return '<tr' + (me && x.name === me ? ' class="merow"' : '') + '><td><b>' + esc(x.name) + '</b></td><td>' + x.cos + '</td><td>' + x.bought + '</td><td>' + esc(m(x.spent)) + '</td><td>' + (x.first != null ? x.first + '%' : '—') + '</td><td>' + x.held + '</td></tr>'; }).join('') +
+          '</tbody></table></div><div class="tw" style="margin-top:10px"><table><thead><tr><th>Company</th><th>President</th><th style="text-align:left">Purchases (round, train, price)</th><th>Held now</th><th>ORs with no run</th></tr></thead><tbody>' +
+          coRows.sort(function (a, b) { return b.o.spent - a.o.spent; }).map(function (x) { return '<tr><td>' + cs(x.color) + '<b>' + esc(x.name) + '</b></td><td>' + esc(x.pres || '') + '</td><td style="text-align:left;white-space:normal"><small>' + x.o.buys.map(function (b2) { return esc(b2.lab) + ' · ' + esc(b2.train) + ' · ' + esc(m(b2.price)); }).join('<br>') + '</small></td><td>' + x.held + '</td><td>' + (x.norun || '—') + '</td></tr>'; }).join('') + '</tbody></table></div></section>');
+      }
+      // badges
+      var badges = [], VH = d.valueHistory, nf = VH.labels.length;
+      var finalRank = d.players.slice().sort(function (a, b) { return b.value - a.value; });
+      var deficit = d.players.map(function (p, i) { var mx = 0; for (var f4 = 0; f4 < nf; f4++) { var best4 = -Infinity; VH.series.forEach(function (sx) { if (sx[f4] != null && sx[f4] > best4) best4 = sx[f4]; }); if (VH.series[i][f4] != null) mx = Math.max(mx, best4 - VH.series[i][f4]); } return mx; });
+      var leader0 = finalRank[0], li0 = d.players.indexOf(leader0);
+      if (leader0 && deficit[li0] > 0) badges.push(['🧗', 'Biggest comeback', leader0.name, 'was ' + m(deficit[li0]) + ' behind the leader at the lowest point and is now first']);
+      var lead = {}; for (var f5 = 1; f5 < nf; f5++) { var bi = -1, bv = -Infinity; VH.series.forEach(function (sx, i) { if (sx[f5] != null && sx[f5] > bv) { bv = sx[f5]; bi = i; } }); if (bi >= 0) lead[d.players[bi].name] = (lead[d.players[bi].name] || 0) + 1; }
+      var lk = Object.keys(lead).sort(function (a, b) { return lead[b] - lead[a]; })[0]; if (lk) badges.push(['👑', 'Most time in the lead', lk, 'led in ' + lead[lk] + ' of ' + (nf - 1) + ' rounds']);
+      if (AN2 && AN2.money) {
+        var dk = AN2.money.slice().sort(function (a, b) { return b.div - a.div; })[0]; if (dk && dk.div) badges.push(['💰', 'Dividend king', dk.name, 'took in ' + m(dk.div) + ' in dividends']);
+        var sk = AN2.money.slice().sort(function (a, b) { return b.sales - a.sales; })[0]; if (sk && sk.sales) badges.push(['🏦', 'Biggest seller', sk.name, 'raised ' + m(sk.sales) + ' from selling shares']);
+      }
+      var wst = whRows.slice().sort(function (a, b) { return b.W.best - a.W.best; })[0]; if (wst && wst.W.best >= 2) badges.push(['🛑', 'Longest withhold streak', wst.pres || wst.corp, wst.corp + ' kept its revenue ' + wst.W.best + ' ORs in a row']);
+      var brun = AN2 && AN2.moments.filter(function (x) { return x.kind === 'run'; })[0]; if (brun) { var bc = brun.text.replace(/^Best single run: /, '').replace(/ earns .*/, ''); badges.push(['🚂', 'Best single run', (corpPres[bc] && corpPres[bc].president) || bc, brun.text.replace(/^Best single run: /, '')]); }
+      var spendTop = null; if (AN2 && AN2.trains) { var sp2 = {}; AN2.trains.forEach(function (x) { var c0 = corpPres[x.buyer], nm = c0 && c0.president; if (nm) sp2[nm] = (sp2[nm] || 0) + x.price; }); var ks = Object.keys(sp2).sort(function (a, b) { return sp2[b] - sp2[a]; })[0]; if (ks) spendTop = [ks, sp2[ks]]; }
+      if (spendTop) badges.push(['🔧', 'Train baron', spendTop[0], 'presiding companies spent ' + m(spendTop[1]) + ' on trains']);
+      if (badges.length) h.push('<section class="card wide"><h2>Badges</h2><p class="sub">Just for fun, worked out from this game’s data.</p><div class="badges">' + badges.map(function (b3) { return '<div class="bdg"><span class="bi">' + b3[0] + '</span><div><b>' + esc(b3[1]) + '</b><br><span class="bn">' + esc(b3[2]) + '</span><br><small style="color:var(--text-muted)">' + esc(b3[3]) + '</small></div></div>'; }).join('') + '</div></section>');
     }
     // Compare with another game of the same title
     if (d.valueHistory.labels.length > 1 && !d.tt) {
@@ -2108,6 +2181,21 @@
       if (rtmb) rtmb.onclick = function () { ST.rtMap = !ST.rtMap; rtmb.textContent = ST.rtMap ? '▾ Hide the map sketch' : '🗺 Show the routes on a map sketch'; rtMapDraw(); };
       var rtb = doc.getElementById('rt-b');
       if (rtb) rtb.onclick = function (e) {
+        var stopB = e.target && e.target.closest ? e.target.closest('.rt-stop') : null;
+        if (stopB) { if (ST.rtAll) ST.rtAll.stop = true; return; }
+        var gameB = e.target && e.target.closest ? e.target.closest('.rt-game') : null;
+        if (gameB) {
+          var q2 = []; d.routes.forEach(function (R) { R.corps.forEach(function (c) { if (c.act && c.trains.length) q2.push([c.corp, c.act]); }); });
+          ST.rtBest = ST.rtBest || {}; ST.rtAll = { gid: d.id, running: true, stop: false };
+          var st2 = function (i) {
+            if (i >= q2.length || ST.rtAll.stop || !ST.game || !ST.game.raw) { ST.rtAll.running = false; try { rtSet(+rts.value); } catch (e6) {} return; }
+            var k3 = d.id + '|' + q2[i][0] + '|' + q2[i][1]; if (ST.rtBest[k3] && ST.rtBest[k3].s !== 'err') return st2(i + 1);
+            ST.rtBest[k3] = { s: 'run' };
+            bestRun(ST.game.raw, q2[i][0], q2[i][1]).then(function (r) { ST.rtBest[k3] = { s: 'ok', best: r.best }; }, function (err) { ST.rtBest[k3] = { s: 'err', msg: String(err && err.message || err) }; })
+              .then(function () { try { rtSet(+rts.value); } catch (e7) {} setTimeout(function () { st2(i + 1); }, 20); });
+          };
+          try { rtSet(+rts.value); } catch (e8) {} st2(0); return;
+        }
         var all = e.target && e.target.closest ? e.target.closest('.rt-all') : null;
         if (all) { var qs = Array.prototype.map.call(rtb.querySelectorAll('.rt-chk'), function (x) { return [x.getAttribute('data-c'), +x.getAttribute('data-a')]; }); ST.rtBest = ST.rtBest || {};
           var step = function (i) { if (i >= qs.length || !ST.game || !ST.game.raw) return; var k2 = d.id + '|' + qs[i][0] + '|' + qs[i][1]; if (ST.rtBest[k2]) return step(i + 1); ST.rtBest[k2] = { s: 'run' }; try { rtSet(+rts.value); } catch (e3) {}
@@ -2207,6 +2295,16 @@
     }
     doc.getElementById('sn').onclick = function () { snapRight(w); };
     var zoomBy = function (dz) { var z = Math.min(1.5, Math.max(0.8, (parseFloat(lsGet('xxStats.zoom')) || 1) + dz)); lsSet('xxStats.zoom', String(Math.round(z * 100) / 100)); doc.body.style.zoom = String(z); };
+    var shv = doc.getElementById('sh-v');
+    if (shv) shv.onclick = function () {
+      var lab = function (x) { shv.textContent = x; setTimeout(function () { shv.textContent = '🔗'; }, 1800); };
+      try {
+        var pay = { l: loadLayout('live'), r: loadLayout('review') };
+        var url = ST.origin + '/game/' + d.id + '#xxv=' + encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify({ l: { o: pay.l.order, c: pay.l.collapsed }, r: { o: pay.r.order, c: pay.r.collapsed } })))));
+        var done = function () { lab('copied ✓'); };
+        try { w.navigator.clipboard.writeText(url).then(done, function () { w.prompt('Copy this link', url); }); } catch (e9) { w.prompt('Copy this link', url); }
+      } catch (e10) { lab('failed'); }
+    };
     doc.getElementById('zo').onclick = function () { zoomBy(-0.1); }; doc.getElementById('zi').onclick = function () { zoomBy(0.1); };
     doc.body.style.zoom = String(parseFloat(lsGet('xxStats.zoom')) || 1);
     var updA = doc.getElementById('upd'); if (updA) updA.onclick = function (ev) { ev.preventDefault(); updateNow(updA); };
@@ -2234,8 +2332,8 @@
   // ---------- Layout: collapse and reorder sections, remembered per mode ----------------
   // Two layouts are kept in this browser: 'live' (game in progress) and 'review' (finished game).
   var DEFAULT_ORDER = {
-    live: ['now', 'what-just-happened', 'trains-phases-bank', 'routes-revenue', 'track-spending-vs-revenue', 'train-purchases', 'stock-round-helper', 'stock-market', 'standings', 'score-range', 'player-value-over-time', 'key-moments', 'compare-with-another-game', 'replay', 'stock-ticker', 'where-the-money-came-from', 'valuation', 'portfolios', 'corporations', 'company-revenue-per-operating-round', 'share-price', 'game-log', 'minors-private-companies', 'tile-manifest', 'game-info'],
-    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'key-moments', 'compare-with-another-game', 'replay', 'game-log', 'company-revenue-per-operating-round', 'share-price', 'where-the-money-came-from', 'valuation', 'portfolios', 'corporations', 'trains-phases-bank', 'train-purchases', 'routes-revenue', 'track-spending-vs-revenue', 'minors-private-companies', 'tile-manifest', 'game-info']
+    live: ['now', 'what-just-happened', 'trains-phases-bank', 'routes-revenue', 'track-spending-vs-revenue', 'train-timing', 'train-purchases', 'stock-round-helper', 'stock-market', 'standings', 'score-range', 'player-value-over-time', 'key-moments', 'badges', 'compare-with-another-game', 'replay', 'stock-ticker', 'where-the-money-came-from', 'valuation', 'withholding-vs-paying-out', 'portfolios', 'corporations', 'company-revenue-per-operating-round', 'share-price', 'game-log', 'minors-private-companies', 'tile-manifest', 'game-info'],
+    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'key-moments', 'badges', 'compare-with-another-game', 'replay', 'game-log', 'company-revenue-per-operating-round', 'share-price', 'where-the-money-came-from', 'valuation', 'withholding-vs-paying-out', 'portfolios', 'corporations', 'trains-phases-bank', 'train-timing', 'train-purchases', 'routes-revenue', 'track-spending-vs-revenue', 'minors-private-companies', 'tile-manifest', 'game-info']
   };
   function slug(txt) { return String(txt).toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
   function loadLayout(mode) {
@@ -2506,6 +2604,15 @@
   if (!pageGameId() || typeof Opal === 'undefined' || !Opal.Engine) { alert('18xx-JNNstats: open a game on 18xx.games first, then click the bookmark.'); return; }
   if (!openWin()) return;
   try { ST.win.focus(); } catch (e) {}
+  // A shared view link carries only the card order and which cards are collapsed
+  try {
+    var xm = /[#&]xxv=([^&]+)/.exec(location.hash);
+    if (xm) {
+      var sv = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(xm[1])))));
+      var okKeys = function (a) { return Array.isArray(a) && a.length < 80 && a.every(function (k) { return typeof k === 'string' && /^[a-z0-9-]{1,60}$/.test(k); }); };
+      ['l', 'r'].forEach(function (k) { var v = sv[k]; if (v && okKeys(v.o) && okKeys(v.c)) saveLayout(k === 'l' ? 'live' : 'review', { order: v.o, collapsed: v.c, m11: 1 }); });
+    }
+  } catch (e11) {}
   ST.gameId = null;
   ST.ticks = 0;
   refresh(true);
