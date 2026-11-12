@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.9.2';
+  var VERSION = '0.9.3';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -305,7 +305,7 @@
       for (var a = v.length - 1; a >= 0; a--) if (v[a] != null) { if (last == null) { last = v[a]; li = a; } else if (prev == null) { prev = v[a]; break; } }
       var first = null; for (var b = 0; b < v.length; b++) if (v[b] != null) { first = v[b]; break; }
       var corp = corps.find(function (c) { return c.name === ser.name; });
-      return { name: ser.name, color: ser.color, price: last, prev: prev, first: first, spark: v, closed: corp ? corp.closed : li < v.length - 1 };
+      return { name: ser.name, color: ser.color, price: last, prev: prev, first: first, spark: v, closed: corp ? corp.closed : li < v.length - 1, into: null, how: '' };
     }).filter(function (t) { return t.price != null; })
       .sort(function (a, b) { return (a.closed ? 1 : 0) - (b.closed ? 1 : 0); }); // closed companies last
 
@@ -609,6 +609,23 @@
       gameLog = { rounds: glR, meRound: glMe, meId: lastMineId };
     } catch (e) { gameLog = null; }
 
+    // Which company a closed one went into: read from the engine's own log lines
+    try {
+      if (gameLog) {
+        var tkNames = ticker.map(function (t) { return t.name; });
+        var tkBy = {}; ticker.forEach(function (t) { tkBy[t.name] = t; });
+        var pickName = function (txt) { for (var q = 0; q < tkNames.length; q++) if (txt === tkNames[q]) return tkNames[q]; return null; };
+        gameLog.rounds.forEach(function (rd2) { rd2.lines.forEach(function (ln) {
+          var mm = /^(.+?) \(non-survivor\) will merge into (.+?) \(survivor\)/.exec(ln.msg);
+          if (mm && pickName(mm[1]) && pickName(mm[2])) { tkBy[mm[1]].into = mm[2]; tkBy[mm[1]].how = 'merged into'; return; }
+          mm = /^(.+?) merges with (.+?) at share price/.exec(ln.msg);
+          if (mm && pickName(mm[1]) && pickName(mm[2])) { tkBy[mm[2]].into = mm[1]; tkBy[mm[2]].how = 'merged into'; return; }
+          mm = /^(.+?) (?:acquires|absorbs|takes over) (.+?)(?: receiving|,| for |$)/.exec(ln.msg);
+          if (mm && pickName(mm[1]) && pickName(mm[2]) && tkBy[mm[2]].closed) { tkBy[mm[2]].into = mm[1]; tkBy[mm[2]].how = 'acquired by'; }
+        }); });
+      }
+    } catch (e) {}
+
     // Train rush: could the companies still to act buy enough trains to trigger the next phase?
     var rush = null;
     var nPh = phases.filter(function (p) { return p.status === 'future' && p.inPurchases > 0; })[0];
@@ -699,7 +716,7 @@
     '.menu{position:relative}.mp2{position:absolute;right:0;top:calc(100% + 6px);z-index:10;min-width:240px;background:var(--surface-1);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.3);padding:8px;display:flex;flex-direction:column;gap:8px;font-size:12px}',
     '.mp2 button{font:inherit;font-size:12px;padding:4px 9px;border:1px solid var(--border);background:var(--surface-0);color:var(--text-primary);border-radius:6px;cursor:pointer}.mp2 input{font:inherit;font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface-0);color:var(--text-primary)}',
     '.upd{color:var(--warn);font-weight:600}@media (max-width:1000px){.kv.opt{display:none}}',
-    'main{padding:10px 12px;display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(440px,100%),1fr));align-items:start}',
+    'main{padding:10px 12px;display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(440px,100%),1fr));align-items:stretch}.card.collapsed{align-self:start}',
     '.card{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:12px 14px;min-width:0}.card.wide{grid-column:1/-1}',
     '.tw{overflow-x:auto}.card h2{font-size:13px;margin:0 0 2px;font-weight:650}.card .sub{color:var(--text-muted);font-size:12px;margin:0 0 8px}',
     'table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}th,td{padding:4px 8px;text-align:right;border-bottom:1px solid var(--grid);white-space:nowrap}th{font-weight:600;color:var(--text-secondary);font-size:12px}th:first-child,td:first-child{text-align:left}',
@@ -740,7 +757,7 @@
     '.mk{display:grid;grid-template-columns:repeat(var(--cols),minmax(34px,1fr));gap:2px;overflow-x:auto}',
     '.mc{border:1px solid var(--grid);border-radius:5px;padding:2px 3px;min-height:40px;font-size:11px;min-width:0}.mc.empty{border-color:transparent}.mp{color:var(--text-secondary);font-variant-numeric:tabular-nums;font-size:10.5px}',
     '.cp{display:block;border-radius:4px;padding:0 3px;margin-top:2px;font-size:10.5px;font-weight:700;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default}.cp.mine{outline:2px solid var(--accent);outline-offset:1px}.cp.gh{background:transparent!important;border:1.5px dashed;font-weight:600}',
-    '.bankbox{margin:0 0 12px;padding:0 0 4px;border-bottom:1px solid var(--grid)}.feed.gl{max-height:420px}.feed li.gl{display:grid;grid-template-columns:92px 1fr;gap:8px;padding-left:0;border-left:4px solid var(--pc,transparent)}.feed li.gl .gu{padding-left:6px;color:var(--text-secondary);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.feed li.gl.me{background:color-mix(in srgb,var(--pc) 14%,transparent)}.feed li.gl.me .gu{color:var(--text);font-weight:700}.feed li.gl.head{border-left-color:transparent}.feed li.mine .gm{font-weight:600;color:var(--accent)}.glr{color:var(--text-muted);font-size:10.5px}.gltools{display:flex;gap:8px;align-items:center;margin:0 0 8px}.gltools input{flex:1;min-width:80px}',
+    '.bankrow{display:flex;flex-wrap:wrap;gap:6px 22px;margin:0 0 10px}.bankrow .bb{flex:1 1 200px;min-width:0}.bankrow .bb:first-child{flex:2 1 260px}.bankrow .bl{margin-top:0}.feed.gl{max-height:420px}.feed li.gl{display:grid;grid-template-columns:92px 1fr;gap:8px;padding-left:0;border-left:4px solid var(--pc,transparent)}.feed li.gl .gu{padding-left:6px;color:var(--text-secondary);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.feed li.gl.me{background:color-mix(in srgb,var(--pc) 14%,transparent)}.feed li.gl.me .gu{color:var(--text);font-weight:700}.feed li.gl.head{border-left-color:transparent}.feed li.mine .gm{font-weight:600;color:var(--accent)}.glr{color:var(--text-muted);font-size:10.5px}.gltools{display:flex;gap:8px;align-items:center;margin:0 0 8px}.gltools input{flex:1;min-width:80px}',
     '.gslide{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--text-secondary)}.gslide input{flex:1;min-width:80px}',
     '.zl{display:flex;flex-wrap:wrap;gap:4px 12px;margin:8px 0 0;font-size:11.5px;color:var(--text-secondary)}.zl i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1px solid var(--border)}',
     '.dq{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px}.dq .chip{font-variant-numeric:tabular-nums}.dq .chip.next{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:650}.bl{font-size:12px;color:var(--text-muted);margin:6px 0 2px}',
@@ -1252,7 +1269,7 @@
         var dlt = tk.prev != null ? tk.price - tk.prev : 0, pct = tk.prev ? dlt / tk.prev * 100 : 0;
         var cls = dlt > 0 ? 'up' : dlt < 0 ? 'down' : 'flat', arrow = dlt > 0 ? '▲' : dlt < 0 ? '▼' : '■';
         var tot = tk.first ? (tk.price - tk.first) / tk.first * 100 : 0;
-        h.push('<div class="tk' + (tk.closed ? ' closed' : '') + '" data-corp="' + esc(tk.name) + '" title="' + esc(tk.name) + ': ' + esc(m(tk.first)) + ' → ' + esc(m(tk.price)) + ' over the game (' + (tot >= 0 ? '+' : '') + tot.toFixed(0) + '%)"><div><span class="nm"><i class="sw" style="background:' + displayColor(tk.color, dark) + '"></i>' + esc(tk.name) + '</span>' + (tk.closed ? ' <small>closed</small>' : '') +
+        h.push('<div class="tk' + (tk.closed ? ' closed' : '') + '" data-corp="' + esc(tk.name) + '" title="' + esc(tk.name) + ': ' + esc(m(tk.first)) + ' → ' + esc(m(tk.price)) + ' over the game (' + (tot >= 0 ? '+' : '') + tot.toFixed(0) + '%)"><div><span class="nm"><i class="sw" style="background:' + displayColor(tk.color, dark) + '"></i>' + esc(tk.name) + '</span>' + (tk.closed ? ' <small>' + (tk.into ? esc(tk.how) + ' <b data-corp="' + esc(tk.into) + '">' + esc(tk.into) + '</b>' : 'closed') + '</small>' : '') +
           '<div class="px" data-f="tp:' + esc(tk.name) + '">' + esc(m(tk.price)) + '</div><div class="ch ' + cls + '">' + arrow + ' ' + (dlt ? (dlt > 0 ? '+' : '−') + esc(m(Math.abs(dlt))) + ' (' + Math.abs(pct).toFixed(1) + '%)' : 'unchanged') + '</div></div>' + sparkline(tk.spark, tk.color, dark) + '</div>');
       });
       h.push('</div></section>');
@@ -1311,20 +1328,22 @@
     // Trains
     var totalLeft = d.trainGroups.reduce(function (a, g) { return a + (g.unlimited ? 0 : g.available); }, 0);
     var unlimitedLeft = d.trainGroups.some(function (g) { return g.unlimited && g.available; });
-    var B = d.bank2, bankHtml = '';
+    var B = d.bank2, bankHtml = '', bankCashTile = '';
     if (B) {
       var trChip = function (r2, i2) { return '<span class="chip' + (i2 === 0 ? ' next' : '') + '">' + (i2 === 0 ? '▶ ' : '') + esc(r2.name) + (r2.n > 1 ? ' × ' + r2.n : '') + ' · ' + esc(m(r2.price)) + '</span>'; };
       var shChip = function (x) { return '<span class="chip" data-corp="' + esc(x.name) + '"><i class="sw" style="background:' + displayColor(x.color || '#999', dark) + '"></i>' + esc(x.name) + ' ' + x.n + ' × ' + x.pct + '%</span>'; };
-      bankHtml = ('<div class="bankbox"><div class="tiles"><div class="tile"><div class="l">Bank cash</div><div class="v">' + esc(m(B.cash)) + '</div></div></div>' +
-        '<div class="bl">Trains still to come, in order (the first is the next one bought)</div><div class="dq" data-bank="depot">' + (B.up.length ? B.up.map(trChip).join('') : '<span style="color:var(--text-muted)">none left</span>') + '</div>' +
-        (B.pool.length ? '<div class="bl">Trains in the bank pool (discarded, can be bought)</div><div class="dq" data-bank="trainpool">' + B.pool.map(function (r2) { return '<span class="chip">' + esc(r2.name) + (r2.n > 1 ? ' × ' + r2.n : '') + ' · ' + esc(m(r2.price)) + '</span>'; }).join('') + '</div>' : '') +
-        '<div class="bl">Shares in the initial offering</div><div class="dq" data-bank="ipo">' + (B.ipo.length ? B.ipo.map(shChip).join('') : '<span style="color:var(--text-muted)">none</span>') + '</div>' +
-        '<div class="bl">Shares in the market (bank pool)</div><div class="dq" data-bank="pool">' + (B.mpool.length ? B.mpool.map(shChip).join('') : '<span style="color:var(--text-muted)">none</span>') + '</div></div>');
+      bankCashTile = '<div class="tile"><div class="l">Bank cash</div><div class="v">' + esc(m(B.cash)) + '</div></div>';
+      var none = '<span style="color:var(--text-muted)">none</span>';
+      bankHtml = '<div class="bankrow">' +
+        '<div class="bb"><div class="bl">Trains still to come, in order (first = next bought)</div><div class="dq" data-bank="depot">' + (B.up.length ? B.up.map(trChip).join('') : '<span style="color:var(--text-muted)">none left</span>') + '</div>' +
+        (B.pool.length ? '<div class="bl">In the bank pool (discarded, can be bought)</div><div class="dq" data-bank="trainpool">' + B.pool.map(function (r2) { return '<span class="chip">' + esc(r2.name) + (r2.n > 1 ? ' × ' + r2.n : '') + ' · ' + esc(m(r2.price)) + '</span>'; }).join('') + '</div>' : '') + '</div>' +
+        '<div class="bb"><div class="bl">Shares in the initial offering</div><div class="dq" data-bank="ipo">' + (B.ipo.length ? B.ipo.map(shChip).join('') : none) + '</div></div>' +
+        '<div class="bb"><div class="bl">Shares in the market (bank pool)</div><div class="dq" data-bank="pool">' + (B.mpool.length ? B.mpool.map(shChip).join('') : none) + '</div></div></div>';
     }
 
 
-    h.push('<section class="card wide"><h2>Trains &amp; phases</h2><p class="sub">What is left in the bank, what is running, and what rusts next</p>' + bankHtml);
-    h.push('<div class="tiles"><div class="tile"><div class="l">Trains left in bank</div><div class="v">' + totalLeft + (unlimitedLeft ? ' <small style="font-size:13px;color:var(--text-muted)">+ unlimited</small>' : '') + '</div></div>');
+    h.push('<section class="card wide"><h2>Trains &amp; phases</h2><p class="sub">What is left in the bank, what is running, and what rusts next</p>');
+    h.push('<div class="tiles">' + bankCashTile + '<div class="tile"><div class="l">Trains left in bank</div><div class="v">' + totalLeft + (unlimitedLeft ? ' <small style="font-size:13px;color:var(--text-muted)">+ unlimited</small>' : '') + '</div></div>');
     h.push('<div class="tile"><div class="l">Next train</div><div class="v">' + (d.nextTrain ? esc(d.nextTrain.name) + ' <small style="font-size:13px;color:var(--text-muted)">' + esc(m(d.nextTrain.price)) + '</small>' : '—') + '</div></div>');
     var nextPhase = d.phases.find(function (p) { return p.status === 'future'; });
     h.push('<div class="tile"><div class="l">Next phase</div><div class="v">' + (nextPhase ? esc(nextPhase.name) + ' <small style="font-size:13px;color:var(--text-muted)">' + (nextPhase.inPurchases > 0 ? (nextPhase.inPurchases === 1 ? 'on next buy' : 'in ' + nextPhase.inPurchases + ' buys') : '') + '</small>' : '—') + '</div></div>');
@@ -1332,6 +1351,7 @@
     var hit = rg ? d.trainGroups.filter(function (g) { return g.owned && g.rustIn === rg.rustIn; }) : [];
     var hitCorps = {}; hit.forEach(function (g) { Object.keys(g.owners).forEach(function (o) { hitCorps[o] = 1; }); });
     h.push('<div class="tile"><div class="l">Next rust</div><div class="v">' + (rg ? esc(hit.map(function (g) { return g.sym; }).join(' + ')) + ' <small style="font-size:13px;color:var(--text-muted)">' + (rg.rustIn === 1 ? 'on next buy' : 'in ' + rg.rustIn + ' buys') + '</small><div style="font-size:11px;font-weight:400;color:var(--text-muted)">hits ' + esc(Object.keys(hitCorps).join(', ')) + '</div>' : '<span style="font-size:14px;color:var(--text-muted)">no rust ahead</span>') + '</div></div></div>');
+    h.push(bankHtml);
 
     h.push('<div class="phases">' + d.phases.map(function (p) {
       return '<div class="phase ' + p.status + '"><div class="n">' + esc(p.name) + '</div><div class="d">limit ' + esc(p.trainLimit) + (p.ors ? ' · ' + esc(p.ors) + ' OR' : '') + '</div>' +
