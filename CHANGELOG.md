@@ -2,6 +2,14 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.10.1] - 2026-11-12
+
+### Changed
+- **Now** is half width and shares the top row with **What just happened**, both the same size.
+- **Game end:** the bank estimate is now labelled as a pace-based guess, and the tile lists every way the game can end, in the engine's own words, with how many trains away a trigger train is (for example the train that makes LNER form in 1862).
+- **Trains & phases** is now **Trains, phases & Bank**, and the *Held by* column shows each company's colour. (A saved layout keeps its place for the renamed section.)
+- **Portfolios:** every player is drawn on the same value scale, so portfolios can be compared by flicking between players.
+
 ## [0.10.0] - 2026-11-12
 
 ### Added

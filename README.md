@@ -39,13 +39,13 @@ The bookmark is only a loader: it fetches `stats.js` from this repository each t
 5. To look at another game, old or live, open the **⋯** menu at the top of the stats window, type its number or link and press **Open**. Any title works.
 6. **Half screen:** the window opens on the right half of your screen, so the game keeps the left half. Move or resize it and it remembers that next time; press **◨** to snap it back to the right half.
 7. **Light or dark:** press ☀ / 🌙 at the top. By default it follows your system.
-8. **Arrange it your way:** collapse a section with ▾, and move it by dragging the ⠿ handle or with ▲ ▼. The arrangement is saved separately for live games and for reviews of finished games. Live games start with *Trains & phases* near the top. **Reset layout** (in the **⋯** menu) restores the defaults.
+8. **Arrange it your way:** collapse a section with ▾, and move it by dragging the ⠿ handle or with ▲ ▼. The arrangement is saved separately for live games and for reviews of finished games. Live games start with *Now* and *What just happened* side by side at the top. **Reset layout** (in the **⋯** menu) restores the defaults.
 
 ## What the window shows
 
 While a game is in progress:
 
-- **Now:** who is to act, the order of the round, operating rounds left in the set, priority deal, a personal tile once you pick your name under *I am…*, a train rush warning and a game-end estimate.
+- **Now:** who is to act, the order of the round, operating rounds left in the set, priority deal, a personal tile once you pick your name under *I am…*, a train rush warning and a game-end estimate that lists every way the game can end, with how many trains away a trigger train is.
 - **What just happened:** the latest moves, with new ones marked. A second tab, *Since your last turn*, lists everything logged after your own last move (shown when there is something, and once you are picked under *I am…*; the page's logged-in name is picked automatically when it matches a player).
 - **Stock round helper:** shares available, dividend per share, yield, presidency warnings, and where the price goes if a company pays or withholds.
 - **Your turn:** a green frame around the window, ● in the title, and an optional sound.
@@ -59,9 +59,9 @@ Always:
 - **Player value over time:** the score race, round by round.
 - **Company revenue per OR:** ● paid out, ◉ half payout, ○ withheld; minors as dashed lines.
 - **Share price** history.
-- **Portfolios:** pick a player and see what they held over the game, stacked by company, with private companies and cash. Short positions (1817 family) go below zero.
+- **Portfolios:** pick a player and see what they held over the game (all players use the same scale, so they are easy to compare), stacked by company, with private companies and cash. Short positions (1817 family) go below zero.
 - **Holdings now:** who owns what percentage of each company; ★ is president, shorts in red.
-- **Trains & phases:** starts with the bank (cash, the trains still to come in order, trains in the bank pool, shares left in the initial offering and the market), then trains left per type, the next train, purchases until each phase change, what rusts next and which companies it hits.
+- **Trains, phases & Bank:** starts with the bank (cash, the trains still to come in order, trains in the bank pool, shares left in the initial offering and the market), then trains left per type, the next train, purchases until each phase change, what rusts next and which companies it hits, and in the *Held by* column each company's colour.
 - **Tile manifest** (collapsed by default): how many of each tile are left, by colour; colours the current phase does not allow yet are dimmed.
 - **Game log:** the whole log of the game, one round at a time. Drag the slider (or press ◀ ▶) to walk through the game, search the whole log for a company or player, or jump to your own last move once you pick your name under *I am…*. Every line has the acting player's colour and name on the left, and your own lines are highlighted. Works in finished and live games.
 - **History (⏱):** press ⏱ at the top and a slider appears. Drag it, or press ◀ ▶, and the whole window shows the game as it was at the end of that round: standings, corporations, trains, bank, market and log. It is paused and read only; **back to now** returns to the current state. Each step replays the game, so it takes a second or two the first time (visited rounds are remembered).
