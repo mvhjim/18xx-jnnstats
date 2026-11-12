@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.9.1';
+  var VERSION = '0.9.2';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -740,7 +740,7 @@
     '.mk{display:grid;grid-template-columns:repeat(var(--cols),minmax(34px,1fr));gap:2px;overflow-x:auto}',
     '.mc{border:1px solid var(--grid);border-radius:5px;padding:2px 3px;min-height:40px;font-size:11px;min-width:0}.mc.empty{border-color:transparent}.mp{color:var(--text-secondary);font-variant-numeric:tabular-nums;font-size:10.5px}',
     '.cp{display:block;border-radius:4px;padding:0 3px;margin-top:2px;font-size:10.5px;font-weight:700;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default}.cp.mine{outline:2px solid var(--accent);outline-offset:1px}.cp.gh{background:transparent!important;border:1.5px dashed;font-weight:600}',
-    '.feed.gl{max-height:420px}.feed li.gl{display:grid;grid-template-columns:92px 1fr;gap:8px;padding-left:0;border-left:4px solid var(--pc,transparent)}.feed li.gl .gu{padding-left:6px;color:var(--text-secondary);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.feed li.gl.me{background:color-mix(in srgb,var(--pc) 14%,transparent)}.feed li.gl.me .gu{color:var(--text);font-weight:700}.feed li.gl.head{border-left-color:transparent}.feed li.mine .gm{font-weight:600;color:var(--accent)}.glr{color:var(--text-muted);font-size:10.5px}.gltools{display:flex;gap:8px;align-items:center;margin:0 0 8px}.gltools input{flex:1;min-width:80px}',
+    '.bankbox{margin:0 0 12px;padding:0 0 4px;border-bottom:1px solid var(--grid)}.feed.gl{max-height:420px}.feed li.gl{display:grid;grid-template-columns:92px 1fr;gap:8px;padding-left:0;border-left:4px solid var(--pc,transparent)}.feed li.gl .gu{padding-left:6px;color:var(--text-secondary);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.feed li.gl.me{background:color-mix(in srgb,var(--pc) 14%,transparent)}.feed li.gl.me .gu{color:var(--text);font-weight:700}.feed li.gl.head{border-left-color:transparent}.feed li.mine .gm{font-weight:600;color:var(--accent)}.glr{color:var(--text-muted);font-size:10.5px}.gltools{display:flex;gap:8px;align-items:center;margin:0 0 8px}.gltools input{flex:1;min-width:80px}',
     '.gslide{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--text-secondary)}.gslide input{flex:1;min-width:80px}',
     '.zl{display:flex;flex-wrap:wrap;gap:4px 12px;margin:8px 0 0;font-size:11.5px;color:var(--text-secondary)}.zl i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1px solid var(--border)}',
     '.dq{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px}.dq .chip{font-variant-numeric:tabular-nums}.dq .chip.next{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:650}.bl{font-size:12px;color:var(--text-muted);margin:6px 0 2px}',
@@ -1311,7 +1311,19 @@
     // Trains
     var totalLeft = d.trainGroups.reduce(function (a, g) { return a + (g.unlimited ? 0 : g.available); }, 0);
     var unlimitedLeft = d.trainGroups.some(function (g) { return g.unlimited && g.available; });
-    h.push('<section class="card wide"><h2>Trains &amp; phases</h2><p class="sub">What is left in the bank, what is running, and what rusts next</p>');
+    var B = d.bank2, bankHtml = '';
+    if (B) {
+      var trChip = function (r2, i2) { return '<span class="chip' + (i2 === 0 ? ' next' : '') + '">' + (i2 === 0 ? '▶ ' : '') + esc(r2.name) + (r2.n > 1 ? ' × ' + r2.n : '') + ' · ' + esc(m(r2.price)) + '</span>'; };
+      var shChip = function (x) { return '<span class="chip" data-corp="' + esc(x.name) + '"><i class="sw" style="background:' + displayColor(x.color || '#999', dark) + '"></i>' + esc(x.name) + ' ' + x.n + ' × ' + x.pct + '%</span>'; };
+      bankHtml = ('<div class="bankbox"><div class="tiles"><div class="tile"><div class="l">Bank cash</div><div class="v">' + esc(m(B.cash)) + '</div></div></div>' +
+        '<div class="bl">Trains still to come, in order (the first is the next one bought)</div><div class="dq" data-bank="depot">' + (B.up.length ? B.up.map(trChip).join('') : '<span style="color:var(--text-muted)">none left</span>') + '</div>' +
+        (B.pool.length ? '<div class="bl">Trains in the bank pool (discarded, can be bought)</div><div class="dq" data-bank="trainpool">' + B.pool.map(function (r2) { return '<span class="chip">' + esc(r2.name) + (r2.n > 1 ? ' × ' + r2.n : '') + ' · ' + esc(m(r2.price)) + '</span>'; }).join('') + '</div>' : '') +
+        '<div class="bl">Shares in the initial offering</div><div class="dq" data-bank="ipo">' + (B.ipo.length ? B.ipo.map(shChip).join('') : '<span style="color:var(--text-muted)">none</span>') + '</div>' +
+        '<div class="bl">Shares in the market (bank pool)</div><div class="dq" data-bank="pool">' + (B.mpool.length ? B.mpool.map(shChip).join('') : '<span style="color:var(--text-muted)">none</span>') + '</div></div>');
+    }
+
+
+    h.push('<section class="card wide"><h2>Trains &amp; phases</h2><p class="sub">What is left in the bank, what is running, and what rusts next</p>' + bankHtml);
     h.push('<div class="tiles"><div class="tile"><div class="l">Trains left in bank</div><div class="v">' + totalLeft + (unlimitedLeft ? ' <small style="font-size:13px;color:var(--text-muted)">+ unlimited</small>' : '') + '</div></div>');
     h.push('<div class="tile"><div class="l">Next train</div><div class="v">' + (d.nextTrain ? esc(d.nextTrain.name) + ' <small style="font-size:13px;color:var(--text-muted)">' + esc(m(d.nextTrain.price)) + '</small>' : '—') + '</div></div>');
     var nextPhase = d.phases.find(function (p) { return p.status === 'future'; });
@@ -1385,17 +1397,6 @@
       h.push('</tbody></table></div><p class="sub" style="margin-top:6px">Minors also appear as dashed lines in the revenue chart.</p></section>');
     }
     // Bank & depot
-    var B = d.bank2;
-    if (B) {
-      var trChip = function (r2, i2) { return '<span class="chip' + (i2 === 0 ? ' next' : '') + '">' + (i2 === 0 ? '▶ ' : '') + esc(r2.name) + (r2.n > 1 ? ' × ' + r2.n : '') + ' · ' + esc(m(r2.price)) + '</span>'; };
-      var shChip = function (x) { return '<span class="chip" data-corp="' + esc(x.name) + '"><i class="sw" style="background:' + displayColor(x.color || '#999', dark) + '"></i>' + esc(x.name) + ' ' + x.n + ' × ' + x.pct + '%</span>'; };
-      h.push('<section class="card"><h2>Bank &amp; depot</h2><p class="sub">What the bank still holds</p><div class="tiles"><div class="tile"><div class="l">Bank cash</div><div class="v">' + esc(m(B.cash)) + '</div></div></div>' +
-        '<div class="bl">Trains still to come, in order (the first is the next one bought)</div><div class="dq" data-bank="depot">' + (B.up.length ? B.up.map(trChip).join('') : '<span style="color:var(--text-muted)">none left</span>') + '</div>' +
-        (B.pool.length ? '<div class="bl">Trains in the bank pool (discarded, can be bought)</div><div class="dq" data-bank="trainpool">' + B.pool.map(function (r2) { return '<span class="chip">' + esc(r2.name) + (r2.n > 1 ? ' × ' + r2.n : '') + ' · ' + esc(m(r2.price)) + '</span>'; }).join('') + '</div>' : '') +
-        '<div class="bl">Shares in the initial offering</div><div class="dq" data-bank="ipo">' + (B.ipo.length ? B.ipo.map(shChip).join('') : '<span style="color:var(--text-muted)">none</span>') + '</div>' +
-        '<div class="bl">Shares in the market (bank pool)</div><div class="dq" data-bank="pool">' + (B.mpool.length ? B.mpool.map(shChip).join('') : '<span style="color:var(--text-muted)">none</span>') + '</div></section>');
-    }
-
     // Tile manifest
     if (d.tiles && d.tiles.groups.length) {
       var TC = { yellow: '#f2d12e', green: '#5cae4a', brown: '#9b6b3d', gray: '#8c8c8c', grey: '#8c8c8c' };
@@ -1525,19 +1526,19 @@
   // ---------- Layout: collapse and reorder sections, remembered per mode ----------------
   // Two layouts are kept in this browser: 'live' (game in progress) and 'review' (finished game).
   var DEFAULT_ORDER = {
-    live: ['now', 'what-just-happened', 'trains-phases', 'stock-round-helper', 'stock-market', 'corporations', 'bank-depot', 'standings', 'player-value-over-time', 'stock-ticker', 'portfolios', 'company-revenue-per-operating-round', 'share-price', 'minors-private-companies', 'game-log', 'tile-manifest'],
-    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'game-log', 'company-revenue-per-operating-round', 'share-price', 'portfolios', 'trains-phases', 'corporations', 'bank-depot', 'minors-private-companies', 'tile-manifest']
+    live: ['now', 'what-just-happened', 'trains-phases', 'stock-round-helper', 'stock-market', 'standings', 'player-value-over-time', 'stock-ticker', 'portfolios', 'corporations', 'company-revenue-per-operating-round', 'share-price', 'game-log', 'minors-private-companies', 'tile-manifest'],
+    review: ['stock-ticker', 'stock-market', 'standings', 'player-value-over-time', 'game-log', 'company-revenue-per-operating-round', 'share-price', 'portfolios', 'corporations', 'trains-phases', 'minors-private-companies', 'tile-manifest']
   };
   function slug(txt) { return String(txt).toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
   function loadLayout(mode) {
     try {
       var v = JSON.parse(localStorage.getItem('xxStats.layout.' + mode) || 'null');
       if (v && v.order) { // sections added in newer versions slot in at their default place
-        DEFAULT_ORDER[mode].forEach(function (k, i) { if (v.order.indexOf(k) < 0) { v.order.splice(Math.min(i, v.order.length), 0, k); if (k === 'tile-manifest') (v.collapsed = v.collapsed || []).push(k); } });
+        DEFAULT_ORDER[mode].forEach(function (k, i) { if (v.order.indexOf(k) < 0) { v.order.splice(Math.min(i, v.order.length), 0, k); if (k === 'tile-manifest' || k === 'minors-private-companies') (v.collapsed = v.collapsed || []).push(k); } });
         return v;
       }
     } catch (e) {}
-    return { order: DEFAULT_ORDER[mode].slice(), collapsed: ['tile-manifest'] };
+    return { order: DEFAULT_ORDER[mode].slice(), collapsed: ['minors-private-companies', 'tile-manifest'] };
   }
   function saveLayout(mode, lay) { try { localStorage.setItem('xxStats.layout.' + mode, JSON.stringify(lay)); } catch (e) {} }
   function applyLayout(w, mode) {
