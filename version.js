@@ -1,2 +1,2 @@
 window.__xxLatest = '0.25.1';
-window.__xxSha = 'bc0b248';
+window.__xxSha = 'e6925f3';
