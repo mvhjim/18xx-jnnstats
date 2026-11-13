@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.24.2';
+  var VERSION = '0.25.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -1013,6 +1013,8 @@
     '.gslide{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--text-secondary)}.gslide input{flex:1;min-width:80px}',
     '.zl{display:flex;flex-wrap:wrap;gap:4px 12px;margin:8px 0 0;font-size:11.5px;color:var(--text-secondary)}.zl i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1px solid var(--border)}',
     '.dq{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px}.dq .chip{font-variant-numeric:tabular-nums}.dq .chip.next{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:650}.bl{font-size:12px;color:var(--text-muted);margin:6px 0 2px}',
+    '.szb{display:inline-flex;gap:2px}.szb .ib.on{background:var(--accent);color:#fff;border-color:var(--accent)}.pn{opacity:.45;background:none;border:0;cursor:pointer;font-size:12px;padding:0 3px;margin-left:auto}.pn:hover,.pn.on{opacity:1}',
+    '#dock{margin-top:6px;border-top:1px solid var(--border);padding-top:4px}#dock .dkh{display:flex;gap:10px;align-items:center;font-size:12px;font-weight:700;color:var(--text-secondary)}#dock .dkb{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:8px;max-height:36vh;overflow-y:auto;margin-top:4px}#dock.cl .dkb{display:none}#dock .card{margin:0;box-shadow:none}.lcta{width:100%;box-sizing:border-box;font:11.5px ui-monospace,Menlo,monospace;background:var(--surface-0);color:var(--text-primary);border:1px solid var(--border);border-radius:6px;padding:6px}',
     '.evk{font-size:11.5px}.take{margin:2px 0 8px;font-size:12.5px;color:var(--text-secondary)}.take b{color:var(--text-primary)}.pvt{margin-left:8px;font-size:12px}.pvt .on{font-weight:700;text-decoration:none;color:var(--text-primary)}.cmt{margin-left:8px;font-size:12px}.cmt .cm.on{font-weight:700;text-decoration:none;color:var(--text-primary)}',
     '.rpmv{margin:0 0 4px;font-size:12px;color:var(--text-secondary)}',
     '.badges{display:flex;flex-wrap:wrap;gap:10px}.bdg{display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:10px;padding:8px 12px;min-width:200px;font-size:13px}.bdg .bi{font-size:26px}.bdg .bn{font-weight:650}',
@@ -1029,6 +1031,9 @@
   // the narrow-window layout lives in its own style element so it can be switched off
   var NARROW = '@media (max-width:720px){main{padding:8px;gap:8px}header{padding:6px 8px}.card{padding:9px 10px}.hr1 h1{font-size:15px}.hr3{flex-wrap:wrap}.rtsel,.gltools,.gslide{flex-wrap:wrap}.tabs{flex-wrap:nowrap;overflow-x:auto}.feed li.gl{grid-template-columns:64px 1fr}.tile{flex-basis:46%}.cdesc{max-width:260px}}';
 
+  // Window size mode: 'half' (wide layout), 'third' (narrow layout), or null = decide from the window width
+  function sizePref() { var v = lsGet('xxStats.size'); if (v === 'half' || v === 'third') return v; return lsGet('xxStats.wide') === '1' ? 'half' : null; }
+  function effSize(w) { return sizePref() || ((w.innerWidth || 1000) <= 720 ? 'third' : 'half'); }
   function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
   // Two short tones, played in the stats window (the sound toggle click unlocks audio there).
@@ -1181,6 +1186,7 @@
   }
   function ecInk(dark) { return { ink: dark ? '#c3c2b7' : '#52514e', mut: '#898781', grid: dark ? '#2c2c2a' : '#e1e0d9', surf: dark ? '#1a1a19' : '#fcfcfb', strong: dark ? '#f0efec' : '#0b0b0b' }; }
   function ecInit(w, el, h) {
+    if (el.closest && el.closest('#dock')) h = Math.min(h, 200);
     el.innerHTML = ''; el.style.height = h + 'px'; el.style.position = 'relative';
     var ch = w.echarts.init(el, null, { renderer: 'svg', width: el.clientWidth || 600, height: h });
     (w.__ecInst = w.__ecInst || []).push(ch);
@@ -1201,6 +1207,7 @@
     };
   }
   function ecLine(w, el, model, o) {
+    if (el.closest && el.closest('#dock')) o.height = Math.min(o.height || 300, 200);
     var C = ecInk(o.dark), dark = o.dark, labels = model.labels, ch = ecInit(w, el, o.height || 300);
     var bands = [];
     (o.phases || []).forEach(function (ph, i, arr) {
@@ -1889,7 +1896,7 @@
     var soundOn = lsGet('xxStats.sound') === '1', armed = !!w.__xxAudio;
     doc.title = (myTurn ? '● Your turn · ' : '') + d.roundLabel + ' · ' + d.title + ' · ' + d.id + ' · 18xx-JNNstats';
     doc.documentElement.setAttribute('data-theme', themePref() || 'dark');
-    try { var nst = doc.getElementById('xxn'); if (nst) nst.disabled = lsGet('xxStats.wide') === '1'; } catch (eN) {}
+    try { var nst = doc.getElementById('xxn'); if (nst) { var szp = sizePref(), want = szp === 'third' ? NARROW.replace('@media (max-width:720px)', '@media all') : NARROW; if (nst.textContent !== want) nst.textContent = want; nst.disabled = szp === 'half'; } } catch (eN) {}
     if (ST.lookGame !== d.id && !d.tt) { ST.lookGame = d.id; ST.lookId = d.feed.length ? d.feed[0].id : 0; }
     if (!d.tt) ST.maxFeedId = d.feed.length ? d.feed[0].id : 0;
     var leader = Math.max.apply(null, d.players.map(function (p) { return p.value; }));
@@ -1915,13 +1922,14 @@
       '<label class="mesel">I am <select id="me"><option value="">…</option>' + d.players.map(function (p) { return '<option' + (p.name === me ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') + '</select></label>' +
       '<button class="ib" id="snd" title="' + (soundOn ? (armed ? 'Sound on: plays when it becomes your turn. Click to switch off.' : 'Click once to arm the sound (browsers need a click)') : 'Sound off. Click to play a sound when it becomes your turn.') + '">' + (soundOn ? (armed ? '🔔' : '🔔?') : '🔕') + '</button>' +
       '<button class="ib" id="rf" title="Refresh now">⟳</button>' +
-      '<button class="ib" id="sn" title="Move this window to the right half of the screen">◨</button>' +
+      '<span class="szb"><button class="ib' + (effSize(w) === 'half' ? ' on' : '') + '" id="sz-h" title="Half size: wide layout, and moves this window to the right half of the screen">Half</button><button class="ib' + (effSize(w) === 'third' ? ' on' : '') + '" id="sz-t" title="Third size: narrow single-column layout, and moves this window to the right third of the screen">Third</button></span>' +
       '<button class="ib" id="tt" title="History: step back through the game round by round">⏱</button>' +
       '<button class="ib" id="th" title="Switch between dark and light">' + (dark ? '🌙' : '☀') + '</button>' +
       updHtml +
       '<details class="menu" id="mn"' + (ST.menuOpen ? ' open' : '') + '><summary class="ib" title="More">⋯</summary><div class="mp2">' +
         '<button id="lr" title="Restore the default order and expand all sections">Reset <span id="lm">layout</span></button>' +
-        '<span style="display:flex;gap:6px;align-items:center">Text size <button id="zo" title="Smaller text">A−</button><button id="zi" title="Larger text">A+</button></span> <button id="sh-v" class="ib" title="Copy a link that opens this game with your card layout (no names or other data are in it)">🔗</button> <button id="nw" class="ib" title="Switch between the single-column layout used in narrow windows and the normal layout">▯</button>' +
+        '<span style="display:flex;gap:6px;align-items:center">Text size <button id="zo" title="Smaller text">A−</button><button id="zi" title="Larger text">A+</button></span> <button id="sh-v" class="ib" title="Copy a link that opens this game with your card layout (no names or other data are in it)">🔗</button> ' +
+        '<button id="sz-a" class="ib" title="Pick the layout from the window width again (after using Half or Third)">Auto size</button> <button id="lc-open" class="ib" title="Copy or paste your card layout as text">Layout code…</button>' +
         '<form id="gf" style="display:flex;gap:6px"><input id="gi" placeholder="game # or link" size="14" value="' + esc(ST.giVal || '') + '"><button>Open</button></form>' +
         '<div style="color:var(--text-muted)">Look at another game, old or live.</div>' +
         '<button id="cmp-open" class="ib" title="Compare this game with others, or look at your history with the same friends">' + (ST.cmpOpen ? 'Hide' : 'Compare games…') + '</button>' + aboutHtml + '</div></details></span></div>');
@@ -2908,7 +2916,11 @@
       doc.getElementById('tt-n').onclick = function () { doc.getElementById('tt-l').textContent = 'loading…'; ttGo(ttCur() + 1); };
       var ttx = doc.getElementById('tt-x'); if (ttx) ttx.onclick = function () { ttExit(); };
     }
-    doc.getElementById('sn').onclick = function () { snapRight(w); };
+    var szSet = function (v, parts) { try { if (v) localStorage.setItem('xxStats.size', v); else localStorage.removeItem('xxStats.size'); } catch (eS) {} if (parts) snapRight(w, parts); rerender(); };
+    doc.getElementById('sz-h').onclick = function () { szSet('half', 2); };
+    doc.getElementById('sz-t').onclick = function () { szSet('third', 3); };
+    var sza = doc.getElementById('sz-a'); if (sza) sza.onclick = function () { szSet(null, 0); };
+    var lco = doc.getElementById('lc-open'); if (lco) lco.onclick = function () { ST.lcOpen = !ST.lcOpen; ST.menuOpen = false; rerender(); try { w.scrollTo(0, 0); } catch (eT) {} };
     var zoomBy = function (dz) { var z = Math.min(1.5, Math.max(0.8, (parseFloat(lsGet('xxStats.zoom')) || 1) + dz)); lsSet('xxStats.zoom', String(Math.round(z * 100) / 100)); doc.body.style.zoom = String(z); };
     var nwb = doc.getElementById('nw'); if (nwb) nwb.onclick = function () { try { localStorage.setItem('xxStats.wide', lsGet('xxStats.wide') === '1' ? '0' : '1'); } catch (e12) {} rerender(); };
     var shv = doc.getElementById('sh-v');
@@ -2981,11 +2993,50 @@
   function loadLayout(mode) {
     try {
       var v = JSON.parse(localStorage.getItem('xxStats.layout2.' + mode) || 'null');
-      if (v && v.order) { layoutKeys(mode).forEach(function (k) { if (v.order.indexOf(k) < 0) v.order.push(k); }); v.collapsed = v.collapsed || []; v.gc = v.gc || []; return v; }
+      if (v && v.order) { layoutKeys(mode).forEach(function (k) { if (v.order.indexOf(k) < 0) v.order.push(k); }); v.collapsed = v.collapsed || []; v.gc = v.gc || []; v.dock = Array.isArray(v.dock) ? v.dock.filter(function (k) { return layoutKeys(mode).indexOf(k) >= 0; }).slice(0, 3) : []; return v; }
     } catch (e) {}
-    return { order: layoutKeys(mode), collapsed: ['minors-private-companies', 'tile-manifest', 'game-info'], gc: DEFAULT_GC[mode].slice() };
+    return { order: layoutKeys(mode), collapsed: ['minors-private-companies', 'tile-manifest', 'game-info'], gc: DEFAULT_GC[mode].slice(), dock: [] };
   }
   function saveLayout(mode, lay) { try { localStorage.setItem('xxStats.layout2.' + mode, JSON.stringify(lay)); } catch (e) {} }
+  // Layout as one line of text: 18xx-JNNstats:L1;v=<version>;live.o=…;live.c=…;live.g=…;live.d=…;review.o=…  (o order, c collapsed, g folded sections, d dock)
+  var LC_PREFIX = '18xx-JNNstats:L1';
+  function buildLayoutCode() {
+    var parts = [LC_PREFIX, 'v=' + VERSION];
+    ['live', 'review'].forEach(function (mode) { var L = loadLayout(mode); parts.push(mode + '.o=' + L.order.join(','), mode + '.c=' + L.collapsed.join(','), mode + '.g=' + L.gc.join(','), mode + '.d=' + (L.dock || []).join(',')); });
+    return parts.join(';');
+  }
+  function parseLayoutCode(txt) {
+    var out = { v: null, modes: {} }, bits = String(txt || '').trim().replace(/\s+/g, '').split(';');
+    if (bits[0] !== LC_PREFIX) return { err: 'This does not look like an 18xx-JNNstats layout code (it should start with ' + LC_PREFIX + ').' };
+    if (bits.length > 14) return { err: 'The layout code is longer than expected.' };
+    var okList = function (s) { var a = s === '' ? [] : s.split(','); return a.length <= 80 && a.every(function (k) { return /^[a-z0-9-]{1,60}$/.test(k); }) ? a : null; };
+    for (var i = 1; i < bits.length; i++) {
+      var eq = bits[i].indexOf('='); if (eq < 0) return { err: 'A part of the code is broken: ' + bits[i].slice(0, 30) };
+      var k = bits[i].slice(0, eq), v = bits[i].slice(eq + 1);
+      if (k === 'v') { if (!/^\d+(\.\d+){1,3}$/.test(v)) return { err: 'The version in the code is not valid.' }; out.v = v; continue; }
+      var m = /^(live|review)\.([ocgd])$/.exec(k); if (!m) continue;
+      var a = okList(v); if (!a) return { err: 'The list ' + k + ' contains something that is not a card name.' };
+      (out.modes[m[1]] = out.modes[m[1]] || {})[m[2]] = a;
+    }
+    if (!Object.keys(out.modes).length) return { err: 'The code has no layout in it.' };
+    return out;
+  }
+  function applyLayoutCode(parsed) {
+    Object.keys(parsed.modes).forEach(function (mode) {
+      var P = parsed.modes[mode], known = layoutKeys(mode), gids = GROUPS[mode].map(function (g) { return g.id; });
+      var order = (P.o || []).filter(function (k) { return known.indexOf(k) >= 0; });
+      known.forEach(function (k) { if (order.indexOf(k) < 0) order.push(k); });
+      saveLayout(mode, { order: order, collapsed: (P.c || []).filter(function (k) { return known.indexOf(k) >= 0; }), gc: (P.g || []).filter(function (g) { return gids.indexOf(g) >= 0; }), dock: (P.d || []).filter(function (k) { return known.indexOf(k) >= 0; }).slice(0, 3) });
+    });
+    ST.mt = {};
+  }
+  function lcNote(v) {
+    if (!v) return 'No version in this code.';
+    if (v === VERSION) return 'Made with this version (' + v + ').';
+    var a = v.split('.').map(Number), b = VERSION.split('.').map(Number), older = false;
+    for (var i = 0; i < 3; i++) { if ((a[i] || 0) !== (b[i] || 0)) { older = (a[i] || 0) < (b[i] || 0); break; } }
+    return older ? 'Made with an older version (' + v + '; you run ' + VERSION + '). Cards added since then go to their usual place.' : 'Made with a newer version (' + v + '; you run ' + VERSION + '). Cards this version does not have are ignored.';
+  }
   // One colour per entity everywhere: a company name in a table cell gets its swatch, a player name gets the player's dot
   function decorateNames(doc, d, pal, dark) {
     var comp = {}, pl = {}; d.ticker.forEach(function (t) { comp[t.name] = t.color; }); d.players.forEach(function (p) { pl[p.name] = pal[p.idx % pal.length]; });
@@ -3035,7 +3086,7 @@
       var stEl = h2.querySelector('.st'), title = stEl ? stEl.innerHTML : h2.innerHTML;
       h2.className = 'sh';
       h2.innerHTML = '<span class="grip" title="Drag to move">⠿</span><button class="tg" title="Collapse / expand" aria-expanded="true">▾</button><span class="st">' + title + '</span>' +
-        '<span class="mv"><button data-mv="-1" title="Move up">▲</button><button data-mv="1" title="Move down">▼</button></span>';
+        '<span class="mv"><button data-mv="-1" title="Move up">▲</button><button data-mv="1" title="Move down">▼</button></span><button class="pn' + (lay.dock.indexOf(key) >= 0 ? ' on' : '') + '" data-pin="1" title="' + (lay.dock.indexOf(key) >= 0 ? 'Unpin from the dock' : 'Pin to the dock: stays at the top while the rest scrolls (up to 3 cards)') + '">📌</button>';
       if (lay.collapsed.indexOf(key) >= 0) { sec.classList.add('collapsed'); h2.querySelector('.tg').textContent = '▸'; h2.querySelector('.tg').setAttribute('aria-expanded', 'false'); }
       // long introductions fold behind a small "i" button
       Array.prototype.forEach.call(sec.querySelectorAll(':scope > p.sub, :scope > .mpane > p.sub:first-child'), function (sub) {
@@ -3060,6 +3111,16 @@
     secs.slice().sort(function (a, b) { return rank(a.getAttribute('data-key')) - rank(b.getAttribute('data-key')); }).forEach(function (sec) {
       var gid = gOf[sec.getAttribute('data-key')] || groups[groups.length - 1].id; bodies[gid].appendChild(sec);
     });
+    // the dock: pinned cards live inside the sticky header, so they stay put while everything below scrolls
+    var hdrEl = doc.querySelector('header'), dock = null;
+    if (hdrEl && lay.dock.length) {
+      dock = doc.createElement('div'); dock.id = 'dock'; if (ST.dockCol) dock.classList.add('cl');
+      dock.innerHTML = '<div class="dkh"><span>📌 Dock</span><button class="lnk" id="dk-t">' + (ST.dockCol ? 'show' : 'hide') + '</button></div><div class="dkb"></div>';
+      var dkb = dock.querySelector('.dkb');
+      lay.dock.forEach(function (k) { var s2 = main.querySelector('section[data-key="' + k + '"]'); if (s2) { dkb.appendChild(s2); s2.classList.add('docked'); } });
+      if (dkb.children.length) hdrEl.appendChild(dock); else dock = null;
+      if (dock) dock.querySelector('#dk-t').onclick = function () { ST.dockCol = !ST.dockCol; dock.classList.toggle('cl', ST.dockCol); this.textContent = ST.dockCol ? 'show' : 'hide'; };
+    }
     groups.forEach(function (g) {
       var wrap = main.querySelector('.grp[data-g="' + g.id + '"]'), n = bodies[g.id].children.length;
       if (!n) wrap.parentNode.removeChild(wrap); else wrap.querySelector('.gn').textContent = n + (n === 1 ? ' card' : ' cards');
@@ -3068,9 +3129,10 @@
     var cmpSec = main.querySelector('section[data-key="compare"]');
     if (cmpSec) { if (ST.cmpOpen) { cmpSec.classList.remove('collapsed'); main.insertBefore(cmpSec, main.firstChild); cmpSec.style.marginBottom = '12px'; } else cmpSec.parentNode.removeChild(cmpSec); }
     function persist() {
-      var cur = Array.prototype.map.call(main.querySelectorAll('section[data-key]'), function (s) { return s.getAttribute('data-key'); });
+      var cur = Array.prototype.map.call(doc.querySelectorAll('main section[data-key], #dock section[data-key]'), function (s) { return s.getAttribute('data-key'); });
       lay.order = cur.concat(lay.order.filter(function (k) { return cur.indexOf(k) < 0; }));
-      lay.collapsed = Array.prototype.map.call(main.querySelectorAll('section.collapsed'), function (s) { return s.getAttribute('data-key'); });
+      lay.collapsed = Array.prototype.map.call(doc.querySelectorAll('main section.collapsed, #dock section.collapsed'), function (s) { return s.getAttribute('data-key'); });
+      lay.dock = Array.prototype.map.call(doc.querySelectorAll('#dock section[data-key]'), function (s) { return s.getAttribute('data-key'); });
       lay.gc = Array.prototype.map.call(main.querySelectorAll('.grp.gcol'), function (g2) { return g2.getAttribute('data-g'); });
       saveLayout(mode, lay);
     }
@@ -3082,9 +3144,15 @@
     Array.prototype.forEach.call(doc.querySelectorAll('#jump [data-g]'), function (b) {
       b.onclick = function () { var wrap = main.querySelector('.grp[data-g="' + b.getAttribute('data-g') + '"]'); if (!wrap) return; if (wrap.classList.contains('gcol')) { setGroup(wrap, true); persist(); } var hd = doc.querySelector('header'), top = wrap.getBoundingClientRect().top + (w.scrollY || 0) - (hd ? hd.offsetHeight : 0) - 6; try { w.scrollTo({ top: top, behavior: 'smooth' }); } catch (e) { w.scrollTo(0, top); } };
     });
-    main.onclick = function (ev) {
+    var onSecClick = function (ev) {
       var b = ev.target.closest('button'); if (!b) return;
       var sec = b.closest('section'); if (!sec || !b.closest('h2.sh')) return;
+      if (b.getAttribute('data-pin')) {
+        persist();
+        var pk = sec.getAttribute('data-key'), di = lay.dock.indexOf(pk);
+        if (di >= 0) lay.dock.splice(di, 1); else if (lay.dock.length < 3) lay.dock.push(pk); else { b.title = 'The dock holds up to 3 cards: unpin one first'; return; }
+        saveLayout(mode, lay); rerender(); return;
+      }
       if (b.classList.contains('tg')) {
         var c = sec.classList.toggle('collapsed'); b.textContent = c ? '▸' : '▾'; b.setAttribute('aria-expanded', String(!c));
       } else if (b.getAttribute('data-mv')) {
@@ -3093,6 +3161,27 @@
       }
       persist();
     };
+    main.onclick = onSecClick; if (dock) dock.onclick = onSecClick;
+    // the layout code panel (opened from the … menu)
+    var lcOld = doc.getElementById('lcsec'); if (lcOld) lcOld.parentNode.removeChild(lcOld);
+    if (ST.lcOpen) {
+      var lcs = doc.createElement('section'); lcs.className = 'card wide'; lcs.id = 'lcsec'; lcs.style.marginBottom = '12px';
+      var mine = buildLayoutCode();
+      lcs.innerHTML = '<h2>Layout code</h2><p class="sub">Your card order, which cards are collapsed or folded, and the dock, as one line of text, for both the live and the review layout. Save it somewhere, or give it to a friend. ' + esc(lcNote(VERSION)) + '</p>' +
+        '<label class="sub">Your code</label><textarea id="lc-mine" class="lcta" readonly rows="3"></textarea><p><button class="ib" id="lc-copy">Copy</button></p>' +
+        '<label class="sub">Use someone else\'s (or your saved) code</label><textarea id="lc-in" class="lcta" rows="3" placeholder="' + LC_PREFIX + ';v=…"></textarea>' +
+        '<p><button class="ib" id="lc-apply">Apply</button> <button class="ib" id="lc-close">Close</button> <span id="lc-msg" class="sub"></span></p>';
+      main.insertBefore(lcs, main.firstChild);
+      var ta = lcs.querySelector('#lc-mine'); ta.value = mine; var tin = lcs.querySelector('#lc-in'); tin.value = ST.lcVal || '';
+      var msg = lcs.querySelector('#lc-msg'), check = function () { ST.lcVal = tin.value; if (!tin.value.trim()) { msg.textContent = ''; return null; } var r = parseLayoutCode(tin.value); msg.textContent = r.err ? r.err : lcNote(r.v); msg.style.color = r.err ? 'var(--crit)' : ''; return r.err ? null : r; };
+      tin.oninput = check; if (tin.value) check();
+      lcs.querySelector('#lc-copy').onclick = function () {
+        var b2 = this, done = function () { b2.textContent = 'Copied ✓'; setTimeout(function () { b2.textContent = 'Copy'; }, 1800); };
+        try { w.navigator.clipboard.writeText(ta.value).then(done, function () { ta.select(); try { doc.execCommand('copy'); done(); } catch (e1) {} }); } catch (e2) { ta.select(); try { doc.execCommand('copy'); done(); } catch (e3) {} }
+      };
+      lcs.querySelector('#lc-apply').onclick = function () { var r = check(); if (!r) { if (!tin.value.trim()) msg.textContent = 'Paste a code first.'; return; } applyLayoutCode(r); ST.lcVal = ''; ST.lcOpen = false; rerender(); };
+      lcs.querySelector('#lc-close').onclick = function () { ST.lcOpen = false; ST.lcVal = ''; rerender(); };
+    }
     // drag and drop by the grip (within the same group)
     var dragging = null;
     secs.forEach(function (sec) {
@@ -3113,10 +3202,10 @@
   }
 
   // Put the stats window on the right half of the screen (the game keeps the left half).
-  function snapRight(w) {
+  function snapRight(w, parts) {
     try {
-      var sc = w.screen || screen, aw = sc.availWidth, ah = sc.availHeight, al = sc.availLeft || 0, at = sc.availTop || 0;
-      w.resizeTo(Math.round(aw / 2), ah); w.moveTo(al + Math.round(aw / 2), at);
+      var sc = w.screen || screen, aw = sc.availWidth, ah = sc.availHeight, al = sc.availLeft || 0, at = sc.availTop || 0, wd = Math.round(aw / (parts || 2));
+      w.resizeTo(wd, ah); w.moveTo(al + aw - wd, at);
     } catch (e) {}
   }
 

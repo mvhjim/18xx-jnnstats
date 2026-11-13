@@ -2,6 +2,13 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.25.0] - 2026-11-13
+
+### Added
+- **Half and Third buttons** in the toolbar replace the layout toggle. *Half* uses the wide layout and moves the window to the right half of the screen; *Third* uses the narrow single-column layout and moves it to the right third. *Auto size* in the *…* menu goes back to choosing by window width.
+- **Layout code** (*…* menu → *Layout code…*): your card order, collapsed cards, folded sections and dock for both the live and the review layout as one line of text you can copy, save or give to a friend. The code carries the version it was made with, and pasting one tells you if it is older or newer than the version you run. Unknown cards are ignored and new cards go to their usual place.
+- **Dock:** the 📌 button on a card pins it (up to three) into a dock under the toolbar. The dock stays put while everything below scrolls, and can be hidden with one click.
+
 ## [0.24.2] - 2026-11-13
 
 ### Fixed
