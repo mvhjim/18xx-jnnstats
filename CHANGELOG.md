@@ -2,6 +2,11 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.25.1] - 2026-11-13
+
+### Changed
+- **Slimmer top bar:** *I am*, the sound switch, *Half* / *Third* and dark/light mode moved into the *…* menu. The bar keeps refresh, history and the menu.
+
 ## [0.25.0] - 2026-11-13
 
 ### Added

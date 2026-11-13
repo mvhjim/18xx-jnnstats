@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.25.0';
+  var VERSION = '0.25.1';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -1013,7 +1013,7 @@
     '.gslide{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px;color:var(--text-secondary)}.gslide input{flex:1;min-width:80px}',
     '.zl{display:flex;flex-wrap:wrap;gap:4px 12px;margin:8px 0 0;font-size:11.5px;color:var(--text-secondary)}.zl i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1px solid var(--border)}',
     '.dq{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px}.dq .chip{font-variant-numeric:tabular-nums}.dq .chip.next{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:650}.bl{font-size:12px;color:var(--text-muted);margin:6px 0 2px}',
-    '.szb{display:inline-flex;gap:2px}.szb .ib.on{background:var(--accent);color:#fff;border-color:var(--accent)}.pn{opacity:.45;background:none;border:0;cursor:pointer;font-size:12px;padding:0 3px;margin-left:auto}.pn:hover,.pn.on{opacity:1}',
+    '.hr1 .tb{margin-left:auto}.mp2{max-height:75vh;overflow-y:auto}.szb{display:inline-flex;gap:2px}.szb .ib.on{background:var(--accent);color:#fff;border-color:var(--accent)}.pn{opacity:.45;background:none;border:0;cursor:pointer;font-size:12px;padding:0 3px;margin-left:auto}.pn:hover,.pn.on{opacity:1}',
     '#dock{margin-top:6px;border-top:1px solid var(--border);padding-top:4px}#dock .dkh{display:flex;gap:10px;align-items:center;font-size:12px;font-weight:700;color:var(--text-secondary)}#dock .dkb{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:8px;max-height:36vh;overflow-y:auto;margin-top:4px}#dock.cl .dkb{display:none}#dock .card{margin:0;box-shadow:none}.lcta{width:100%;box-sizing:border-box;font:11.5px ui-monospace,Menlo,monospace;background:var(--surface-0);color:var(--text-primary);border:1px solid var(--border);border-radius:6px;padding:6px}',
     '.evk{font-size:11.5px}.take{margin:2px 0 8px;font-size:12.5px;color:var(--text-secondary)}.take b{color:var(--text-primary)}.pvt{margin-left:8px;font-size:12px}.pvt .on{font-weight:700;text-decoration:none;color:var(--text-primary)}.cmt{margin-left:8px;font-size:12px}.cmt .cm.on{font-weight:700;text-decoration:none;color:var(--text-primary)}',
     '.rpmv{margin:0 0 4px;font-size:12px;color:var(--text-secondary)}',
@@ -1919,14 +1919,14 @@
     var updHtml = newer ? (ST.latestSha ? '<a class="ib upd" id="upd" href="#" title="Load the newest version now. It lasts until you reload the game page; the bookmark itself is not changed.">⬆ v' + esc(ST.latest) + '</a>'
       : '<a class="ib upd" href="' + REPO_URL + '/blob/main/CHANGELOG.md" target="_blank" rel="noopener" title="A newer version exists. If you pinned a version, read the changelog, then update your bookmark.">⬆ v' + esc(ST.latest) + '</a>') : '';
     h.push('<span class="grow"></span><span class="tb">' +
-      '<label class="mesel">I am <select id="me"><option value="">…</option>' + d.players.map(function (p) { return '<option' + (p.name === me ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') + '</select></label>' +
-      '<button class="ib" id="snd" title="' + (soundOn ? (armed ? 'Sound on: plays when it becomes your turn. Click to switch off.' : 'Click once to arm the sound (browsers need a click)') : 'Sound off. Click to play a sound when it becomes your turn.') + '">' + (soundOn ? (armed ? '🔔' : '🔔?') : '🔕') + '</button>' +
       '<button class="ib" id="rf" title="Refresh now">⟳</button>' +
-      '<span class="szb"><button class="ib' + (effSize(w) === 'half' ? ' on' : '') + '" id="sz-h" title="Half size: wide layout, and moves this window to the right half of the screen">Half</button><button class="ib' + (effSize(w) === 'third' ? ' on' : '') + '" id="sz-t" title="Third size: narrow single-column layout, and moves this window to the right third of the screen">Third</button></span>' +
       '<button class="ib" id="tt" title="History: step back through the game round by round">⏱</button>' +
-      '<button class="ib" id="th" title="Switch between dark and light">' + (dark ? '🌙' : '☀') + '</button>' +
       updHtml +
       '<details class="menu" id="mn"' + (ST.menuOpen ? ' open' : '') + '><summary class="ib" title="More">⋯</summary><div class="mp2">' +
+      '<label class="mesel" style="display:flex;gap:6px;align-items:center">I am <select id="me"><option value="">…</option>' + d.players.map(function (p) { return '<option' + (p.name === me ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') + '</select></label>' +
+      '<button class="ib" id="snd" title="' + (soundOn ? (armed ? 'Sound on: plays when it becomes your turn. Click to switch off.' : 'Click once to arm the sound (browsers need a click)') : 'Sound off. Click to play a sound when it becomes your turn.') + '">' + (soundOn ? (armed ? '🔔 Sound on' : '🔔? Sound: click to arm') : '🔕 Sound off') + '</button>' +
+      '<span class="szb" style="display:flex;gap:6px;align-items:center">Size <button class="ib' + (effSize(w) === 'half' ? ' on' : '') + '" id="sz-h" title="Half size: wide layout, and moves this window to the right half of the screen">Half</button><button class="ib' + (effSize(w) === 'third' ? ' on' : '') + '" id="sz-t" title="Third size: narrow single-column layout, and moves this window to the right third of the screen">Third</button></span>' +
+      '<button class="ib" id="th" title="Switch between dark and light">' + (dark ? '🌙 Dark' : '☀ Light') + ' mode</button>' +
         '<button id="lr" title="Restore the default order and expand all sections">Reset <span id="lm">layout</span></button>' +
         '<span style="display:flex;gap:6px;align-items:center">Text size <button id="zo" title="Smaller text">A−</button><button id="zi" title="Larger text">A+</button></span> <button id="sh-v" class="ib" title="Copy a link that opens this game with your card layout (no names or other data are in it)">🔗</button> ' +
         '<button id="sz-a" class="ib" title="Pick the layout from the window width again (after using Half or Third)">Auto size</button> <button id="lc-open" class="ib" title="Copy or paste your card layout as text">Layout code…</button>' +
@@ -1966,7 +1966,7 @@
           '<div class="d2">Cash <b data-f="me:c">' + esc(m(mp.cash)) + '</b>' + (mp.certLimit ? ' · room for <b>' + Math.max(0, mp.certLimit - mp.certs) + '</b> more certificate' + (mp.certLimit - mp.certs === 1 ? '' : 's') : '') + '</div>' +
           (L.priority ? '<div class="d2">' + (L.priority === me ? 'You hold the priority deal' : 'Priority deal: ' + esc(L.priority)) + '</div>' : '') + '</div>');
       } else {
-        h.push('<div class="tile"><div class="l">Me</div><div class="d2">Pick your name under <b>I am…</b> at the top to highlight yourself everywhere and get a turn signal.</div></div>');
+        h.push('<div class="tile"><div class="l">Me</div><div class="d2">Pick your name under <b>I am</b> in the <b>⋯</b> menu to highlight yourself everywhere and get a turn signal.</div></div>');
       }
       // Train rush
       if (L.rush) {
