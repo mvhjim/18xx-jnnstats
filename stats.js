@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.25.0';
+  var VERSION = '0.25.1';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -1919,14 +1919,14 @@
     var updHtml = newer ? (ST.latestSha ? '<a class="ib upd" id="upd" href="#" title="Load the newest version now. It lasts until you reload the game page; the bookmark itself is not changed.">⬆ v' + esc(ST.latest) + '</a>'
       : '<a class="ib upd" href="' + REPO_URL + '/blob/main/CHANGELOG.md" target="_blank" rel="noopener" title="A newer version exists. If you pinned a version, read the changelog, then update your bookmark.">⬆ v' + esc(ST.latest) + '</a>') : '';
     h.push('<span class="grow"></span><span class="tb">' +
-      '<label class="mesel">I am <select id="me"><option value="">…</option>' + d.players.map(function (p) { return '<option' + (p.name === me ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') + '</select></label>' +
-      '<button class="ib" id="snd" title="' + (soundOn ? (armed ? 'Sound on: plays when it becomes your turn. Click to switch off.' : 'Click once to arm the sound (browsers need a click)') : 'Sound off. Click to play a sound when it becomes your turn.') + '">' + (soundOn ? (armed ? '🔔' : '🔔?') : '🔕') + '</button>' +
       '<button class="ib" id="rf" title="Refresh now">⟳</button>' +
-      '<span class="szb"><button class="ib' + (effSize(w) === 'half' ? ' on' : '') + '" id="sz-h" title="Half size: wide layout, and moves this window to the right half of the screen">Half</button><button class="ib' + (effSize(w) === 'third' ? ' on' : '') + '" id="sz-t" title="Third size: narrow single-column layout, and moves this window to the right third of the screen">Third</button></span>' +
       '<button class="ib" id="tt" title="History: step back through the game round by round">⏱</button>' +
-      '<button class="ib" id="th" title="Switch between dark and light">' + (dark ? '🌙' : '☀') + '</button>' +
       updHtml +
       '<details class="menu" id="mn"' + (ST.menuOpen ? ' open' : '') + '><summary class="ib" title="More">⋯</summary><div class="mp2">' +
+      '<label class="mesel" style="display:flex;gap:6px;align-items:center">I am <select id="me"><option value="">…</option>' + d.players.map(function (p) { return '<option' + (p.name === me ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') + '</select></label>' +
+      '<button class="ib" id="snd" title="' + (soundOn ? (armed ? 'Sound on: plays when it becomes your turn. Click to switch off.' : 'Click once to arm the sound (browsers need a click)') : 'Sound off. Click to play a sound when it becomes your turn.') + '">' + (soundOn ? (armed ? '🔔 Sound on' : '🔔? Sound: click to arm') : '🔕 Sound off') + '</button>' +
+      '<span class="szb" style="display:flex;gap:6px;align-items:center">Size <button class="ib' + (effSize(w) === 'half' ? ' on' : '') + '" id="sz-h" title="Half size: wide layout, and moves this window to the right half of the screen">Half</button><button class="ib' + (effSize(w) === 'third' ? ' on' : '') + '" id="sz-t" title="Third size: narrow single-column layout, and moves this window to the right third of the screen">Third</button></span>' +
+      '<button class="ib" id="th" title="Switch between dark and light">' + (dark ? '🌙 Dark' : '☀ Light') + ' mode</button>' +
         '<button id="lr" title="Restore the default order and expand all sections">Reset <span id="lm">layout</span></button>' +
         '<span style="display:flex;gap:6px;align-items:center">Text size <button id="zo" title="Smaller text">A−</button><button id="zi" title="Larger text">A+</button></span> <button id="sh-v" class="ib" title="Copy a link that opens this game with your card layout (no names or other data are in it)">🔗</button> ' +
         '<button id="sz-a" class="ib" title="Pick the layout from the window width again (after using Half or Third)">Auto size</button> <button id="lc-open" class="ib" title="Copy or paste your card layout as text">Layout code…</button>' +
@@ -1966,7 +1966,7 @@
           '<div class="d2">Cash <b data-f="me:c">' + esc(m(mp.cash)) + '</b>' + (mp.certLimit ? ' · room for <b>' + Math.max(0, mp.certLimit - mp.certs) + '</b> more certificate' + (mp.certLimit - mp.certs === 1 ? '' : 's') : '') + '</div>' +
           (L.priority ? '<div class="d2">' + (L.priority === me ? 'You hold the priority deal' : 'Priority deal: ' + esc(L.priority)) + '</div>' : '') + '</div>');
       } else {
-        h.push('<div class="tile"><div class="l">Me</div><div class="d2">Pick your name under <b>I am…</b> at the top to highlight yourself everywhere and get a turn signal.</div></div>');
+        h.push('<div class="tile"><div class="l">Me</div><div class="d2">Pick your name under <b>I am</b> in the <b>⋯</b> menu to highlight yourself everywhere and get a turn signal.</div></div>');
       }
       // Train rush
       if (L.rush) {
