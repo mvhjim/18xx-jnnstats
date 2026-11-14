@@ -2,6 +2,11 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [Unreleased]
+
+### Added
+- **Views section in the README:** a screenshot and a short description of every card and tab (including the live-game cards, the ⋯ menu, History and Compare), from finished 1846 and 1862 games with players shown as Player 1–4. Images are in `docs/views/`.
+
 ## [0.25.1] - 2026-11-13
 
 ### Changed
