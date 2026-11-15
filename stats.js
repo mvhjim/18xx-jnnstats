@@ -2824,9 +2824,9 @@
     var links = {}, add = function (a, b, v) { if (!v) return; var k = a + '\u0001' + b; links[k] = (links[k] || 0) + v; }, tot = 0;
     GL.rounds.forEach(function (r) { r.lines.forEach(function (ln) {
       var msg = ln.msg, x;
-      if ((x = /^(\S+) (?:pays out|pays) .*?\(([^()]*\bto\b[^()]*)\)\s*$/.exec(msg))) x[2].split(/,\s*/).forEach(function (part) { var y = /^(.+?) to (.+)$/.exec(part); if (y && pn[y[2]]) { var v = moneyNum(y[1]); add(x[1] + ' dividends', y[2], v); tot += v; } });
+      if ((x = /^(.+?) (?:pays out|pays) .*?\(([^()]*\bto\b[^()]*)\)\s*$/.exec(msg))) x[2].split(', ').forEach(function (part) { var y = /^(.+?) to (.+)$/.exec(part); if (y && pn[y[2]]) { var v = moneyNum(y[1]); add(x[1] + ' dividends', y[2], v); tot += v; } });
       else if ((x = /^(.+?) collects (\S+) from (.+)$/.exec(msg)) && pn[x[1]]) { var v2 = moneyNum(x[2]); add('Private companies', x[1], v2); tot += v2; }
-      else if ((x = /^(.+?) sells .* (?:and receives|for) (\S+)$/.exec(msg)) && pn[x[1]]) { var v3 = moneyNum(x[2]); add('Share sales', x[1], v3); tot += v3; }
+      else if ((x = /^(.+?) (?:sells|shorts) .*? (?:and receives|for) (\S+)\s*$/.exec(msg)) && pn[x[1]]) { var v3 = moneyNum(x[2]); add('Share sales and shorts', x[1], v3); tot += v3; }
     }); });
     var L = Object.keys(links).map(function (k) { var ab = k.split('\u0001'); return { source: ab[0], target: ab[1], value: links[k] }; });
     return L.length ? { links: L, tot: tot } : null;
@@ -4224,7 +4224,7 @@
         var etf = doc.getElementById('c-tflow'), cc0 = corpCol(d);
         if (etf) { var tfm = trainFlowModel(d); ecSankey(w, etf, tfm.links, function (n) { return cc0[n] ? displayColor(cc0[n], dark) : /^Still/.test(n) ? '#2e9e5b' : n === 'Gone' ? '#9a9a9a' : trainColor(d, n.replace(/ train$/, '')); }, dark, null, null, tfm.nodes); }
         var emf = doc.getElementById('c-mflow');
-        if (emf) { var mfm = moneyFlowModel(d), pc0 = {}; d.players.forEach(function (p) { pc0[p.name] = pal[p.idx % pal.length]; }); ecSankey(w, emf, mfm.links, function (n) { var cn = n.replace(/ dividends$/, ''); return pc0[n] || (cc0[cn] ? displayColor(cc0[cn], dark) : n === 'Share sales' ? '#9a9a9a' : '#c9a227'); }, dark, m); }
+        if (emf) { var mfm = moneyFlowModel(d), pc0 = {}; d.players.forEach(function (p) { pc0[p.name] = pal[p.idx % pal.length]; }); ecSankey(w, emf, mfm.links, function (n) { var cn = n.replace(/ dividends$/, ''); return pc0[n] || (cc0[cn] ? displayColor(cc0[cn], dark) : n === 'Share sales and shorts' ? '#9a9a9a' : '#c9a227'); }, dark, m); }
         var ewi = doc.getElementById('c-whatif'); if (ewi && ST.wiModel) ecWhatIf(w, ewi, d, pal, dark, m);
         var esy = doc.getElementById('c-style'); if (esy) ecStyle(w, esy, d, pal, dark, styleVectors(d));
         if (ST.crModel) {
@@ -5089,6 +5089,8 @@
     if (ST.busy) { ST.pending = true; ST.pendingForce = ST.pendingForce || !!force; return ST.busy; }
     var id = String(gameId());
     subscribe(id);
+    // privacy names (Player 1, 2…) start again for each game shown in the window
+    if (ST.aliasGame !== id) { ST.alias = {}; ST.aliasRev = {}; ST.aliasGame = id; }
     ST.busy = gameText(id).then(function (text) {
       var raw = JSON.parse(text);
       if (!raw.actions) throw new Error('Game ' + id + ' not found (' + (raw.error || 'no data') + ')');
