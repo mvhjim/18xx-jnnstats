@@ -2071,8 +2071,11 @@
       var presCert = 2 * (mk.sharePct || 10);
       d.holdings.rows.forEach(function (r) {
         var cell = r.cells[mk.name]; if (!cell || r.name === mk.pres.name || cell.pct < presCert) return;
+        // the president must end below this holder; the bank pool usually holds at most 50%
+        var sell = mk.pres.pct - cell.pct + (mk.sharePct || 10), poolNow = (mk.pool || 0) * (mk.sharePct || 10);
+        if (sell > mk.pres.pct || poolNow + sell > 50) return;
         var bad = c.trainless || (c.buy && (c.buy.kind === 'stuck' || c.buy.kind === 'emergency'));
-        out.push({ corp: mk.name, color: mk.color, pres: mk.pres.name, presPct: mk.pres.pct, to: r.name, pct: cell.pct, bad: bad, c: c });
+        out.push({ corp: mk.name, color: mk.color, pres: mk.pres.name, presPct: mk.pres.pct, to: r.name, pct: cell.pct, sell: sell, bad: bad, c: c });
       });
     });
     return out;
@@ -2103,7 +2106,7 @@
       if (me && mk.pres && mk.pres.name === me && mk.canTake && mk.chal) add(2, '<b>' + esc(mk.chal.name) + '</b> can take ' + sqw(mk.color) + '<b>' + esc(mk.name) + '</b> from you by buying ' + mk.need + ' share' + (mk.need === 1 ? '' : 's') + ' (' + (mk.ipo + mk.pool) + ' available).');
     });
     dumpRisks(d).forEach(function (x) {
-      if (me && x.to === me) add(x.bad ? 3 : 1, esc(x.pres) + ' could hand you ' + sqw(x.color) + '<b>' + esc(x.corp) + '</b> by selling in a stock round (you hold ' + x.pct + '%, they hold ' + x.presPct + '%)' + (x.bad ? ' <span class="st-crit">and it has no money for a train</span>' : '') + '.');
+      if (me && x.to === me) add(x.bad ? 3 : 1, esc(x.pres) + ' could hand you ' + sqw(x.color) + '<b>' + esc(x.corp) + '</b> by selling ' + x.sell + '% in a stock round (you hold ' + x.pct + '%, they hold ' + x.presPct + '%)' + (x.bad ? ' <span class="st-crit">and it has no money for a train</span>' : '') + '.');
     });
     var en = d.live.end;
     if (en && !en.triggered && en.bankORs != null && en.bankORs <= 2) add(en.bankORs <= 1 ? 2 : 1, 'The bank is likely to break in about <b>' + en.bankORs.toFixed(1) + ' ORs</b> at this pace.');
@@ -2136,7 +2139,7 @@
     if (takes.length) h.push('<h3 class="rh">Presidencies in play</h3><ul class="wo">' + takes.map(function (mk) { return '<li>' + who(mk.chal.name) + ' can take ' + sqw(mk.color) + '<b>' + esc(mk.name) + '</b> from ' + who(mk.pres.name) + ' by buying ' + mk.need + ' share' + (mk.need === 1 ? '' : 's') + ' (' + mk.chal.pct + '% vs ' + mk.pres.pct + '%, ' + (mk.ipo + mk.pool) + ' available)</li>'; }).join('') + '</ul>');
     // dump danger
     var dr = dumpRisks(d);
-    if (dr.length) h.push('<h3 class="rh">Who could be handed a company</h3><p class="sub" style="margin:0 0 4px">In a stock round a president can sell and pass the company to another player holding at least the president\'s certificate.</p><ul class="wo">' + dr.sort(function (a, b) { return (b.bad ? 1 : 0) - (a.bad ? 1 : 0); }).map(function (x) { return '<li class="' + (x.bad ? 'wo2' : '') + '">' + sqw(x.color) + '<b>' + esc(x.corp) + '</b>: ' + who(x.pres) + ' (' + x.presPct + '%) could pass it to ' + who(x.to) + ' (' + x.pct + '%)' + (x.bad ? ' <span class="st-crit">· no money for a train</span>' : '') + '</li>'; }).join('') + '</ul>');
+    if (dr.length) h.push('<h3 class="rh">Who could be handed a company</h3><p class="sub" style="margin:0 0 4px">In a stock round a president can sell enough to pass the company to another player holding at least the president\'s certificate (assuming the usual 50% limit on shares in the bank pool).</p><ul class="wo">' + dr.sort(function (a, b) { return (b.bad ? 1 : 0) - (a.bad ? 1 : 0); }).map(function (x) { return '<li class="' + (x.bad ? 'wo2' : '') + '">' + sqw(x.color) + '<b>' + esc(x.corp) + '</b>: ' + who(x.pres) + ' (' + x.presPct + '%) could pass it to ' + who(x.to) + ' (' + x.pct + '%) by selling ' + x.sell + '%' + (x.bad ? ' <span class="st-crit">· no money for a train</span>' : '') + '</li>'; }).join('') + '</ul>');
     // certificate squeeze
     var sq = d.players.filter(function (p) { return p.certLimit && p.certs >= p.certLimit - 1; });
     if (sq.length) h.push('<h3 class="rh">Certificate squeeze</h3><p>' + sq.map(function (p) { return who(p.name) + ' ' + p.certs + '/' + p.certLimit; }).join(' · ') + '</p>');
