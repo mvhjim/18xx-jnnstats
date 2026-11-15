@@ -2,6 +2,17 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.27.0] - 2026-11-15
+
+### Added
+- **Watch-outs** (live games, under Now): a short list of what is easy to miss right now, yours first once you pick *I am*: the next train rusting your trains or starting a new phase, a company of yours that needs your own cash for a train or cannot pay at all, the certificate limit, a presidency someone can take from you, a company that could be passed to you, and the bank breaking soon.
+- **Threat radar** (live games): which companies can buy the next train and what that purchase does, rust ahead purchase by purchase, presidencies in play, who could be handed a company by a president selling, and who is close to the certificate limit.
+- **Turn pacing** (Players & history): turns, typical and longest turn and total time per player, from the timestamps the site keeps, plus who the game is waiting on in a live game.
+- **Market square explainer:** hover or tap a square of the stock market to see what its colour means and where the price goes from there, asked from the title's own rules engine.
+
+### Fixed
+- **Payout or withhold** table fits a half-screen window (shorter headers, tighter cells).
+
 ## [Unreleased]
 
 ### Changed

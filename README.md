@@ -65,13 +65,15 @@ While a game is in progress:
 - **Follow the round:** the cards that matter in this kind of round move up into Now (stock round helper and market in a stock round; corporations, trains and routes in an operating round). Switch it off in the **⋯** menu.
 - **Now:** who is to act, the order of the round, operating rounds left in the set, priority deal, a personal tile once you pick your name under *I am…*, a train rush warning and a game-end estimate that lists every way the game can end, with how many trains away a trigger train is.
 - **What just happened:** the latest moves, with new ones marked. A second tab, *Since your last turn*, lists everything logged after your own last move (shown when there is something, and once you are picked under *I am…*; the page's logged-in name is picked automatically when it matches a player).
+- **Watch-outs:** a short list of what is easy to miss right now, yours first: the next train rusting your trains, a company of yours short of train money, the certificate limit, a presidency you could lose, a company that could be passed to you, the bank about to break.
+- **Threat radar:** who can buy the next train and what it does, rust ahead, presidencies in play, who could be handed a company, and who is close to the certificate limit.
 - **Stock round helper:** shares available, dividend per share, yield, presidency warnings, and where the price goes if a company pays or withholds.
 - **Your turn:** a green frame around the window, ● in the title, and an optional sound.
 - **Live movement:** when shares or trains change hands, a small chip glides from the old holder to the new one, and a rusted train fades out.
 
 Always:
 
-- **Stock market:** the title's own market grid with every company on its square, the price zones, your own companies outlined, and in a live game a dashed marker for where the acting company goes if it pays out or withholds. A slider steps the grid back through earlier rounds.
+- **Stock market:** the title's own market grid with every company on its square (hover or tap a square to see what it means and where the price goes from there), the price zones, your own companies outlined, and in a live game a dashed marker for where the acting company goes if it pays out or withholds. A slider steps the grid back through earlier rounds.
 - **Stock ticker:** each company's share price, the change since the previous round, and a trend line.
 - **Standings:** player value (cash + shares at market + private companies), gap to the leader, cash, certificates against the limit. **copy as text** puts the ranking and share prices on your clipboard; **copy as image** copies the ranking together with the Player value chart as a picture, for Discord or the forum; in a finished game it becomes **copy share card**, which adds the winner and the badges.
 - **Player value over time:** the score race, round by round.
@@ -94,6 +96,7 @@ Always:
 - **Data cards:** track spending vs revenue, where each player's money came from (pies), valuation (price vs payouts), train purchases, key moments with links, and a score range for live games.
 - **Replay:** press play and watch the game unfold: tiles, tokens, routes, standings and prices round by round.
 - **Charts you can read:** click a legend name to show only that line; phase changes and closures are marked on the time axis.
+- **Turn pacing:** turns, typical and longest turn and total time per player, and who the game is waiting on.
 - **Game log:** the whole log of the game, one round at a time. Drag the slider (or press ◀ ▶) to walk through the game, search the whole log for a company or player, or jump to your own last move once you pick your name under *I am…*. Every line has the acting player's colour and name on the left, and your own lines are highlighted. Works in finished and live games. Each line has a ↗ link that opens the site's own view of the game at that move.
 - **History (⏱):** press ⏱ at the top and a slider appears. Drag it, or press ◀ ▶, and the whole window shows the game as it was at the end of that round: standings, corporations, trains, bank, market and log. It is paused and read only; **back to now** returns to the current state. Each step replays the game, so it takes a second or two the first time (visited rounds are remembered).
 - **Hover linking:** hover a company anywhere and it lights up in every table and chart on screen.
