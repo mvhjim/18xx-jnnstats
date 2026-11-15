@@ -51,8 +51,9 @@
     if (window.__jnnStatsShaOverride) return Promise.resolve(E.statsSha = window.__jnnStatsShaOverride);
     return loadScript(STATS_CDN + 'main/version.js?t=' + Date.now()).then(function () {
       E.statsLatest = window.__xxLatest; E.statsApi = window.__xxApi;
-      E.statsSha = apiOk(window.__xxApi) && window.__xxSha ? window.__xxSha : FALLBACK_SHA;
-      E.pinned = E.statsSha === FALLBACK_SHA;
+      var fits = apiOk(window.__xxApi) && !!window.__xxSha;
+      E.statsSha = fits ? window.__xxSha : FALLBACK_SHA;
+      E.pinned = !fits;
       return E.statsSha;
     }, function () { E.pinned = true; return (E.statsSha = FALLBACK_SHA); });
   }
