@@ -2445,14 +2445,25 @@
     (d.ticker || []).forEach(function (t) { tk[t.name] = t; });
     // first train of a type that rusted or obsoleted others, or started a phase
     var firstBuy = {}; (AN.trains || []).forEach(function (t) { if (t.depot && !firstBuy[t.train]) firstBuy[t.train] = t; });
+    var byTrig = {};
     TG.forEach(function (g) {
-      var trig = g.rustsOn || g.obsoleteOn; if (!trig) return;
-      var tg = TG.filter(function (x) { return x.sym === trig || x.names.indexOf(trig) >= 0; })[0], fb = null;
-      if (tg) [tg.sym].concat(tg.names).forEach(function (n) { if (!fb && firstBuy[n]) fb = firstBuy[n]; });
-      if (!fb) return;
-      var ph = (d.phases || []).filter(function (p) { return p.on.indexOf(trig) >= 0 || (tg && p.on.indexOf(tg.sym) >= 0); })[0];
+      [['rust', g.rustsOn], ['obs', g.obsoleteOn]].forEach(function (pair) {
+        var trig = pair[1]; if (!trig) return;
+        var tg = TG.filter(function (x) { return x.sym === trig || x.names.indexOf(trig) >= 0; })[0], fb = null;
+        if (tg) [tg.sym].concat(tg.names).forEach(function (n) { if (!fb && firstBuy[n]) fb = firstBuy[n]; });
+        if (!fb) return;
+        var e = byTrig[fb.id] || (byTrig[fb.id] = { fb: fb, tg: tg, rust: [], obs: [] }); e[pair[0]].push(g.sym);
+      });
+    });
+    Object.keys(byTrig).forEach(function (k) {
+      var e = byTrig[k], fb = e.fb, tg = e.tg;
+      var ph = (d.phases || []).filter(function (p) { return tg && (p.on.indexOf(tg.sym) >= 0 || tg.names.some(function (n) { return p.on.indexOf(n) >= 0; })); })[0];
+      var eff = [];
+      if (e.rust.length) eff.push('every ' + e.rust.join(' and ') + ' train in play rusted at once');
+      if (e.obs.length) eff.push('the ' + e.obs.join(' and ') + ' trains became obsolete');
+      if (ph) eff.push('phase ' + ph.name + ' began');
       out.push({ f: frameOf(d, fb.round), icon: '🚂', title: fb.buyer + (fb.pres ? ' (' + fb.pres + ')' : '') + ' buys the first ' + fb.train + ' (' + String(fb.round).replace(/ \(of \d+\)$/, '') + ')',
-        why: (g.rustsOn ? 'Every ' + g.sym + ' train in play rusted at once' : 'The ' + g.sym + ' trains became obsolete') + (ph ? ' and phase ' + ph.name + ' began' : '') + '. Companies that relied on those trains had to find money for new ones, or run short. Timing a purchase like this against your rivals is one of the biggest levers in 18xx.' });
+        why: eff.join(', ').replace(/^./, function (c) { return c.toUpperCase(); }) + '. Companies that relied on those trains had to find money for new ones, or run short. Timing a purchase like this against your rivals is one of the biggest levers in 18xx.' });
     });
     // lead changes: the last one decided the game
     var leads = (AN.moments || []).filter(function (x) { return x.kind === 'lead'; });
@@ -2470,7 +2481,8 @@
     var cr = (AN.moments || []).filter(function (x) { return x.kind === 'crash'; })[0];
     if (cr) out.push({ f: cr.f, icon: '💥', title: cr.text, why: 'A falling price hurts every holder. It usually follows withholding, heavy selling, or a company left without trains.' });
     var run = (AN.moments || []).filter(function (x) { return x.kind === 'run'; })[0];
-    if (run) out.push({ f: d.replay ? Math.min(run.f, d.replay.labels.length - 1) : -1, icon: '🛤', title: run.text, why: 'Long trains on good track through valuable cities (and bonuses such as off-boards) make the big runs. Compare it with the map sketch in Routes & revenue.' });
+    var runLab = run ? /\(((?:OR|SR) [\d.]+)/.exec(run.text) : null;
+    if (run) out.push({ f: runLab ? frameOf(d, runLab[1]) : -1, icon: '🛤', title: run.text, why: 'Long trains on good track through valuable cities (and bonuses such as off-boards) make the big runs. Compare it with the map sketch in Routes & revenue.' });
     out = out.filter(function (x) { return x.title; }).sort(function (a, b) { return (a.f < 0 ? 1e9 : a.f) - (b.f < 0 ? 1e9 : b.f); });
     return out.slice(0, 8);
   }
