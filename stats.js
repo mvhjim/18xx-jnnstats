@@ -2355,10 +2355,10 @@
     var t = function (x, y, str, col, sz, anchor) { return '<text x="' + x + '" y="' + y + '" font-size="' + (sz || 11) + '" fill="' + (col || TX) + '"' + (anchor ? ' text-anchor="' + anchor + '"' : '') + '>' + esc(str) + '</text>'; };
     // presidency
     cards.push(['president', 'Presidency', 'The player with the most shares runs the company. If someone else gets more, the presidency (and the 20% president\'s certificate) passes to them.',
-      svgBox(300, 70, t(0, 14, 'Before', MU) + svgBar(60, 2, 120, 'Anna 30% ★', A) + svgBar(184, 2, 80, 'Ben 20%', '#888') + t(0, 50, 'Ben buys 2', MU) + svgBar(60, 38, 120, 'Anna 30%', '#888') + svgBar(184, 38, 110, 'Ben 40% ★', A))]);
+      svgBox(330, 70, t(0, 14, 'Before', MU) + svgBar(92, 2, 110, 'Anna 30% ★', A) + svgBar(206, 2, 76, 'Ben 20%', '#888') + t(0, 50, 'Ben buys 2', MU) + svgBar(92, 38, 110, 'Anna 30%', '#888') + svgBar(206, 38, 110, 'Ben 40% ★', A))]);
     // dump
     cards.push(['dump', 'Dumping a company', 'A president can sell until another player holds more, and that player becomes president, with the company\'s debts and missing trains. Holding 20% or more of a weak company is a risk.',
-      svgBox(300, 70, t(0, 14, 'Before', MU) + svgBar(60, 2, 150, 'Anna 50% ★', A) + svgBar(214, 2, 60, 'You 20%', '#888') + t(0, 50, 'Anna sells 40%', MU) + svgBar(60, 38, 40, '10%', '#888') + svgBar(104, 38, 80, 'You 20% ★', CR))]);
+      svgBox(330, 70, t(0, 14, 'Before', MU) + svgBar(92, 2, 150, 'Anna 50% ★', A) + svgBar(246, 2, 70, 'You 20%', '#888') + t(0, 50, 'Anna sells 40%', MU) + svgBar(92, 38, 44, '10%', '#888') + svgBar(140, 38, 84, 'You 20% ★', CR))]);
     // rust (with this title's first rust)
     var r1 = TG.filter(function (g) { return g.rustsOn; })[0];
     if (r1) cards.push(['rust', 'Rusting', 'Buying the first train of a new type can remove older trains from the game at once. A company left with no train must buy one.',
@@ -2366,7 +2366,7 @@
     // pay or withhold, with real prices from a par square
     var sq = null; if (d.grid) d.grid.cells.forEach(function (row) { row.forEach(function (c) { if (!sq && c && c.mv && c.mv.right && c.mv.left && c.t.indexOf('par') >= 0) sq = c; }); });
     if (sq) cards.push(['withhold', 'Pay out or withhold', 'Paying out gives the revenue to the shareholders and usually moves the price up; withholding keeps it for the company (often for a train) and usually moves it down.',
-      svgBox(300, 60, svgBar(110, 8, 80, m(sq.p), '#666') + svgBar(220, 8, 70, m(sq.mv.right), GD) + svgBar(10, 8, 70, m(sq.mv.left), CR) + t(200, 46, 'pay out →', GD, 11, 'middle') + t(100, 46, '← withhold', CR, 11, 'middle'))]);
+      svgBox(300, 60, svgBar(10, 8, 80, m(sq.mv.left), CR) + svgBar(110, 8, 80, m(sq.p) + ' now', '#666') + svgBar(210, 8, 80, m(sq.mv.right), GD) + t(50, 46, '← withhold', CR, 11, 'middle') + t(250, 46, 'pay out →', GD, 11, 'middle'))]);
     // certificate limit
     var cl = (d.players[0] || {}).certLimit;
     if (cl) { var dots = ''; for (var i = 0; i < Math.min(cl, 20); i++) dots += '<rect x="' + (i * 14) + '" y="6" width="11" height="16" rx="2" fill="' + (i < cl - 2 ? A : '#555') + '"/>';
