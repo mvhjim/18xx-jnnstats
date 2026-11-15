@@ -2537,9 +2537,12 @@
   function runTour(w, step) {
     var doc = w.document, old = doc.getElementById('tour'); if (old) old.remove();
     Array.prototype.forEach.call(doc.querySelectorAll('.tourhl'), function (e) { e.classList.remove('tourhl'); });
-    var steps = TOUR.filter(function (t) { var el = doc.querySelector(t[0]); return el && el.offsetParent !== null; });
+    var steps = TOUR.filter(function (t) { return !!doc.querySelector(t[0]); });
     if (step == null || step >= steps.length || step < 0) { lsSet('xxStats.tourDone', '1'); return; }
-    var el = doc.querySelector(steps[step][0]); el.classList.add('tourhl'); try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
+    var el = doc.querySelector(steps[step][0]);
+    var gp = el.closest && el.closest('.grp.gcol'); if (gp) { var gh = gp.querySelector('.gh'); if (gh) gh.click(); el = doc.querySelector(steps[step][0]); }
+    if (el.classList.contains('collapsed')) { var tg = el.querySelector('.tg'); if (tg) tg.click(); el = doc.querySelector(steps[step][0]); }
+    el.classList.add('tourhl'); try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
     var o = doc.createElement('div'); o.id = 'tour';
     o.innerHTML = '<div><b>🧭 ' + (step + 1) + ' / ' + steps.length + '</b><p>' + esc(steps[step][1]) + '</p><div class="tb"><button class="ib" data-t="end">end the tour</button><span class="grow"></span>' + (step ? '<button class="ib" data-t="back">back</button>' : '') + '<button class="ib on" data-t="next">' + (step === steps.length - 1 ? 'done' : 'next') + '</button></div></div>';
     o.onclick = function (ev) { var t = ev.target.getAttribute && ev.target.getAttribute('data-t'); if (t === 'end') runTour(w, -1); if (t === 'back') runTour(w, step - 1); if (t === 'next') runTour(w, step + 1); };
