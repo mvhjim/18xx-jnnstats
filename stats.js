@@ -2667,7 +2667,8 @@
   function timelineCard(d, dark, pal) {
     var O = d.analysis && d.analysis.own; if (!O || !O.labels.length) return '';
     var L = O.labels, col = corpCol(d), pcol = {}; d.players.forEach(function (p) { pcol[p.name] = pal[p.idx % pal.length]; });
-    var corps = d.corps.filter(function (c) { return O.corps[c.name]; }), rowH = 28, left = 70, W = 1000, cw = (W - left - 8) / L.length, H = corps.length * rowH + 34;
+    var cByN = {}; d.corps.forEach(function (c) { cByN[c.name] = c; }); (d.ticker || []).forEach(function (t) { if (!cByN[t.name]) cByN[t.name] = { name: t.name, color: t.color, closed: t.closed, into: t.into, oh: [] }; });
+    var corps = Object.keys(O.corps).map(function (n) { return cByN[n] || { name: n, oh: [] }; }), rowH = 28, left = 70, W = 1000, cw = (W - left - 8) / L.length, H = corps.length * rowH + 34;
     var buys = {}; ((d.analysis && d.analysis.trains) || []).forEach(function (t) { var k = t.buyer + '|' + shortRound(t.round); (buys[k] = buys[k] || []).push(t.train); });
     var s = ['<svg class="tl" viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="Company timeline">'];
     L.forEach(function (l, i) { if (/^SR/.test(l) || i === 0) s.push('<rect x="' + (left + i * cw).toFixed(1) + '" y="0" width="' + cw.toFixed(1) + '" height="' + (H - 20) + '" fill="' + (dark ? 'rgba(255,255,255,.035)' : 'rgba(0,0,0,.035)') + '"/>'); });
@@ -2681,7 +2682,8 @@
         var o = ohBy[l]; if (o) s.push('<circle cx="' + (x + cw / 2).toFixed(1) + '" cy="' + (y + 8) + '" r="3.6" fill="' + (o.kind === 'withhold' || o.kind === 'none' ? 'none' : '#fff') + '" stroke="' + (o.kind === 'withhold' || o.kind === 'none' ? '#fff' : '#000') + '" stroke-width="' + (o.kind === 'withhold' || o.kind === 'none' ? 1.6 : .8) + '"><title>' + esc(c.name + ' ' + l + ': ' + (o.kind === 'withhold' ? 'withheld ' : o.kind === 'half' ? 'paid half of ' : 'paid out ') + d.money(o.revenue)) + '</title></circle>');
         var b = buys[c.name + '|' + l]; if (b) s.push('<path d="M' + (x + cw / 2 - 4).toFixed(1) + ' ' + (y + 22) + 'l4 -6l4 6z" fill="' + displayColor(col[c.name] || '#888', dark) + '"><title>' + esc(c.name + ' bought ' + b.join(', ') + ' in ' + l) + '</title></path>');
       });
-      if (c.closed) s.push('<text x="' + (W - 4) + '" y="' + (y + 13) + '" text-anchor="end" class="tlx">closed</text>');
+      var lastI = -1; pl.forEach(function (p, i) { if (p) lastI = i; });
+      if ((c.closed || c.into) && lastI >= 0 && lastI < L.length - 1) s.push('<text x="' + (left + (lastI + 1) * cw + 4).toFixed(1) + '" y="' + (y + 13) + '" class="tlx">' + esc(c.into ? '→ ' + c.into : 'closed') + '</text>');
     });
     s.push('</svg>');
     return '<section class="card wide"><h2>Company timeline</h2><p class="sub">Each company\'s life from start to now. The bar has the colour of its president at the time; a white dot means it paid out, a ring that it withheld, ▲ that it bought a train. Shaded columns are stock rounds.</p>' +
@@ -2779,7 +2781,7 @@
       var msg = ln.msg, x;
       if ((x = /^(\S+) (?:pays out|pays) .*?\(([^()]*\bto\b[^()]*)\)\s*$/.exec(msg))) x[2].split(/,\s*/).forEach(function (part) { var y = /^(.+?) to (.+)$/.exec(part); if (y && pn[y[2]]) { var v = moneyNum(y[1]); add(x[1] + ' dividends', y[2], v); tot += v; } });
       else if ((x = /^(.+?) collects (\S+) from (.+)$/.exec(msg)) && pn[x[1]]) { var v2 = moneyNum(x[2]); add('Private companies', x[1], v2); tot += v2; }
-      else if ((x = /^(.+?) sells .* and receives (\S+)$/.exec(msg)) && pn[x[1]]) { var v3 = moneyNum(x[2]); add('Share sales', x[1], v3); tot += v3; }
+      else if ((x = /^(.+?) sells .* (?:and receives|for) (\S+)$/.exec(msg)) && pn[x[1]]) { var v3 = moneyNum(x[2]); add('Share sales', x[1], v3); tot += v3; }
     }); });
     var L = Object.keys(links).map(function (k) { var ab = k.split('\u0001'); return { source: ab[0], target: ab[1], value: links[k] }; });
     return L.length ? { links: L, tot: tot } : null;
