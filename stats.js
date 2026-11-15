@@ -1414,7 +1414,7 @@
     if (!w.__ecLazyOn) {
       w.__ecLazyOn = 1;
       var check = function () { w.__ecLazy = (w.__ecLazy || []).filter(function (x) { if (!x.el.isConnected) return false; var rr = x.el.getBoundingClientRect(); if (x.el.offsetParent && rr.top < (w.innerHeight || 900) + 400 && rr.bottom > -400) { x.make(); return false; } return true; }); };
-      var tmr = null, later = function () { if (!tmr) tmr = w.setTimeout(function () { tmr = null; check(); }, 120); };
+      var last = 0, tmr = null, later = function () { var now = Date.now(); if (now - last > 80) { last = now; check(); } if (!tmr) tmr = w.setTimeout(function () { tmr = null; check(); }, 150); };
       w.addEventListener('scroll', later, { passive: true }); w.addEventListener('resize', later); w.document.addEventListener('click', later);
     }
     return { setOption: function (o) { if (real) real.setOption(o); else pending = o; }, resize: function () { if (real) real.resize.apply(real, arguments); } };
