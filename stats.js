@@ -2342,7 +2342,7 @@
     if (PH.length) h.push('<h3 class="rh">Phases</h3><div class="tw"><table class="tight"><thead><tr><th>Phase</th><th>Starts with</th><th>Tiles</th><th>Train limit</th><th>ORs per set</th></tr></thead><tbody>' +
       PH.map(function (p) { return '<tr' + (p.status === 'current' ? ' class="merow"' : '') + '><td><b>' + esc(p.name) + '</b>' + (p.status === 'current' ? ' <small>now</small>' : '') + '</td><td>' + esc(p.on.join(', ') || 'start') + '</td><td style="text-align:left">' + (p.tiles || []).map(function (c) { return '<i class="sw" style="background:' + (TILE_FILL[c] || '#888') + '"></i>'; }).join('') + esc((p.tiles || []).join(', ')) + '</td><td>' + esc(p.trainLimit) + '</td><td>' + esc(p.ors) + '</td></tr>'; }).join('') + '</tbody></table></div>');
     if (I.ends && I.ends.length) h.push('<h3 class="rh">The game ends when</h3><ul class="wo">' + I.ends.map(function (e) { return '<li>' + esc(e) + '</li>'; }).join('') + '</ul>');
-    var CO = (P.companies || []).filter(function (c) { return c.desc; });
+    var CO = (P.companies || []).filter(function (c) { return c.desc && !/^Pass\b/.test(c.sym) && !/^Pass\b/.test(c.name); });
     if (CO.length) h.push('<h3 class="rh">Private companies and their powers</h3><div class="tw"><table class="tight"><thead><tr><th>Company</th><th>Cost</th><th>Income</th><th style="text-align:left">What it does</th></tr></thead><tbody>' +
       CO.map(function (c) { return '<tr><td><b>' + esc(c.sym) + '</b><br><small>' + esc(c.name) + '</small></td><td>' + (c.value ? esc(m(c.value)) : '—') + '</td><td>' + (c.revenue ? esc(m(c.revenue)) : '—') + '</td><td style="text-align:left;white-space:normal;font-weight:400">' + esc(c.desc) + '</td></tr>'; }).join('') + '</tbody></table></div>');
     return h.join('');
@@ -2386,12 +2386,13 @@
   function differsHtml(d) {
     var P = d.primer || {}, out = [], TG = d.trainGroups || [], oneD = d.grid && d.grid.cells.length === 1;
     if (d.title === '1830') return '<p>1830 is the classic the comparison uses, so there is nothing to compare here. See the primer for its numbers.</p>';
-    if (P.capitalization === 'incremental') out.push('Companies are paid per share as shares are bought from them (incremental), not 10× par when they float as in 1830.');
+    var hand = (TITLE_NOTES[d.title] || []).join(' ');
+    if (P.capitalization === 'incremental' && !/incremental/i.test(hand)) out.push('Companies are paid per share as shares are bought from them (incremental), not 10× par when they float as in 1830.');
     if (oneD) out.push('The stock market is a single row: payouts move right, withholds and sales move left. 1830 uses a grid where sales move down.');
     if (P.sellAfter && P.sellAfter !== 'first') out.push(WORDS_SELL_AFTER[P.sellAfter] || ('Selling: ' + P.sellAfter));
     if (P.sellBuyOrder && P.sellBuyOrder !== 'sell_buy_or_buy_sell') out.push(WORDS_SBO[P.sellBuyOrder] || ('Turn order: ' + P.sellBuyOrder));
     if (TG.some(function (g) { return g.obsoleteOn; })) out.push('Some trains become obsolete instead of rusting at once (1830 only rusts).');
-    if (TG.some(function (g) { return g.names.length > 1; })) out.push('Trains come in variants (for example ' + TG.filter(function (g) { return g.names.length > 1; })[0].names.join(' / ') + ').');
+    if (TG.some(function (g) { return g.names.length > 1; })) out.push('Some trains can be bought as one of several variants (for example ' + TG.filter(function (g) { return g.names.length > 1; })[0].names.join(' or ') + ').');
     if (TG.some(function (g) { return g.unlimited; })) out.push('The last train type is unlimited.');
     if (P.minors) out.push('There are ' + P.minors + ' minor companies as well as the major ones.');
     if (P.hasLoans) out.push('Companies can take loans.');
