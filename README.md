@@ -346,6 +346,10 @@ Every card and tab in the window, one picture each. They were taken from two fin
 
 ![Turn pacing](docs/views/1846-turn-pacing.jpg)
 
+**Rank bump chart.** Everyone's place after each round, with how many players have led and how often places changed.
+
+![Rank bump chart](docs/views/1862-rank-bump-chart.jpg)
+
 </details>
 
 <details>
@@ -403,6 +407,10 @@ Every card and tab in the window, one picture each. They were taken from two fin
 
 ![Valuation](docs/views/1846-valuation.jpg)
 
+**Money flow.** Every dividend, private-company income and share sale in the log, from where the money came from to the player who got it.
+
+![Money flow](docs/views/1862-money-flow.jpg)
+
 </details>
 
 <details>
@@ -450,6 +458,18 @@ Every card and tab in the window, one picture each. They were taken from two fin
 
 ![Minors and private companies](docs/views/1846-minors-privates.jpg)
 
+**Company timeline.** Each company's life coloured by its president at the time, with payouts, withholds, train buys, and where merged companies went.
+
+![Company timeline](docs/views/1862-company-timeline.jpg)
+
+**Market heat map.** How often a company stood on each square of the stock market at the end of a round.
+
+![Market heat map](docs/views/1862-market-heat-map.jpg)
+
+**Market flight paths.** Each company's path across the stock market; tap a company to show only its path.
+
+![Market flight paths](docs/views/1862-market-flight-paths.jpg)
+
 </details>
 
 <details>
@@ -488,6 +508,10 @@ Every card and tab in the window, one picture each. They were taken from two fin
 **Game info.** Title, players, optional rules, the rules of the current phase and every way the game can end.
 
 ![Game info](docs/views/1846-game-info.jpg)
+
+**Train flows.** Every train purchase, from train type to buying company to whether it is still running or gone.
+
+![Train flows](docs/views/1862-train-flows.jpg)
 
 </details>
 

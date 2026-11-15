@@ -2,6 +2,16 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.33.0] - 2026-11-15
+
+### Added
+- **Company timeline** (Companies): each company's life from start to close or merger, coloured by its president round by round, with payouts (dot), withholds (ring) and train purchases (▲), and the company a closed one merged into.
+- **Market heat map** (Companies): how often a company stood on each square of the stock market at the end of a round, with the busiest price.
+- **Market flight paths** (Companies): each company's path across the stock market, from par to now; on one-row markets the path runs down the page round by round. Tap a company to show only its path.
+- **Rank bump chart** (Players & history, Result): everyone's place after each round.
+- **Train flows** (Trains & board): every train purchase from train type to buying company to still running or gone.
+- **Money flow** (Money): every dividend, private-company income and share sale in the log, from where it came from to the player who got it. The total matches *Where the money came from*.
+
 ## [0.32.0] - 2026-11-15
 
 ### Added
