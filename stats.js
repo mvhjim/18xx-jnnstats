@@ -1123,7 +1123,7 @@
     '.rcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}.rc{border:1px solid var(--grid);border-radius:10px;padding:8px 10px}.rch{display:flex;align-items:center;gap:4px;margin-bottom:4px;font-size:14px}.grade{margin-left:auto;color:#fff;font-weight:800;border-radius:6px;padding:1px 9px;font-size:16px}.rc td{font-size:12px;padding:2px 4px}.rc td:first-child{color:var(--text-secondary);text-align:left}',
     '.gauges{display:flex;flex-wrap:wrap;gap:10px 18px}.gauge{text-align:center;width:130px}.gl2{font-size:12px;line-height:1.3}.gl2 span{color:var(--text-secondary)}',
     '.hmk{display:grid;grid-template-columns:repeat(var(--cols),minmax(34px,1fr));gap:2px;overflow-x:auto}.hc{border:1px solid var(--grid);border-radius:5px;padding:2px 3px;min-height:34px;font-size:11px;min-width:0;display:flex;flex-direction:column;justify-content:space-between}.hc.empty{border-color:transparent;background:none!important}.hc b{font-size:12px;text-align:right}',
-    '.tl text,.fp text{font-size:15px;fill:var(--text-secondary)}.tl .tln{font-weight:650;fill:var(--text-primary)}.tl .tlx,.fp .tlx{font-size:13.5px}.fpg{transition:opacity .2s}.fpb.on{font-weight:700;text-decoration:underline}',
+    '.tl text,.fp text{font-size:15px;fill:var(--text-secondary)}.tl .tln{font-weight:650;fill:var(--text-primary)}.tl .tlx,.fp .tlx{font-size:13.5px}.fpg{transition:opacity .2s}.fpb.on,.stb.on,.rsp.on{font-weight:700;text-decoration:none;color:var(--text-primary)}',
     '.mk{display:grid;grid-template-columns:repeat(var(--cols),minmax(34px,1fr));gap:2px;overflow-x:auto}',
     '.mc{border:1px solid var(--grid);border-radius:5px;padding:2px 3px;min-height:40px;font-size:11px;min-width:0}.mc.empty{border-color:transparent}.mp{color:var(--text-secondary);font-variant-numeric:tabular-nums;font-size:10.5px}',
     '.cp{display:block;border-radius:4px;padding:0 3px;margin-top:2px;font-size:10.5px;font-weight:700;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default}.cp.mine{outline:2px solid var(--accent);outline-offset:1px}.cp.gh{background:transparent!important;border:1.5px dashed;font-weight:600}',
@@ -2938,13 +2938,13 @@
     var buys = {}; (A.trains || []).forEach(function (t) { (buys[t.buyer] = buys[t.buyer] || { n: 0, v: 0 }); buys[t.buyer].n++; buys[t.buyer].v += t.price || 0; });
     var col = corpCol(d), rows = (d.ticker || []).filter(function (t) { return t.first && track[t.name]; }).map(function (t) {
       var c = d.corps.filter(function (x) { return x.name === t.name; })[0] || { oh: [] }, oh = c.oh || [], runs = oh.filter(function (o) { return o.revenue > 0; });
-      var paid = oh.filter(function (o) { return o.kind === 'payout'; }).length, held = oh.filter(function (o) { return o.kind === 'withhold'; }).length;
+      var paid = oh.filter(function (o) { return o.kind === 'payout'; }).length, held = oh.filter(function (o) { return o.kind === 'withhold'; }).length, half = oh.filter(function (o) { return o.kind === 'half'; }).length;
       var pl = presLine(d, t.name) || [], pres = []; pl.forEach(function (p) { if (p && pres.indexOf(p) < 0) pres.push(p); });
-      return { n: t.name, col: t.color, first: t.first, price: t.price, growth: t.price / t.first, rev: track[t.name].rev, runs: track[t.name].runs || runs.length, avg: (track[t.name].runs ? track[t.name].rev / track[t.name].runs : 0), paid: paid, held: held, buys: buys[t.name] || { n: 0, v: 0 }, pres: pres, closed: t.closed, into: t.into };
+      return { n: t.name, col: t.color, first: t.first, price: t.price, growth: t.price / t.first, rev: track[t.name].rev, runs: track[t.name].runs || runs.length, avg: (track[t.name].runs ? track[t.name].rev / track[t.name].runs : 0), paid: paid, held: held, half: half, buys: buys[t.name] || { n: 0, v: 0 }, pres: pres, closed: t.closed, into: t.into };
     });
     if (rows.length < 2) return '';
     var rankBy = function (f) { var s = rows.slice().sort(function (a, b) { return f(a) - f(b); }); rows.forEach(function (r) { r.sc = (r.sc || 0) + s.indexOf(r) / (rows.length - 1); }); };
-    rankBy(function (r) { return r.growth; }); rankBy(function (r) { return r.avg; }); rankBy(function (r) { return r.paid / Math.max(1, r.paid + r.held); });
+    rankBy(function (r) { return r.growth; }); rankBy(function (r) { return r.avg; }); rankBy(function (r) { return (r.paid + r.half / 2) / Math.max(1, r.paid + r.held + r.half); });
     rows.forEach(function (r) { var sc = r.sc / 3; r.g = sc >= .8 ? 'A' : sc >= .6 ? 'B' : sc >= .4 ? 'C' : sc >= .2 ? 'D' : 'E'; });
     rows.sort(function (a, b) { return b.sc - a.sc; });
     var m = d.money, gc = { A: '#2e9e5b', B: '#6aa84f', C: '#c9a227', D: '#e07b39', E: '#d9534f' };
@@ -2952,7 +2952,7 @@
       return '<div class="rc"><div class="rch">' + sqw(r.col) + '<b>' + esc(r.n) + '</b><span class="grade" style="background:' + gc[r.g] + '">' + r.g + '</span></div><table class="tight"><tbody>' +
         '<tr><td>Share price</td><td>' + esc(m(r.first)) + ' → ' + esc(m(r.price)) + ' (' + (r.growth >= 1 ? '×' + r.growth.toFixed(1) : '−' + Math.round((1 - r.growth) * 100) + '%') + ')</td></tr>' +
         '<tr><td>Revenue</td><td>' + esc(m(r.rev)) + ' in ' + r.runs + ' runs (' + esc(m(Math.round(r.avg))) + ' each)</td></tr>' +
-        '<tr><td>Paid out</td><td>' + r.paid + ' of ' + (r.paid + r.held) + ' times</td></tr>' +
+        '<tr><td>Paid out</td><td>' + r.paid + ' of ' + (r.paid + r.held + r.half) + ' times' + (r.half ? ', ' + r.half + ' half' : '') + '</td></tr>' +
         '<tr><td>Trains bought</td><td>' + r.buys.n + (r.buys.v ? ' for ' + esc(m(r.buys.v)) : '') + '</td></tr>' +
         '<tr><td>President' + (r.pres.length > 1 ? 's' : '') + '</td><td>' + esc(r.pres.join(' → ') || '–') + '</td></tr>' + (r.closed || r.into ? '<tr><td>End</td><td>' + esc(r.into ? 'merged into ' + r.into : 'closed') + '</td></tr>' : '') + '</tbody></table></div>';
     }).join('') + '</div></section>';
@@ -2988,7 +2988,7 @@
   function streamCard(d) {
     if (!streamModel(d, 'player')) return '';
     var by = ST.streamBy === 'company' ? 'company' : 'player';
-    return '<section class="card wide"><h2>Ownership streamgraph</h2><p class="sub">The market value of all shares held by players, round by round, split by ' + by + '. <span class="pvt">' + [['player', 'by player'], ['company', 'by company']].map(function (x) { return '<button class="lnk pv stb' + (x[0] === by ? ' on' : '') + '" data-b="' + x[0] + '">' + x[1] + '</button>'; }).join(' · ') + '</span></p><div class="chart" id="c-stream"></div></section>';
+    return '<section class="card wide"><h2>Ownership streamgraph</h2><p class="sub">The market value of all shares held by players, round by round, split by ' + by + '. <span class="pvt">' + [['player', 'by player'], ['company', 'by company']].map(function (x) { return '<button class="lnk stb' + (x[0] === by ? ' on' : '') + '" data-b="' + x[0] + '">' + x[1] + '</button>'; }).join(' · ') + '</span></p><div class="chart" id="c-stream"></div></section>';
   }
   function ecStream(w, el, d, pal, dark, m) {
     var by = ST.streamBy === 'company' ? 'company' : 'player', sm = streamModel(d, by), C = ecInk(dark), cc = corpCol(d), pc = {}; d.players.forEach(function (p) { pc[p.name] = pal[p.idx % pal.length]; });
@@ -2999,7 +2999,7 @@
       tooltip: { trigger: 'axis', backgroundColor: C.surf, borderColor: C.grid, textStyle: { color: C.ink, fontSize: 12 }, confine: true, axisPointer: { type: 'line', lineStyle: { color: C.mut } },
         formatter: function (ps) { var i = ps[0].value[0]; return '<div style="color:#898781">' + esc(sm.labels[i]) + '</div>' + ps.filter(function (p) { return p.value[1] > 0; }).sort(function (a, b) { return b.value[1] - a.value[1]; }).map(function (p) { return '<div>' + esc(p.value[2]) + ': <b>' + esc(m(p.value[1])) + '</b></div>'; }).join(''); } },
       legend: { data: keys, top: 0, textStyle: { color: C.ink, fontSize: 11.5 }, icon: 'roundRect', itemWidth: 10, itemHeight: 10 },
-      singleAxis: { type: 'value', min: 0, max: sm.labels.length - 1, top: 34, bottom: 30, left: 10, right: 10, axisLine: { lineStyle: { color: C.grid } }, splitLine: { show: false }, axisLabel: { color: C.mut, fontSize: 10.5, formatter: function (v) { return Number.isInteger(v) ? (sm.labels[v] || '') : ''; } } },
+      singleAxis: { type: 'value', min: 0, max: sm.labels.length - 1, top: 34, bottom: 30, left: 24, right: 30, axisLine: { lineStyle: { color: C.grid } }, splitLine: { show: false }, axisLabel: { color: C.mut, fontSize: 10.5, formatter: function (v) { return Number.isInteger(v) ? (sm.labels[v] || '') : ''; } } },
       series: [{ type: 'themeRiver', data: data, label: { show: false }, emphasis: { focus: 'self' } }] });
   }
   // ---------- Live play: watch-outs, threat radar, turn pacing -------------------------------
