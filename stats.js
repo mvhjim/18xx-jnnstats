@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.35.0';
+  var VERSION = '0.36.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -3136,6 +3136,117 @@
     h.push('</section>');
     return h.join('');
   }
+  // ---------- What-if (tranche F) ----------
+  // 32 What-if lines: simple counterfactuals worked out from the log, without replaying
+  function whatIfModel(d, who) {
+    var V = d.valueHistory, A = d.analysis || {}, k = d.players.map(function (p) { return p.name; }).indexOf(who); if (!V || k < 0) return null;
+    var L = V.labels, pIdx = {}; (d.prices.series || []).forEach(function (s2) { pIdx[s2.name] = s2.values; });
+    var priceAt = function (cn, i) { var arr = pIdx[cn]; if (!arr) return null; var li = d.prices.labels.indexOf(L[i]); for (var j = li; j >= 0; j--) if (arr[j] != null) return arr[j]; return null; };
+    var at = function (lbl) { return L.indexOf(shortRound(lbl)); };
+    var sales = (A.sales || []).filter(function (x) { return x.who === who; }), wh = (A.withholds || []).filter(function (x) { return x.gets && x.gets[who]; });
+    var keep = V.series[k].map(function (v, i) { if (v == null) return null; var add = 0; sales.forEach(function (x) { var si = at(x.round); if (si >= 0 && si <= i) { var pr = priceAt(x.corp, i); add += x.n * ((pr == null ? 0 : pr) - x.per); } }); return Math.round(v + add); });
+    var pay = V.series[k].map(function (v, i) { if (v == null) return null; var add = 0; wh.forEach(function (x) { var wi = L.indexOf(x.label); if (wi >= 0 && wi <= i) add += x.gets[who]; }); return Math.round(v + add); });
+    return { labels: L, actual: V.series[k], keep: sales.length ? keep : null, pay: wh.length ? pay : null, sales: sales, wh: wh };
+  }
+  function whatIfCard(d, me) {
+    if (!d.analysis || !d.valueHistory) return '';
+    var who = ST.wiWho && d.players.some(function (p) { return p.name === ST.wiWho; }) ? ST.wiWho : (me || d.players.slice().sort(function (a, b) { return b.value - a.value; })[0].name);
+    var M = whatIfModel(d, who); if (!M) return '';
+    var m = d.money, last = function (arr) { for (var i = arr.length - 1; i >= 0; i--) if (arr[i] != null) return arr[i]; return null; }, a = last(M.actual), lines = [];
+    if (M.keep) lines.push('had kept the ' + M.sales.reduce(function (s2, x) { return s2 + x.n; }, 0) + ' shares they sold: <b>' + esc(m(last(M.keep))) + '</b> (' + (last(M.keep) >= a ? '+' : '−') + esc(m(Math.abs(last(M.keep) - a))) + ')');
+    if (M.pay) lines.push('had received the dividends of the ' + M.wh.length + ' withholds they held shares in: <b>' + esc(m(last(M.pay))) + '</b> (+' + esc(m(last(M.pay) - a)) + ')');
+    ST.wiModel = M; ST.wiName = who;
+    return '<section class="card wide"><h2>What-if lines</h2><p class="sub">Two simple what-ifs for one player, worked out from the log without replaying the game: the shares they sold kept at the market price, and the dividends lost to withholds paid out. They ignore knock-on effects (prices, train money, other players\' choices). <select id="wi-who">' + d.players.map(function (p) { return '<option' + (p.name === who ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') + '</select></p>' +
+      (lines.length ? '<p class="sub">Actual ' + (d.finished ? 'final' : 'current') + ' value <b>' + esc(m(a)) + '</b>. If ' + esc(who) + ' ' + lines.join('; or if they ') + '.</p><div class="chart" id="c-whatif"></div>' : '<p class="sub">' + esc(who) + ' never sold shares and never lost dividends to a withhold, so there is nothing to draw.</p>') + '</section>';
+  }
+  function ecWhatIf(w, el, d, pal, dark, m) {
+    var M = ST.wiModel, C = ecInk(dark), p = d.players.filter(function (x) { return x.name === ST.wiName; })[0], col = pal[p.idx % pal.length], ch = ecInit(w, el, 280), ser = [{ name: 'Actual', type: 'line', data: M.actual, symbol: 'none', lineStyle: { width: 3, color: col }, itemStyle: { color: col } }];
+    if (M.keep) ser.push({ name: 'Kept the shares sold', type: 'line', data: M.keep, symbol: 'none', lineStyle: { width: 2.2, type: 'dashed', color: '#2e9e5b' }, itemStyle: { color: '#2e9e5b' } });
+    if (M.pay) ser.push({ name: 'Withholds paid out', type: 'line', data: M.pay, symbol: 'none', lineStyle: { width: 2.2, type: 'dotted', color: '#e0a419' }, itemStyle: { color: '#e0a419' } });
+    ch.setOption({ animationDuration: 400, textStyle: { fontFamily: 'inherit' }, legend: { top: 0, textStyle: { color: C.ink, fontSize: 11.5 } }, grid: { left: 60, right: 16, top: 30, bottom: 28 },
+      tooltip: { trigger: 'axis', backgroundColor: C.surf, borderColor: C.grid, textStyle: { color: C.ink, fontSize: 12 }, valueFormatter: function (v) { return v == null ? '' : m(v); } },
+      xAxis: { type: 'category', data: M.labels, boundaryGap: false, axisLabel: { color: C.mut, fontSize: 10.5, hideOverlap: true }, axisLine: { lineStyle: { color: C.grid } } },
+      yAxis: { type: 'value', axisLabel: { color: C.mut, formatter: function (v) { return m(v); } }, splitLine: { lineStyle: { color: C.grid } } }, series: ser });
+  }
+  // 5 What-if sandbox: change one decision and let the rules engine replay the rest of the game
+  function effectiveActions(raw) {
+    var st = [], redo = [];
+    (raw.actions || []).forEach(function (a) {
+      if (a.type === 'undo') { if (a.action_id != null) { while (st.length && st[st.length - 1].id > a.action_id) redo.push(st.pop()); } else if (st.length) redo.push(st.pop()); }
+      else if (a.type === 'redo') { if (redo.length) st.push(redo.pop()); }
+      else { st.push(a); redo = []; }
+    });
+    return st;
+  }
+  function sbDecisions(d, raw, who) {
+    var pid = null; (raw.players || []).forEach(function (p) { if (p.name === who) pid = p.id; });
+    var corps = {}; d.corps.forEach(function (c) { if (c.president === who) corps[c.name] = 1; });
+    var P = presAt(d), roundOf = {}, lineOf = {};
+    if (d.gameLog) d.gameLog.rounds.forEach(function (r) { r.lines.forEach(function (ln) { if (ln.id > 0) { roundOf[ln.id] = shortRound(r.label); if (!lineOf[ln.id] && !ln.head) lineOf[ln.id] = ln.msg; } }); });
+    var E = effectiveActions(raw), out = [];
+    E.forEach(function (a, i) {
+      var mine = (a.entity_type === 'player' && a.entity === pid) || (a.entity_type !== 'player' && P.get && P.get(a.entity, roundOf[a.id]) === who);
+      if (!mine) return;
+      if (['dividend', 'sell_shares', 'buy_shares', 'buy_train', 'par', 'place_token', 'lay_tile', 'bid'].indexOf(a.type) < 0) return;
+      out.push({ i: i, id: a.id, type: a.type, a: a, round: roundOf[a.id] || '', text: lineOf[a.id] || (a.entity + ' ' + a.type.replace(/_/g, ' ') + (a.kind ? ' (' + a.kind + ')' : '')) });
+    });
+    return out;
+  }
+  function sbRun(raw, eff, idx, change) {
+    return new Promise(function (resolve) {
+      setTimeout(function () {
+        var res = { steps: 0, total: eff.length - idx - 1 };
+        try {
+          var j = {}; Object.keys(raw).forEach(function (k) { if (k !== 'actions') j[k] = raw[k]; });
+          j.actions = eff.slice(0, idx); j.status = 'active'; delete j.result;
+          var g = Opal.Engine.Game.$load(Opal.JSON.$parse(JSON.stringify(j)));
+          var j2 = {}; Object.keys(raw).forEach(function (k) { if (k !== 'actions') j2[k] = raw[k]; });
+          var actual = function (n) { j2.actions = eff.slice(0, n); j2.status = 'active'; delete j2.result; return Opal.Engine.Game.$load(Opal.JSON.$parse(JSON.stringify(j2))); };
+          var apply = function (a) { var r = g.$process_action(Opal.JSON.$parse(JSON.stringify(a))); if (!nil(call(g, 'exception'))) throw new Error(s(call(g, 'exception'))); if (r !== g && r) g = r; };
+          if (change.drop) { /* the decision is simply not taken */ } else apply(change.action);
+          var k = idx + 1;
+          for (; k < eff.length; k++) {
+            var a = eff[k]; if (a.type === 'message') { res.steps++; continue; }
+            try { apply(a); res.steps++; } catch (eA) { res.stop = { id: a.id, type: a.type, entity: a.entity, msg: String(eA && eA.message || eA).replace(/^.*?Error:?\s*/, '').slice(0, 240) }; break; }
+          }
+          res.at = k; var ga = actual(Math.min(k, eff.length));
+          var vals = function (gg) { var o = {}; gg.$players().forEach(function (p) { o[s(p.$name())] = num(call(gg, 'player_value', p)); }); return o; };
+          var prices = function (gg) { var o = {}; gg.$corporations().forEach(function (c) { var sp = call(c, 'share_price'); if (sp) o[s(c.$name())] = num(call(sp, 'price')); }); return o; };
+          res.wi = vals(g); res.act = vals(ga); res.wiP = prices(g); res.actP = prices(ga);
+          try { res.round = s(call(call(g, 'round'), 'name') || '') + ' ' + s(call(g, 'turn') || '') ; } catch (eR) {}
+        } catch (e) { res.err = String(e && e.message || e).slice(0, 240); }
+        resolve(res);
+      }, 30);
+    });
+  }
+  function sandboxCard(d, me) {
+    var raw = ST.game && ST.game.raw; if (!raw || !raw.actions) return '';
+    var who = ST.sbWho && d.players.some(function (p) { return p.name === ST.sbWho; }) ? ST.sbWho : (me || d.players[0].name);
+    var D = sbDecisions(d, raw, who); ST.sbD = D;
+    var sel = ST.sbSel != null && D.some(function (x) { return x.i === ST.sbSel; }) ? ST.sbSel : (D.length ? D[D.length - 1].i : null), cur = D.filter(function (x) { return x.i === sel; })[0];
+    var opts = '';
+    if (cur) {
+      var ch = [];
+      if (cur.type === 'dividend') { var kinds = ['payout', 'withhold']; if (d.title === '1846' || cur.a.kind === 'half') kinds.push('half'); kinds.filter(function (k) { return k !== cur.a.kind; }).forEach(function (k) { ch.push(['kind:' + k, k === 'half' ? 'pay half instead' : k === 'payout' ? 'pay out instead' : 'withhold instead']); }); }
+      ch.push(['drop', 'do not make this move']);
+      opts = ch.map(function (c, i) { return '<label style="margin-right:12px"><input type="radio" name="sbc" value="' + c[0] + '"' + (i === 0 ? ' checked' : '') + '> ' + esc(c[1]) + '</label>'; }).join('');
+    }
+    var R = ST.sbRes && ST.sbRes.gid === d.id ? ST.sbRes : null, m = d.money, body = '';
+    if (R && R.busy) body = '<p class="sub">Replaying the rest of the game with the change…</p>';
+    else if (R && R.err) body = '<p class="sub">The change could not be applied: ' + esc(R.err) + '</p>';
+    else if (R) {
+      var names = Object.keys(R.wi), rows = names.map(function (n) { return { n: n, a: R.act[n], w: R.wi[n] }; }).sort(function (x, y) { return y.w - x.w; });
+      var stopTxt = R.stop ? 'It replayed <b>' + R.steps + '</b> of the ' + R.total + ' later moves; then move #' + R.stop.id + ' (' + esc(String(R.stop.entity)) + ': ' + esc(R.stop.type.replace(/_/g, ' ')) + ') was no longer allowed' + (R.stop.msg ? ' (' + esc(R.stop.msg) + ')' : '') + '. From there the real game and the what-if part ways, so the comparison below is at that moment.' : 'All <b>' + R.total + '</b> later moves were still allowed, so the comparison below is at the end.';
+      var pc = Object.keys(R.wiP).filter(function (c) { return R.actP[c] != null && R.actP[c] !== R.wiP[c]; });
+      body = '<p class="sub">What-if: ' + esc(R.label) + '. ' + stopTxt + '</p><div class="tw"><table class="tight"><thead><tr><th style="text-align:left">Player</th><th>Real game</th><th>What-if</th><th>Difference</th></tr></thead><tbody>' +
+        rows.map(function (r) { var df = r.w - r.a; return '<tr><td style="text-align:left">' + (r.n === who ? '<b>' + esc(r.n) + '</b>' : esc(r.n)) + '</td><td>' + esc(m(r.a)) + '</td><td>' + esc(m(r.w)) + '</td><td style="color:' + (df > 0 ? '#2e9e5b' : df < 0 ? '#d9534f' : 'inherit') + '">' + (df > 0 ? '+' : df < 0 ? '−' : '') + esc(m(Math.abs(df))) + '</td></tr>'; }).join('') + '</tbody></table></div>' +
+        (pc.length ? '<p class="sub">Share prices that differ: ' + pc.map(function (c) { return esc(c) + ' ' + esc(m(R.actP[c])) + ' → ' + esc(m(R.wiP[c])); }).join(' · ') + '</p>' : '');
+    }
+    return '<section class="card wide"><h2>What-if sandbox</h2><p class="sub">Change one decision and let the 18xx.games rules engine replay everything after it, with every other move kept as it was. When a later move stops being legal the replay stops there, because from that point the game would really have gone differently. Read only: the game itself is never touched.</p>' +
+      '<p class="sub">Player <select id="sb-who">' + d.players.map(function (p) { return '<option' + (p.name === who ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') + '</select> ' +
+      (D.length ? 'decision <select id="sb-sel" style="max-width:100%">' + D.slice().reverse().map(function (x) { return '<option value="' + x.i + '"' + (x.i === sel ? ' selected' : '') + '>' + esc(x.round + ' · ' + x.text) + '</option>'; }).join('') + '</select>' : 'has no decisions to change') + '</p>' +
+      (cur ? '<p class="sub">' + opts + ' <button class="pill" id="sb-run">▶ Replay with the change</button></p>' : '') + body + '</section>';
+  }
   // ---------- Live play: watch-outs, threat radar, turn pacing -------------------------------
   function sqw(col) { return '<i class="sw" style="background:' + displayColor(col || '#9a9a9a', ST.dark !== false) + '"></i>'; }
   function dur(ms) {
@@ -4019,6 +4130,7 @@
     try { h.push(timelineCard(d, dark, pal), heatCard(d, dark, m), flightCard(d, dark, m), bumpCard(d), trainFlowCard(d), moneyFlowCard(d)); } catch (eD1) { console.warn('18xx-JNNstats: new charts', eD1); }
     try { h.push(raceCard(d), posterCard(d), graveyardCard(d), moneyMapCard(d), reportCardsCard(d), gaugeCard(d), streamCard(d)); } catch (eD2) { console.warn('18xx-JNNstats: new charts', eD2); }
     try { ST.crModel = null; careerSave(d); h.push(decisionCard(d, pal), styleCard(d), careerCard(d, pal, me)); } catch (eE) { console.warn('18xx-JNNstats: career', eE); }
+    try { ST.wiModel = null; h.push(whatIfCard(d, me), sandboxCard(d, me)); } catch (eF) { console.warn('18xx-JNNstats: what-if', eF); }
     h.push('</main>');
 
     var scrollY = w.scrollY || 0;
@@ -4066,6 +4178,7 @@
         if (etf) { var tfm = trainFlowModel(d); ecSankey(w, etf, tfm.links, function (n) { return cc0[n] ? displayColor(cc0[n], dark) : /^Still/.test(n) ? '#2e9e5b' : n === 'Gone' ? '#9a9a9a' : trainColor(d, n.replace(/ train$/, '')); }, dark, null, null, tfm.nodes); }
         var emf = doc.getElementById('c-mflow');
         if (emf) { var mfm = moneyFlowModel(d), pc0 = {}; d.players.forEach(function (p) { pc0[p.name] = pal[p.idx % pal.length]; }); ecSankey(w, emf, mfm.links, function (n) { var cn = n.replace(/ dividends$/, ''); return pc0[n] || (cc0[cn] ? displayColor(cc0[cn], dark) : n === 'Share sales' ? '#9a9a9a' : '#c9a227'); }, dark, m); }
+        var ewi = doc.getElementById('c-whatif'); if (ewi && ST.wiModel) ecWhatIf(w, ewi, d, pal, dark, m);
         var esy = doc.getElementById('c-style'); if (esy) ecStyle(w, esy, d, pal, dark, styleVectors(d));
         if (ST.crModel) {
           var ecd = doc.getElementById('c-crdec'), CM = ST.crModel, C2 = ecInk(dark);
@@ -4098,6 +4211,18 @@
       doc.getElementById('gr-l').textContent = iv >= gl ? 'Now' : d.gridHist[iv].label;
       doc.getElementById('gr-b').innerHTML = gridBody(d, dark, me, iv, m);
       if (ST.hlCorp) hlSet(ST.hlCorp);
+    };
+    var wiw = doc.getElementById('wi-who'); if (wiw) wiw.onchange = function () { ST.wiWho = wiw.value; rerender(); };
+    var sbw = doc.getElementById('sb-who'); if (sbw) sbw.onchange = function () { ST.sbWho = sbw.value; ST.sbSel = null; ST.sbRes = null; rerender(); };
+    var sbs = doc.getElementById('sb-sel'); if (sbs) sbs.onchange = function () { ST.sbSel = +sbs.value; ST.sbRes = null; rerender(); };
+    var sbr = doc.getElementById('sb-run');
+    if (sbr) sbr.onclick = function () {
+      var raw = ST.game.raw, eff = effectiveActions(raw), cur = (ST.sbD || []).filter(function (x) { return x.i === (+(sbs && sbs.value)); })[0]; if (!cur) return;
+      var pick = (doc.querySelector('input[name="sbc"]:checked') || {}).value || 'drop', change = {}, label;
+      if (pick === 'drop') { change.drop = true; label = 'not making the move “' + cur.text + '” (' + cur.round + ')'; }
+      else { var na = JSON.parse(JSON.stringify(cur.a)); na.kind = pick.split(':')[1]; change.action = na; label = cur.a.entity + ' choosing “' + pick.split(':')[1] + '” instead of “' + cur.a.kind + '” (' + cur.round + ')'; }
+      ST.sbSel = cur.i; ST.sbRes = { gid: d.id, busy: true }; rerender();
+      sbRun(raw, eff, cur.i, change).then(function (r) { r.gid = d.id; r.label = label; ST.sbRes = r; rerender(); });
     };
     var crw = doc.getElementById('cr-who'); if (crw) crw.onchange = function () { ST.crWho = crw.value; rerender(); };
     var crg = doc.getElementById('cr-go');
@@ -4499,12 +4624,12 @@
       { id: 'trains', title: 'Trains & board', keys: ['trains-phases-bank', 'routes-revenue', 'money-map', 'stations-explained', 'train-history', 'train-flows', 'train-graveyard', 'tile-manifest'] },
       { id: 'money', title: 'Money', keys: ['company-profit-and-loss', 'cash-flow-per-player', 'where-the-money-came-from', 'money-flow', 'portfolios'] },
       { id: 'history', title: 'Players & history', keys: ['player-value-over-time', 'rank-bump-chart', 'score-race', 'game-poster', 'key-moments', 'board-and-replay', 'game-log', 'president-changes', 'priority-deal-tracker', 'turn-pacing'] },
-      { id: 'analysis', title: 'Analysis', keys: ['decisions-review', 'decision-score', 'style-fingerprint', 'career', 'teaching-moments', 'learning-report', 'game-info'] }
+      { id: 'analysis', title: 'Analysis', keys: ['decisions-review', 'decision-score', 'style-fingerprint', 'what-if-lines', 'what-if-sandbox', 'career', 'teaching-moments', 'learning-report', 'game-info'] }
     ],
     review: [
       { id: 'now', title: 'Result', keys: ['result', 'game-poster', 'teaching-moments', 'learning-report', 'player-value-over-time', 'rank-bump-chart', 'score-race', 'key-moments'] },
       { id: 'history', title: 'Players & history', keys: ['board-and-replay', 'game-log', 'president-changes', 'priority-deal-tracker', 'turn-pacing'] },
-      { id: 'analysis', title: 'Analysis', keys: ['decision-score', 'style-fingerprint', 'career', 'decisions-review', 'pressure-gauge'] },
+      { id: 'analysis', title: 'Analysis', keys: ['decision-score', 'style-fingerprint', 'what-if-lines', 'what-if-sandbox', 'career', 'decisions-review', 'pressure-gauge'] },
       { id: 'money', title: 'Money', keys: ['company-profit-and-loss', 'cash-flow-per-player', 'where-the-money-came-from', 'money-flow', 'portfolios', 'valuation'] },
       { id: 'companies', title: 'Companies', keys: ['stock-ticker', 'stock-market', 'market-heat-map', 'market-flight-paths', 'corporations', 'company-timeline', 'share-price', 'company-revenue-per-operating-round', 'ownership-over-time', 'ownership-streamgraph', 'who-holds-what', 'company-report-cards', 'minors-private-companies'] },
       { id: 'trains', title: 'Trains & board', keys: ['trains-phases-bank', 'routes-revenue', 'money-map', 'stations-explained', 'train-history', 'train-flows', 'train-graveyard', 'tile-manifest', 'game-info'] }
