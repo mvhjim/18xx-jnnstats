@@ -159,7 +159,7 @@ Not affiliated with 18xx.games; thanks to its authors for an open, well-structur
 
 ## Views
 
-Every card and tab in the window, one picture each. They were taken from two finished games (1846 and 1862) in dark mode, with versions 0.26.0–0.28.0 in privacy mode (players shown as Player 1–4); a few cards that did not change are from 0.25.1. The live-game cards come from the 1846 game in History mode (after OR 5.1), with *I am* set to Player 1. Click a section to open it.
+Every card and tab in the window, one picture each. They were taken from two finished games (1846 and 1862) in dark mode, with versions 0.26.0–0.29.0 in privacy mode (players shown as Player 1–4); a few cards that did not change are from 0.25.1. The live-game cards come from the 1846 game in History mode (after OR 5.1), with *I am* set to Player 1. Click a section to open it.
 
 <details>
 <summary><b>Top bar, menu and History</b></summary>
@@ -196,6 +196,10 @@ Every card and tab in the window, one picture each. They were taken from two fin
 **Round banner.** With 🎓 Learning on (⋯ menu), a banner explains the current round: what can be decided in it and what comes next, with the phase, train limit and next train. An ⓘ appears next to words such as round, phase and bank.
 
 ![Round banner and ⓘ marks](docs/views/1846-learn-banner.jpg)
+
+**Your turn, explained.** Who is to act and what the rules allow right now, in plain words (asked from the rules engine; you still make the move on the site), the steps of an operating turn, what the next train changes, each company's train money, and what is special in this title.
+
+![Your turn, explained](docs/views/1846-learn-your-turn.jpg)
 
 **ⓘ explanations.** Press an ⓘ for a short explanation that uses this game's own numbers. *Got it* hides that ⓘ from then on; the *intermediate* level skips the basic terms.
 

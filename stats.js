@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.28.0';
+  var VERSION = '0.29.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -953,7 +953,23 @@
       feed.push({ id: num(call(log[fi], 'action_id')), msg: fm, head: /^-- /.test(fm) });
     }
 
-    var live = { isOR: isOR, isSR: isSR, acting: acting, current: curEnt, order: order, orNum: isOR ? num(call(r, 'round_num')) : null, orsInSet: orsInSet,
+    // What the rules allow right now: the active step of the round and its action types for the acting entity
+    var turn = null;
+    try {
+      if (!finished) {
+        var ent = call(g, 'current_entity'), ast = call(r, 'active_step');
+        var stepName = function (st) { return s(st.$class().$name()).split('::').pop(); };
+        var acts = ent ? (call(r, 'actions_for', ent) || (ast ? call(ast, 'actions', ent) : null) || []).map(s).filter(Boolean) : [];
+        acts = acts.filter(function (a, i) { return acts.indexOf(a) === i; });
+        var desc = ast ? s(call(ast, 'description')) : '';
+        var steps = (call(r, 'steps') || []).map(function (st) { return { name: stepName(st), desc: s(call(st, 'description')), blocks: bool(call(st, 'blocks?')), passed: bool(call(st, 'passed?')), acts: ent ? (call(st, 'actions', ent) || []).length : 0 }; });
+        var entType = ent ? (corpObj[nameOf(ent)] ? 'corporation' : rt(ent, 'player?') && bool(ent['$player?']()) ? 'player' : 'other') : '';
+        turn = { entity: nameOf(ent), entType: entType, step: ast ? stepName(ast) : '', desc: desc, actions: acts, steps: steps,
+          owner: entType === 'corporation' ? nameOf(call(ent, 'owner')) : '' };
+      }
+    } catch (eT) { turn = null; }
+
+    var live = { turn: turn, isOR: isOR, isSR: isSR, acting: acting, current: curEnt, order: order, orNum: isOR ? num(call(r, 'round_num')) : null, orsInSet: orsInSet,
       priority: nameOf(call(g, 'priority_deal_player')), market: market, rush: rush, end: endInfo, hasPreview: !!divStep };
 
     // Turn pacing: time between moves, from the timestamps the site stores with each action
@@ -1013,6 +1029,8 @@
     '#xpop{position:fixed;z-index:60;background:var(--surface-1);border:1px solid var(--accent);border-radius:10px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.35);font-size:12.5px}#xpop p{margin:6px 0;color:var(--text-secondary);line-height:1.45}#xpop .xb{font-size:11.5px}',
     '#gloss{position:fixed;inset:0;z-index:55;background:rgba(0,0,0,.55);display:flex;align-items:flex-start;justify-content:center;padding:30px 10px}#gloss>div{background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:14px 16px;width:min(560px,100%);max-height:calc(100vh - 60px);display:flex;flex-direction:column}#gloss .gh2{display:flex;justify-content:space-between;align-items:center}#gloss input{font:inherit;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface-0);color:var(--text-primary);margin-top:8px}#gloss .gll{overflow:auto;margin-top:4px}#gloss .gi{padding:7px 2px;border-bottom:1px solid var(--grid)}#gloss .gi p{margin:3px 0 0;color:var(--text-secondary);font-size:12.5px;line-height:1.45}#gloss .gi.hl{background:color-mix(in srgb,var(--accent) 14%,transparent)}#gloss a{color:var(--accent)}',
     '.rbanner{margin:0 0 12px;padding:8px 12px;border:1px solid color-mix(in srgb,var(--accent) 55%,var(--border));background:color-mix(in srgb,var(--accent) 9%,var(--surface-1));border-radius:10px;font-size:13px;line-height:1.5}',
+    '.steps{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:2px 0}.stp{border:1px solid var(--border);border-radius:99px;padding:1px 9px;font-size:12px;color:var(--text-muted)}.stp.done{opacity:.55;text-decoration:line-through}.stp.cur{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--text-primary);font-weight:650}.sar{color:var(--text-muted);font-size:11px}',
+    '.redflag,.redflag td{outline:2px solid var(--crit);outline-offset:-2px;background:color-mix(in srgb,var(--crit) 10%,transparent)!important}',
     '.foltag{font-size:10.5px;font-weight:600;color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 50%,transparent);border-radius:99px;padding:0 6px;margin-left:6px;vertical-align:middle}',
     '*{box-sizing:border-box}body{margin:0;background:var(--surface-0);color:var(--text-primary);font:13px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}',
     '.hr3{display:flex;align-items:center;gap:8px;margin-top:6px;padding:4px 8px;border-radius:8px;font-size:12px;color:var(--text-secondary);border:1px solid var(--grid)}.hr3 input{flex:1;min-width:80px}.hr3.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--text)}.hr3 b{white-space:nowrap}.tt-note{color:var(--text-muted)}',
@@ -2174,6 +2192,102 @@
   // Beginner layout: only the essentials open, Now first; your own layout is kept so you can go back
   var BEGIN_LAYOUT = { order: ['now', 'watch-outs', 'standings', 'stock-round-helper', 'what-just-happened', 'stock-market', 'corporations', 'trains-phases-bank', 'routes-revenue', 'game-end-clock', 'threat-radar'],
     collapsed: ['threat-radar', 'game-end-clock', 'minors-private-companies', 'tile-manifest', 'game-info'], gc: ['money', 'history', 'analysis'], dock: [] };
+
+  // ---------- Learning mode: your turn in plain words ------------------------------------------------
+  // Plain words for the engine's action types. Unknown types are shown with their own name.
+  var ACT_WORDS = {
+    buy_shares: ['Buy a share', 'from the company (initial offering) or from the bank pool'], sell_shares: ['Sell shares', 'the price drops; you may not sell in the first stock round in many titles'],
+    par: ['Start a company', 'choose its par price and buy the president\'s certificate'], pass: ['Pass', 'do nothing more this turn'], bid: ['Bid', 'on what is up for auction'],
+    lay_tile: ['Lay or upgrade a tile', 'extend or improve the track your company can use'], place_token: ['Place a station', 'in a city your routes can reach; it costs money and blocks others'],
+    run_routes: ['Run the trains', 'pick routes for each train; the site can suggest the best ones'], dividend: ['Pay out or withhold', 'give the revenue to shareholders, or keep it for trains'],
+    buy_train: ['Buy a train', 'from the bank, the bank pool, or another company'], discard_train: ['Discard a train', 'over the train limit'], buy_company: ['Buy a private company', 'from its owner, within the allowed price range'],
+    take_loan: ['Take a loan', 'money now, interest every operating round'], payoff_loan: ['Pay off a loan', ''], short: ['Short a share', 'sell a share you do not own, to buy back later'],
+    merge: ['Merge', 'combine with another company'], choose: ['Make a choice', 'the rules ask you to pick an option'], assign: ['Assign a bonus', 'put a private company\'s marker on the map'],
+    bankrupt: ['Declare bankruptcy', 'only when nothing else is possible'], sell_company: ['Sell a private company', ''], swap_train: ['Swap a train', ''], convert: ['Convert the company', 'change its size'],
+    scrap_train: ['Scrap a train', ''], reassign_trains: ['Move trains', 'between companies'], undo: null, redo: null, message: null, log: null, program_auto_pass: null, end_game: null, hybrid: null, buy_power: ['Buy power', '']
+  };
+  // Short, hand-written notes on what is special in a title (the rest comes from the engine)
+  var TITLE_NOTES = {
+    '1846': ['Companies get money for every share bought from them (incremental capitalization), and can issue or redeem shares during their turn.',
+      'Routes from an east off-board to a west off-board earn an extra East-West bonus (shown as "+ E/W").',
+      'Private companies are drafted at the start; the minors (Michigan Southern, Big 4) run on their own for a while.',
+      'Private bonuses such as the Mail Contract and Meat Packing add revenue to the company that owns them.',
+      'The game usually ends when the bank breaks; watch the bank in the Game end tile.'],
+    '1862': ['Each train level comes in variants (Express, Freight, Local) chosen when you buy it; the coloured dot shows which.',
+      'Parliamentary obligations: companies are chartered through obligations bought from the bank.',
+      'The game ends when the bank breaks or the last train is bought (the current set of ORs is finished).'],
+    '1817': ['Companies start small (2 shares) and can grow (5, then 10 shares).',
+      'Companies take loans, paying interest every OR; too much debt and a low price can force liquidation.',
+      'You may short shares: a short pays the dividend instead of receiving it, and must be closed later.',
+      'A merger and acquisition round lets companies merge or buy each other.']
+  };
+  var STATION_NOTE = 'Stations: a company\'s routes must start from one of its own stations, and a city whose slots are all taken by other companies cannot be run through. Placing a station early in a busy city can block a rival.';
+  function trainEconomics(d, me, m) {
+    var cheapest = d.cheapest, mk = {}; (d.live && d.live.market || []).forEach(function (x) { mk[x.name] = x; });
+    var open = d.corps.filter(function (c) { return !c.closed && c.price != null; });
+    if (me) open.sort(function (a, b) { return (b.president === me ? 1 : 0) - (a.president === me ? 1 : 0); });
+    return open.map(function (c) {
+      var t = c.trains.map(function (x) { return x.name; }).join(', ') || 'no trains';
+      var rust = (c.rustIn || []).filter(function (x) { return x >= 0; }), nextRust = rust.length ? Math.min.apply(null, rust) : null;
+      var line = sqw(c.color) + '<b>' + esc(c.name) + '</b>' + (me && c.president === me ? ' <span class="mename">yours</span>' : '') + ' has ' + esc(m(c.cash)) + ' and runs ' + esc(t) + '. ';
+      if (nextRust != null) line += (rust.length === c.trains.length ? 'All its trains rust' : rust.length + ' of them rust') + ' ' + (nextRust === 1 ? 'on the next train bought' : 'in ' + nextRust + ' train buys') + '. ';
+      if (cheapest) {
+        var gap = cheapest.price - c.cash, rev = mk[c.name] && mk[c.name].estRevenue;
+        if (gap <= 0) line += 'It can already afford the cheapest train (' + esc(cheapest.name) + ', ' + esc(m(cheapest.price)) + ').';
+        else line += 'It is ' + esc(m(gap)) + ' short of the cheapest train' + (rev ? '; withholding its last revenue (' + esc(m(rev)) + ') it would get there in about ' + Math.ceil(gap / rev) + ' OR' + (Math.ceil(gap / rev) === 1 ? '' : 's') : '') + (c.trainless ? '. <span class="st-crit">With no train, its president must help pay.</span>' : '.');
+      }
+      return '<li' + (me && c.president === me && (c.trainless || (nextRust === 1 && rust.length === c.trains.length)) ? ' class="wo3"' : '') + '>' + line + '</li>';
+    }).join('');
+  }
+  function yourTurnCard(d, me, m) {
+    var lvl = learnLevel(); if (!lvl || d.finished || !d.live) return '';
+    var L = d.live, T = L.turn, h = [];
+    if (T && T.entity) {
+      var mineNow = me && (T.entity === me || T.owner === me) && !d.tt;
+      var who = T.entType === 'corporation' ? '<b>' + esc(T.entity) + '</b> (president ' + esc(T.owner) + ')' : '<b>' + esc(T.entity) + '</b>';
+      var tc = T.entType === 'corporation' ? d.corps.filter(function (c) { return c.name === T.entity; })[0] : null;
+      var acts = T.actions.filter(function (a) { return ACT_WORDS[a] !== null && !/^program_/.test(a) && (a !== 'bankrupt' || (tc && tc.buy && tc.buy.kind === 'stuck')); });
+      h.push('<p class="nowline" style="font-size:13px">' + (mineNow ? '<span class="pill yours">● Your turn</span> ' : '') + who + ' is to act' + (T.desc ? ': <i>' + esc(T.desc) + '</i>' : '') + '.</p>');
+      if (acts.length) h.push('<h3 class="rh">What the rules allow right now</h3><ul class="wo">' + acts.map(function (a) { var w2 = ACT_WORDS[a] || [a.replace(/_/g, ' '), ''];
+         if (T.entType === 'corporation' && a === 'sell_shares') w2 = ['Issue shares', 'the company sells some of its own shares to the bank pool for cash; the price usually drops'];
+        if (T.entType === 'corporation' && a === 'buy_shares') w2 = ['Redeem shares', 'the company buys its own shares back from the bank pool']; return '<li><b>' + esc(w2[0]) + '</b>' + (w2[1] ? ' — ' + esc(w2[1]) : '') + '</li>'; }).join('') + '</ul><p class="sub" style="margin:4px 0 0">Make the move on the 18xx.games page; this window only explains.</p>');
+      // operating turn steps
+      if (L.isOR) {
+        var SEQ = [['Track', 'Lay track'], ['Token', 'Station'], ['Route', 'Run trains'], ['Dividend', 'Pay or withhold'], ['Train', 'Buy trains']];
+        var curI = -1, curJ = -1; SEQ.forEach(function (q, i) { if (T.step.indexOf(q[0]) >= 0) { if (curI < 0) curI = i; curJ = i; } });
+        if (curI < 0 && /Track|Tile/i.test(T.step)) curI = curJ = 0;
+        h.push('<h3 class="rh">Steps of this company\'s turn</h3><div class="steps">' + SEQ.map(function (q, i) { return '<span class="stp' + (i < curI ? ' done' : i >= curI && i <= curJ ? ' cur' : '') + '">' + (i + 1) + ' ' + q[1] + '</span>'; }).join('<span class="sar">→</span>') + '</div>' + (curI < 0 && T.step ? '<p class="sub" style="margin:4px 0 0">Now in a special step: ' + esc(T.desc || T.step) + '.</p>' : ''));
+      }
+    }
+    // next train preview
+    var nb = nextBuyEffects(d), nt = d.nextTrain;
+    if (nt) {
+      var nxt = (d.phases || []).filter(function (p) { return p.status === 'future' && p.inPurchases === 1; })[0];
+      var cur = (d.phases || []).filter(function (p) { return p.status === 'current'; })[0];
+      var bits = [];
+      if (nxt) { bits.push('phase <b>' + esc(nxt.name) + '</b> starts'); if (cur && nxt.trainLimit && nxt.trainLimit !== cur.trainLimit) bits.push('the train limit changes from ' + esc(cur.trainLimit) + ' to ' + esc(nxt.trainLimit) + ' (extra trains must be discarded)'); if (cur && nxt.ors && nxt.ors !== cur.ors) bits.push('there will be ' + esc(nxt.ors) + ' operating rounds per set instead of ' + esc(cur.ors)); }
+      nb.rust.forEach(function (x) { bits.push(sqw(x.c.color) + '<b>' + esc(x.c.name) + '</b> loses ' + x.lost + ' train' + (x.lost === 1 ? '' : 's') + ' to rust' + (x.left === 0 ? ' <span class="st-crit">and is left with none</span>' : '')); });
+      nb.obs.forEach(function (x) { bits.push(sqw(x.c.color) + '<b>' + esc(x.c.name) + '</b> has ' + x.n + ' train' + (x.n === 1 ? '' : 's') + ' become obsolete'); });
+      h.push('<h3 class="rh">If the next train (' + esc(nt.name) + ', ' + esc(m(nt.price)) + ') is bought</h3>' + (bits.length ? '<ul class="wo">' + bits.map(function (b) { return '<li>' + b + '</li>'; }).join('') + '</ul>' : '<p>Nothing changes except one train fewer in the bank.</p>'));
+    }
+    var te = trainEconomics(d, me, m);
+    if (te) h.push('<details class="d2"' + (lvl === 'beginner' ? ' open' : '') + '><summary class="rh" style="cursor:pointer;font-weight:600">Trains and money, company by company</summary><ul class="wo">' + te + '</ul></details>');
+    var notes = (TITLE_NOTES[d.title] || []).slice();
+    if (lvl === 'beginner' || notes.length) h.push('<details class="d2"' + (lvl === 'beginner' ? ' open' : '') + '><summary class="rh" style="cursor:pointer;font-weight:600">Good to know in ' + esc(d.title) + '</summary><ul class="wo">' + notes.concat(lvl === 'beginner' ? [STATION_NOTE] : []).map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + (d.notes && d.notes.length ? d.notes.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') : '') + '</ul></details>');
+    if (!h.length) return '';
+    return '<section class="card wide"><h2>Your turn, explained</h2><p class="sub">Learning mode: what can be done now, the steps of the turn, what the next train changes, and each company\'s train money.</p>' + h.join('') + '</section>';
+  }
+  // Red flags: anything about to hurt *you* gets a red outline everywhere it appears
+  function redFlags(w, d, me) {
+    if (!learnLevel() || !me || d.finished) return;
+    var doc = w.document, nb = nextBuyEffects(d), bad = {};
+    nb.rust.forEach(function (x) { if (x.c.president === me && x.left === 0) bad[x.c.name] = 'its trains all rust on the next train bought'; });
+    d.corps.forEach(function (c) { if (c.president === me && !c.closed && c.buy && (c.buy.kind === 'stuck' || c.buy.kind === 'emergency')) bad[c.name] = 'it has no train money: you will have to pay'; });
+    dumpRisks(d).forEach(function (x) { if (x.to === me && x.bad) bad[x.corp] = 'it could be dumped on you'; });
+    Object.keys(bad).forEach(function (cn) { Array.prototype.forEach.call(doc.querySelectorAll('[data-crow="' + cn.replace(/"/g, '') + '"]'), function (el) { el.classList.add('redflag'); el.title = '⚠ ' + cn + ': ' + bad[cn]; }); });
+    var meP = d.players.filter(function (p) { return p.name === me; })[0];
+    if (meP && meP.certLimit && meP.certs > meP.certLimit) Array.prototype.forEach.call(doc.querySelectorAll('[data-prow="' + me.replace(/"/g, '') + '"]'), function (el) { el.classList.add('redflag'); el.title = '⚠ over the certificate limit'; });
+  }
   // ---------- Live play: watch-outs, threat radar, turn pacing -------------------------------
   function sqw(col) { return '<i class="sw" style="background:' + displayColor(col || '#9a9a9a', ST.dark !== false) + '"></i>'; }
   function dur(ms) {
@@ -2408,6 +2522,7 @@
           : '<div class="v sm2">not triggered</div>') +
         (endList ? '<details class="d2" style="margin-top:6px"><summary style="cursor:pointer"><b>How the game can end</b></summary>' + endList + '</details>' : '') + '</div>');
       h.push('</div></section>');
+      h.push(yourTurnCard(d, me, m));
       h.push(watchOuts(d, me, m));
       h.push(threatRadar(d, me, m));
 
@@ -3308,6 +3423,7 @@
       rerender();
     };
     addXi(w, d);
+    redFlags(w, d, me);
     doc.body.onclick = function (ev) { var xb = ev.target.closest && ev.target.closest('.xi'); if (xb) { ev.stopPropagation(); showTerm(w, d, xb.getAttribute('data-t'), xb); } };
     var de = doc.documentElement;
     de.__xxD = d;
@@ -3431,7 +3547,7 @@
   ];
   var GROUPS = {
     live: [
-      { id: 'now', title: 'Now', keys: ['now', 'watch-outs', 'what-just-happened', 'standings', 'stock-round-helper', 'threat-radar', 'game-end-clock'] },
+      { id: 'now', title: 'Now', keys: ['now', 'your-turn-explained', 'watch-outs', 'what-just-happened', 'standings', 'stock-round-helper', 'threat-radar', 'game-end-clock'] },
       { id: 'companies', title: 'Companies', keys: ['stock-ticker', 'stock-market', 'corporations', 'share-price', 'company-revenue-per-operating-round', 'ownership-over-time', 'who-holds-what', 'valuation', 'minors-private-companies'] },
       { id: 'trains', title: 'Trains & board', keys: ['trains-phases-bank', 'routes-revenue', 'train-history', 'tile-manifest'] },
       { id: 'money', title: 'Money', keys: ['company-profit-and-loss', 'cash-flow-per-player', 'where-the-money-came-from', 'portfolios'] },

@@ -2,6 +2,16 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.29.0] - 2026-11-15
+
+### Added
+- **Your turn, explained** (Learning mode, live games): one card that says who is to act and what the rules allow right now, in plain words, asked from the rules engine (for example *Issue shares*, *Lay or upgrade a tile*, *Place a station*). Moves are still made on the 18xx.games page; this window only explains. It also shows:
+  - **Turn steps:** in an operating round, the company's steps (lay track → station → run trains → pay or withhold → buy trains) with the current one highlighted.
+  - **Next-train preview:** what buying the next train changes: the new phase, the train limit and number of ORs, which companies lose trains to rust or obsolescence.
+  - **Trains and money, company by company:** cash, trains, when they rust, how far each company is from the cheapest train, and about how many ORs of withholding would close the gap.
+  - **Good to know in this title:** short notes on what is special in 1846, 1862 and 1817, plus how stations work.
+- **Red flags** (Learning mode, with *I am* set): a company of yours about to lose all its trains, without train money, or that could be dumped on you, and being over the certificate limit, are outlined in red wherever they appear.
+
 ## [0.28.0] - 2026-11-15
 
 ### Added
