@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.25.2';
+  var VERSION = '0.26.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -35,6 +35,10 @@
     }
   };
 
+  // Okabe-Ito: distinguishable with the common kinds of colour blindness
+  var CB_COLORS = { light: ['#0072b2', '#e69f00', '#009e73', '#cc79a7', '#56b4e9', '#d55e00', '#8a7f00', '#000000'],
+                    dark:  ['#3d9be0', '#e69f00', '#14b88a', '#d98cb5', '#56b4e9', '#ef6a1a', '#f0e442', '#e0e0e0'] };
+  function playerPal(dark) { return (lsGet('xxStats.cb') === '1' ? CB_COLORS : PLAYER_COLORS)[dark ? 'dark' : 'light']; }
   var PLAYER_COLORS = { light: ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'],
                         dark:  ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'] };
 
@@ -957,6 +961,9 @@
     ':root{--surface-0:#e7e6dc;--surface-1:#f1f0e7;--text-primary:#0b0b0b;--text-secondary:#4d4d46;--text-muted:#74746b;--grid:#d9d8cc;--border:#cdccbf;--good:#1a7f37;--warn:#b26b00;--crit:#c62828;--accent:#2a78d6;color-scheme:light}',
     '@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){' + DARKVARS + '}}',
     ':root[data-theme="dark"]{' + DARKVARS + '}',
+    ':root[data-contrast="high"]{--text-secondary:var(--text-primary);--grid:#6b6a64;--border:#8a8980}:root[data-contrast="high"][data-theme="dark"]{--text-muted:#c9c8bf;--surface-0:#000;--surface-1:#0d0d0c}:root[data-contrast="high"][data-theme="light"]{--text-muted:#3d3d38;--surface-0:#fff;--surface-1:#fff}:root[data-contrast="high"] .card{border-width:2px}',
+    '#keys{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center}#keys>div{background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:16px 20px;max-width:420px;width:92%;box-shadow:0 8px 30px rgba(0,0,0,.4)}#keys table{width:100%}#keys td{text-align:left;border:0;padding:3px 6px;font-weight:400}#keys kbd{display:inline-block;min-width:22px;text-align:center;padding:1px 6px;border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;font:600 12px system-ui;background:var(--surface-0)}',
+    '.foltag{font-size:10.5px;font-weight:600;color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 50%,transparent);border-radius:99px;padding:0 6px;margin-left:6px;vertical-align:middle}',
     '*{box-sizing:border-box}body{margin:0;background:var(--surface-0);color:var(--text-primary);font:13px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}',
     '.hr3{display:flex;align-items:center;gap:8px;margin-top:6px;padding:4px 8px;border-radius:8px;font-size:12px;color:var(--text-secondary);border:1px solid var(--grid)}.hr3 input{flex:1;min-width:80px}.hr3.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--text)}.hr3 b{white-space:nowrap}.tt-note{color:var(--text-muted)}',
     'header{position:sticky;top:0;z-index:5;background:var(--surface-1);border-bottom:1px solid var(--border);padding:7px 14px}',
@@ -1038,6 +1045,35 @@
   function effSize(w) { return sizePref() || ((w.innerWidth || 1000) <= 720 ? 'third' : 'half'); }
   function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  // Privacy mode: players become Player 1, 2… (seat order of the first game seen), chat is left out
+  // and game numbers are hidden, so a screenshot can be shared anywhere. Only this window changes.
+  function privacyOn() { return lsGet('xxStats.privacy') === '1'; }
+  function aliasOf(name) {
+    ST.alias = ST.alias || {}; ST.aliasRev = ST.aliasRev || {};
+    if (!ST.alias[name]) { var n = Object.keys(ST.alias).length + 1; ST.alias[name] = 'Player ' + n; ST.aliasRev['Player ' + n] = name; }
+    return ST.alias[name];
+  }
+  function anonText(text) {
+    if (!privacyOn()) return text;
+    try {
+      var j = JSON.parse(text), names = (j.players || []).map(function (p) { aliasOf(p.name); return p.name; });
+      if (j.user && j.user.name && names.indexOf(j.user.name) < 0) { names.push(j.user.name); ST.alias[j.user.name] = ST.alias[j.user.name] || 'Host'; }
+      if (j.actions) j.actions = j.actions.filter(function (a) { return a.type !== 'message'; });
+      j.description = '';
+      text = JSON.stringify(j);
+      names.sort(function (a, b) { return b.length - a.length; }).forEach(function (nm) {
+        if (!nm) return;
+        text = text.replace(new RegExp('(^|[^A-Za-z0-9_])' + nm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?=$|[^A-Za-z0-9_])', 'g'), function (all, pre) { return pre + ST.alias[nm]; });
+      });
+    } catch (e) {}
+    return text;
+  }
+  function gameText(id) { return fetch('/api/game/' + id, { credentials: 'same-origin' }).then(function (r) { return r.text(); }).then(anonText); }
+  function gidTxt(id) {
+    if (!privacyOn()) return '#' + id;
+    ST.gidMap = ST.gidMap || {}; if (!ST.gidMap[id]) ST.gidMap[id] = 'game ' + String.fromCharCode(65 + Object.keys(ST.gidMap).length % 26);
+    return ST.gidMap[id];
+  }
   // Two short tones, played in the stats window (the sound toggle click unlocks audio there).
   function beep(w) {
     try {
@@ -1051,18 +1087,57 @@
       ST.beeps = (ST.beeps || 0) + 1;
     } catch (e) {}
   }
+  function followOn() { return lsGet('xxStats.follow') !== '0'; }
+  var KEYS = [['?', 'show or hide this list'], ['1 – 9', 'jump to a section'], ['H', 'History on / off'], ['← →', 'previous / next round in History'], ['Esc', 'close, or leave History'],
+    ['R', 'refresh now'], ['M', 'open the ⋯ menu'], ['D', 'dark / light'], ['P', 'privacy mode'], ['C', 'colour-blind colours'], ['F', 'follow the round'], ['T', 'back to the top']];
+  function showKeys(w) {
+    var doc = w.document, old = doc.getElementById('keys'); if (old) { old.remove(); return; }
+    var o = doc.createElement('div'); o.id = 'keys';
+    o.innerHTML = '<div role="dialog" aria-label="Keyboard shortcuts"><b style="font-size:14px">Keyboard shortcuts</b><table>' + KEYS.map(function (k) { return '<tr><td><kbd>' + esc(k[0]) + '</kbd></td><td>' + esc(k[1]) + '</td></tr>'; }).join('') + '</table><p class="sub" style="margin:8px 0 0">Keys do nothing while you type in a box. Press Esc or click outside to close.</p></div>';
+    o.onclick = function (ev) { if (ev.target === o) o.remove(); };
+    doc.body.appendChild(o);
+  }
+  function keyHandler(w, d, setPrivacy) {
+    var doc = w.document;
+    doc.onkeydown = function (e) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      var t = e.target; if (t && (/^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName) || t.isContentEditable)) return;
+      var k = e.key, click = function (id) { var el = doc.getElementById(id); if (el) el.click(); }, mn = doc.getElementById('mn');
+      if (k === '?') { showKeys(w); }
+      else if (k === 'Escape') {
+        var ov = doc.getElementById('keys');
+        if (ov) ov.remove(); else if (mn && mn.open) { mn.open = false; ST.menuOpen = false; } else if (ST.tt) ttExit(); else if (ST.ttOpen) { ST.ttOpen = false; rerender(); } else return;
+      }
+      else if (/^[1-9]$/.test(k)) { var jb = doc.querySelectorAll('#jump .jg button')[+k - 1]; if (jb) jb.click(); else return; }
+      else if (k === 'h' || k === 'H') click('tt');
+      else if ((k === 'ArrowLeft' || k === 'ArrowRight') && ST.ttOpen && ST.rounds && ST.rounds.length > 1) {
+        var last = ST.rounds.length - 1, cur = ST.tt ? ST.tt.idx : last, lab = doc.getElementById('tt-l');
+        if (lab) lab.textContent = 'loading…'; ttGo(cur + (k === 'ArrowLeft' ? -1 : 1));
+      }
+      else if (k === 'r' || k === 'R') refresh(true);
+      else if (k === 'm' || k === 'M') { if (mn) { mn.open = !mn.open; ST.menuOpen = mn.open; } }
+      else if (k === 'd' || k === 'D') click('th');
+      else if (k === 'p' || k === 'P') setPrivacy();
+      else if (k === 'c' || k === 'C') click('cbp');
+      else if (k === 'f' || k === 'F') click('fol');
+      else if (k === 't' || k === 'T') w.scrollTo(0, 0);
+      else return;
+      e.preventDefault();
+    };
+  }
   function themePref() { var v = lsGet('xxStats.theme'); return v === 'dark' || v === 'light' ? v : null; }
   function isDark(w) { var p = themePref(); return p ? p === 'dark' : true; }
   // "I am": the player chosen in the window, else the one recognised from the page's own header (never any login data)
   function myName(names) {
     var v = lsGet('xxStats.me');
+    if (v && privacyOn() && ST.alias && ST.alias[v]) v = ST.alias[v];
     if (v !== null) return v && names.indexOf(v) >= 0 ? v : null;
     return ST.autoMe && names.indexOf(ST.autoMe) >= 0 ? ST.autoMe : null;
   }
   function detectMe(names) {
     try {
       var nav = document.querySelector('nav, #header, .nav'), txt = nav ? nav.textContent : '';
-      var hits = names.filter(function (n) { return n && new RegExp('(^|[^A-Za-z0-9_])' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^A-Za-z0-9_])').test(txt); });
+      var hits = names.filter(function (n) { var rn = privacyOn() && ST.aliasRev && ST.aliasRev[n] ? ST.aliasRev[n] : n; return n && new RegExp('(^|[^A-Za-z0-9_])' + rn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^A-Za-z0-9_])').test(txt); });
       return hits.length === 1 ? hits[0] : null;
     } catch (e) { return null; }
   }
@@ -1104,15 +1179,20 @@
     try { w.navigator.clipboard.writeText(txt).then(function () { done(true); }, function () { done(fallback()); }); } catch (e) { done(fallback()); }
   }
   // Standings + value chart as a PNG (drawn on a canvas so it does not depend on the page's styles)
-  function shareImage(d, ranked, pal, dark, m, me) {
+  // badges: optional list of [emoji, title, name, detail, runner-up]; given for finished games (the post-game share card)
+  function shareImage(d, ranked, pal, dark, m, me, badges) {
     var th = dark ? { bg: '#14181d', tx: '#e8eaed', t2: '#a9b0b8', gr: '#2a3038' } : { bg: '#f1f0e7', tx: '#1b1f24', t2: '#5b636c', gr: '#d9d8cc' };
     var W = 900, rowH = 28, n = ranked.length, topH = 64, listH = 26 + n * rowH, chartTop = topH + listH + 34, chartH = 300, H = chartTop + chartH + 50, S = 2;
+    badges = (badges || []).slice(0, 6);
+    var bTop = chartTop + chartH + 20, bRow = 52; if (badges.length) H = bTop + 30 + Math.ceil(badges.length / 2) * bRow + 34;
     var c = document.createElement('canvas'); c.width = W * S; c.height = H * S; var x = c.getContext('2d'); x.scale(S, S);
     var F = function (sz, wt) { x.font = (wt || '400') + ' ' + sz + 'px system-ui,-apple-system,Segoe UI,Roboto,sans-serif'; };
     x.fillStyle = th.bg; x.fillRect(0, 0, W, H);
     x.textBaseline = 'alphabetic'; x.textAlign = 'left';
     F(22, '700'); x.fillStyle = th.tx; x.fillText(d.title + ' \u00b7 ' + d.roundLabel + (d.finished ? ' (final)' : ''), 24, 36);
-    F(12.5); x.fillStyle = th.t2; x.fillText('Player value = cash + shares at market price + private companies', 24, 56);
+    F(12.5); x.fillStyle = th.t2;
+    if (d.finished && ranked.length > 1) { F(14, '600'); x.fillStyle = th.tx; x.fillText('🏆 ' + ranked[0].name + ' won by ' + m(ranked[0].value - ranked[1].value), 24, 56); }
+    else x.fillText('Player value = cash + shares at market price + private companies', 24, 56);
     var y = topH + 18; F(12, '600'); x.fillStyle = th.t2;
     x.fillText('#', 24, y); x.fillText('Player', 52, y); x.textAlign = 'right'; x.fillText('Value', 420, y); x.fillText('Cash', 520, y); x.textAlign = 'left';
     var maxV = Math.max.apply(null, ranked.map(function (p) { return p.value; }).concat([1]));
@@ -1147,6 +1227,16 @@
     ends.sort(function (a, b) { return a.y - b.y; });
     for (var e = 1; e < ends.length; e++) if (ends[e].y - ends[e - 1].y < 15) ends[e].y = ends[e - 1].y + 15;
     F(12.5, '600'); ends.forEach(function (o) { x.fillStyle = o.col; x.fillRect(W - R + 10, o.y - 5, 9, 9); x.fillStyle = th.tx; x.fillText(o.name, W - R + 24, o.y + 4); });
+    if (badges.length) {
+      F(14, '700'); x.fillStyle = th.tx; x.fillText('Badges', 24, bTop + 8);
+      badges.forEach(function (b, i) {
+        var bx = 24 + (i % 2) * 430, by = bTop + 30 + Math.floor(i / 2) * bRow;
+        x.fillStyle = dark ? '#22221f' : '#e7e6dc'; x.fillRect(bx, by - 4, 412, bRow - 8);
+        F(22); x.fillText(b[0], bx + 10, by + 28);
+        F(13, '700'); x.fillStyle = th.tx; x.fillText(b[1] + ': ' + b[2], bx + 46, by + 16);
+        F(11.5); x.fillStyle = th.t2; var det = String(b[3]); if (det.length > 62) det = det.slice(0, 60) + '…'; x.fillText(det, bx + 46, by + 33);
+      });
+    }
     F(11); x.fillStyle = th.t2; x.fillText('18xx-JNNstats by jimiste', 24, H - 14);
     return c;
   }
@@ -1776,7 +1866,7 @@
     var items = [], chain = Promise.resolve();
     ids.forEach(function (id) {
       chain = chain.then(function () {
-        return fetch('/api/game/' + id, { credentials: 'same-origin' }).then(function (r) { return r.text(); }).then(function (text) {
+        return gameText(id).then(function (text) {
           var raw = JSON.parse(text);
           if (!raw.actions || !raw.actions.length) throw new Error('Game ' + id + ' was not found, or has no moves (archived games cannot be replayed).');
           if (raw.title !== d.title) throw new Error('Game ' + id + ' is ' + raw.title + ', this game is ' + d.title + '. Only games of the same title can be compared.');
@@ -1891,13 +1981,14 @@
     return gameBar + sumBar + (anyChk ? '<p class="sub" style="margin:0 0 6px"><button class="lnk rt-all">check every company in this round</button> <small style="color:var(--text-muted)">replays to just before each run and asks the site\'s own auto-router for the best routes it can find; about 15 seconds each</small></p>' : '') + '<table class="rt"><thead><tr><th>Company</th><th>Train</th><th>Revenue</th><th>Stops (as the engine logs them)</th></tr></thead><tbody>' + rows + '</tbody></table>';
   }
   function render(w, d) {
-    var doc = w.document, dark = isDark(w), pal = PLAYER_COLORS[dark ? 'dark' : 'light'];
+    var doc = w.document, dark = isDark(w), pal = playerPal(dark);
     var m = d.money;
     var me = myName(d.players.map(function (p) { return p.name; }));
     var myTurn = !!me && !d.finished && !d.tt && !!d.live && d.live.acting.indexOf(me) >= 0;
     var soundOn = lsGet('xxStats.sound') === '1', armed = !!w.__xxAudio;
-    doc.title = (myTurn ? '● Your turn · ' : '') + d.roundLabel + ' · ' + d.title + ' · ' + d.id + ' · 18xx-JNNstats';
+    doc.title = (myTurn ? '● Your turn · ' : '') + d.roundLabel + ' · ' + d.title + (privacyOn() ? '' : ' · ' + d.id) + ' · 18xx-JNNstats';
     doc.documentElement.setAttribute('data-theme', themePref() || 'dark');
+    if (lsGet('xxStats.hc') === '1') doc.documentElement.setAttribute('data-contrast', 'high'); else doc.documentElement.removeAttribute('data-contrast');
     try { var nst = doc.getElementById('xxn'); if (nst) { var szp = sizePref(), want = szp === 'third' ? NARROW.replace('@media (max-width:720px)', '@media all') : NARROW; if (nst.textContent !== want) nst.textContent = want; nst.disabled = szp === 'half'; } } catch (eN) {}
     if (ST.lookGame !== d.id && !d.tt) { ST.lookGame = d.id; ST.lookId = d.feed.length ? d.feed[0].id : 0; }
     if (!d.tt) ST.maxFeedId = d.feed.length ? d.feed[0].id : 0;
@@ -1907,7 +1998,7 @@
 
     var h = [];
     var newer = ST.latest && cmpVer(ST.latest, VERSION) > 0;
-    h.push('<header><div class="hr1"><h1>' + esc(d.title) + ' <span style="color:var(--text-muted);font-weight:400">#' + esc(d.id) + '</span></h1>');
+    h.push('<header><div class="hr1"><h1>' + esc(d.title) + (privacyOn() ? ' <span class="pill" title="Privacy mode: players are shown as Player 1, 2… and game numbers are hidden" style="font-size:11px">🕶 private</span>' : ' <span style="color:var(--text-muted);font-weight:400">#' + esc(d.id) + '</span>') + '</h1>');
     h.push('<span class="kv">Round <b>' + esc(d.roundLabel) + '</b></span><span class="kv">Phase <b>' + esc(d.phase) + '</b></span>');
     h.push('<span class="kv">Bank <b data-f="bank" class="' + (d.bank <= 0 ? 'st-crit' : '') + '">' + esc(m(d.bank)) + '</b>' + (d.bank < 0 ? ' <small class="st-crit">broken</small>' : '') + '</span>');
     if (d.nextTrain) h.push('<span class="kv opt">Next train <b>' + esc(d.nextTrain.name) + '</b> ' + esc(m(d.nextTrain.price)) + '</span>');
@@ -1929,6 +2020,13 @@
       '<button class="ib" id="snd" title="' + (soundOn ? (armed ? 'Sound on: plays when it becomes your turn. Click to switch off.' : 'Click once to arm the sound (browsers need a click)') : 'Sound off. Click to play a sound when it becomes your turn.') + '">' + (soundOn ? (armed ? '🔔 Sound on' : '🔔? Sound: click to arm') : '🔕 Sound off') + '</button>' +
       '<span class="szb" style="display:flex;gap:6px;align-items:center">Size <button class="ib' + (effSize(w) === 'half' ? ' on' : '') + '" id="sz-h" title="Half size: wide layout, and moves this window to the right half of the screen">Half</button><button class="ib' + (effSize(w) === 'third' ? ' on' : '') + '" id="sz-t" title="Third size: narrow single-column layout, and moves this window to the right third of the screen">Third</button></span>' +
       '<button class="ib" id="th" title="Switch between dark and light">' + (dark ? '🌙 Dark' : '☀ Light') + ' mode</button>' +
+      '<span style="display:flex;gap:6px;flex-wrap:wrap">' +
+        '<button class="ib' + (privacyOn() ? ' on' : '') + '" id="pv" title="Show players as Player 1, 2… and hide game numbers and chat, for screenshots you can share anywhere (key P)">🕶 Privacy</button>' +
+        '<button class="ib' + (lsGet('xxStats.cb') === '1' ? ' on' : '') + '" id="cbp" title="Player colours that stay distinguishable with colour blindness">◐ Colour-blind</button>' +
+        '<button class="ib' + (lsGet('xxStats.hc') === '1' ? ' on' : '') + '" id="hcp" title="Brighter text and stronger lines">◑ High contrast</button>' +
+        '<button class="ib' + (followOn() ? ' on' : '') + '" id="fol" title="In a live game, bring the cards that matter in this kind of round to the top of Now: the stock round helper and market in a stock round, corporations, trains and routes in an operating round">↕ Follow the round</button>' +
+        '<button class="ib" id="kb" title="Keyboard shortcuts (key ?)">⌨ Keys</button>' +
+      '</span>' +
         '<button id="lr" title="Restore the default order and expand all sections">Reset <span id="lm">layout</span></button>' +
         '<span style="display:flex;gap:6px;align-items:center">Text size <button id="zo" title="Smaller text">A−</button><button id="zi" title="Larger text">A+</button></span> <button id="sh-v" class="ib" title="Copy a link that opens this game with your card layout (no names or other data are in it)">🔗</button> ' +
         '<button id="sz-a" class="ib" title="Pick the layout from the window width again (after using Half or Third)">Auto size</button> <button id="lc-open" class="ib" title="Copy or paste your card layout as text">Layout code…</button>' +
@@ -2053,7 +2151,7 @@
     }
 
     // Standings
-    h.push('<section class="card"><h2>Standings</h2><p class="sub">Player value = cash + shares at market price' + (d.finished ? ' (final)' : '') + ' <button id="cp" class="lnk" title="Copy the standings and share prices as plain text, to paste into chat">copy as text</button> <button id="cpi" class="lnk" title="Copy the standings and the Player value chart as a picture, to paste into chat">copy as image</button></p><div class="tw"><table><thead><tr><th>#</th><th style="text-align:left">Player</th><th>Value</th><th style="width:30%"></th><th>Gap</th><th>Cash</th><th>Certs</th></tr></thead><tbody>');
+    h.push('<section class="card"><h2>Standings</h2><p class="sub">Player value = cash + shares at market price' + (d.finished ? ' (final)' : '') + ' <button id="cp" class="lnk" title="Copy the standings and share prices as plain text, to paste into chat">copy as text</button> <button id="cpi" class="lnk" title="' + (d.finished ? 'Copy a share card: the result, the Player value chart and the badges, as one picture for chat' : 'Copy the standings and the Player value chart as a picture, to paste into chat') + '">' + (d.finished ? 'copy share card' : 'copy as image') + '</button></p><div class="tw"><table><thead><tr><th>#</th><th style="text-align:left">Player</th><th>Value</th><th style="width:30%"></th><th>Gap</th><th>Cash</th><th>Certs</th></tr></thead><tbody>');
     ranked.forEach(function (p, i) {
       var c = pal[p.idx % pal.length];
       var certCls = p.certLimit && p.certs >= p.certLimit ? 'st-crit' : p.certLimit && p.certs >= p.certLimit - 1 ? 'st-warn' : '';
@@ -2346,6 +2444,7 @@
       metricBadge('🚂', 'Best single run', br, fmtM, function (v) { return 'one company run earned ' + m(v); });
       var sp2 = {}; if (AN2 && AN2.trains) AN2.trains.forEach(function (x) { var nm = x.pres || (corpPres[x.buyer] && corpPres[x.buyer].president); if (nm) sp2[nm] = (sp2[nm] || 0) + x.price; });
       metricBadge('🔧', 'Train baron', sp2, fmtM, function (v) { return 'spent ' + m(v) + ' on trains as a president'; });
+      ST.badgesFor = { id: d.id, list: badges };
       if (badges.length) h.push('<section class="card wide"><h2>Badges</h2><p class="sub">Just for fun, worked out from this game’s data. A badge only appears when there is a clear winner.</p><div class="badges">' + badges.map(function (b3) { return '<div class="bdg"><span class="bi">' + b3[0] + '</span><div><b>' + esc(b3[1]) + '</b><br><span class="bn">' + esc(b3[2]) + '</span><br><small style="color:var(--text-muted)">' + esc(b3[3]) + (b3[4] ? '<br>' + esc(b3[4]) : '') + '</small></div></div>'; }).join('') + '</div></section>');
       // dividend decisions in hindsight (an estimate)
       if (AN && AN.withholds && AN.withholds.length) {
@@ -2389,7 +2488,7 @@
       // post-game report
       var rp = [], standL = finalRank.map(function (p, i) { return (i + 1) + '. ' + p.name + ' ' + m(p.value); });
       var lc = 0, prevLd = -1; for (var f6 = 0; f6 < nf; f6++) { var bj = -1, bw = -Infinity; VH.series.forEach(function (sx, i) { if (sx[f6] != null && sx[f6] > bw) { bw = sx[f6]; bj = i; } }); if (prevLd >= 0 && bj !== prevLd) lc++; prevLd = bj; }
-      rp.push(d.title + ' #' + d.id + (d.finished ? ' (finished)' : ' (' + d.roundLabel + ')'));
+      rp.push(d.title + (privacyOn() ? '' : ' #' + d.id) + (d.finished ? ' (finished)' : ' (' + d.roundLabel + ')'));
       if (finalRank.length > 1) rp.push((d.finished ? finalRank[0].name + ' won with ' : finalRank[0].name + ' leads with ') + m(finalRank[0].value) + ', ' + m(finalRank[0].value - finalRank[1].value) + ' ahead of ' + finalRank[1].name + '.');
       rp.push('Standings: ' + standL.join(', '));
       rp.push('The lead changed hands ' + lc + ' time' + (lc === 1 ? '' : 's') + '.');
@@ -2408,9 +2507,9 @@
         var cntG = function (nm) { return games.filter(function (gm2) { return gm2.d2.players.some(function (p) { return p.name === nm; }); }).length; }, focus = me && cntG(me) === games.length ? me : names.slice().sort(function (x, y) { return cntG(y) - cntG(x); })[0], ser = [];
         var sample = function (v, q) { return v[Math.round(q * (v.length - 1))]; };
         if (games.length === 2) {
-          games.forEach(function (gm2, gi) { gm2.d2.players.forEach(function (p, i) { var c2 = colOf[p.name] || pal[(p.idx + d.players.length) % pal.length]; ser.push({ name: p.name + ' · #' + gm2.id, color: c2, dashed: gi > 0, values: pts.map(function (q) { return sample(gm2.d2.valueHistory.series[i], q); }) }); }); });
+          games.forEach(function (gm2, gi) { gm2.d2.players.forEach(function (p, i) { var c2 = colOf[p.name] || pal[(p.idx + d.players.length) % pal.length]; ser.push({ name: p.name + ' · ' + gidTxt(gm2.id), color: c2, dashed: gi > 0, values: pts.map(function (q) { return sample(gm2.d2.valueHistory.series[i], q); }) }); }); });
         } else {
-          games.forEach(function (gm2, gi) { gm2.d2.players.forEach(function (p, i) { if (p.name !== focus) return; ser.push({ name: p.name + ' · #' + gm2.id, color: pal[gi % pal.length], dashed: gi > 0, values: pts.map(function (q) { return sample(gm2.d2.valueHistory.series[i], q); }) }); }); });
+          games.forEach(function (gm2, gi) { gm2.d2.players.forEach(function (p, i) { if (p.name !== focus) return; ser.push({ name: p.name + ' · ' + gidTxt(gm2.id), color: pal[gi % pal.length], dashed: gi > 0, values: pts.map(function (q) { return sample(gm2.d2.valueHistory.series[i], q); }) }); }); });
         }
         cModel = { labels: pts.map(function (q) { return Math.round(q * 100) + '%'; }), fmt: m, series: ser };
         cChart = lineChart(cModel, { title: 'Player value, compared games', dark: dark });
@@ -2427,10 +2526,10 @@
         var ph = function (f, nm) { for (var z = 0; z < f.phases.length; z++) if (f.phases[z].name === nm) return f.phases[z]; return null; };
         var st = function (dd) { return dd.finished ? 'finished' : esc(dd.roundLabel); };
         var F = function (fn) { return games.map(function (gm2) { return fn(gm2.facts, gm2); }); };
-        cmBody = '<p class="sub">This game <b>#' + esc(d.id) + '</b> (solid) against ' + CM.items.map(function (x) { return '<b>#' + esc(x.id) + '</b>'; }).join(', ') + ' (dashed). Lines are lined up by how far through each game they are.' + (games.length > 2 ? ' With several games the chart shows one player, <b>' + esc(focus) + '</b>, in each game.' : '') + '</p>' +
-          '<div class="tw"><table><thead><tr><th>Player</th>' + games.map(function (gm2) { return '<th>#' + esc(gm2.id) + ' (' + st(gm2.d2) + ')</th>'; }).join('') + '<th>This game vs latest other</th></tr></thead><tbody>' + playRows + '</tbody></table></div>' +
+        cmBody = '<p class="sub">This game <b>' + esc(gidTxt(d.id)) + '</b> (solid) against ' + CM.items.map(function (x) { return '<b>' + esc(gidTxt(x.id)) + '</b>'; }).join(', ') + ' (dashed). Lines are lined up by how far through each game they are.' + (games.length > 2 ? ' With several games the chart shows one player, <b>' + esc(focus) + '</b>, in each game.' : '') + '</p>' +
+          '<div class="tw"><table><thead><tr><th>Player</th>' + games.map(function (gm2) { return '<th>' + esc(gidTxt(gm2.id)) + ' (' + st(gm2.d2) + ')</th>'; }).join('') + '<th>This game vs latest other</th></tr></thead><tbody>' + playRows + '</tbody></table></div>' +
           legend(cModel.series, dark) + '<div class="chart" id="c-cmp">' + cChart.svg + '<div class="tip"></div></div>' +
-          '<h3 style="font-size:12px;margin:12px 0 4px">How the games ran</h3><div class="tw"><table><thead><tr><th>&nbsp;</th>' + games.map(function (gm2) { return '<th>#' + esc(gm2.id) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+          '<h3 style="font-size:12px;margin:12px 0 4px">How the games ran</h3><div class="tw"><table><thead><tr><th>&nbsp;</th>' + games.map(function (gm2) { return '<th>' + esc(gidTxt(gm2.id)) + '</th>'; }).join('') + '</tr></thead><tbody>' +
           mrow('Operating rounds', F(function (f) { return f.ors; })) + mrow('Companies', F(function (f) { return f.companies; })) + mrow('Revenue run, all companies', F(function (f) { return esc(m(f.runRev)); })) +
           mrow('Paid out to players as dividends', F(function (f) { return esc(m(f.divs)); })) + mrow('Spent on trains', F(function (f) { return esc(m(f.trainSpend)); })) + mrow('Trains bought between companies', F(function (f) { return f.inter; })) +
           (games.some(function (gm2) { return gm2.facts.tileSpend; }) ? mrow('Spent on tile lays', F(function (f) { return esc(m(f.tileSpend)); })) : '') + mrow('Tokens placed', F(function (f) { return f.tokens; })) +
@@ -2609,7 +2708,7 @@
         } else fhBody += '<p class="sub" style="margin-top:8px">No finished games found with exactly these players' + (titleSel === 'this' ? ' in ' + esc(d.title) + ' (try All titles)' : '') + '.</p>';
       }
       if (uids.length > 1) h.push('<section class="card wide"><h2>Friends over time</h2><p class="sub">Loads the public profile pages of the players in this game, for head-to-head records, your progress game after game, and a pace benchmark for a running game. Scores only, nothing is replayed.</p>' +
-        '<div class="tb"><button id="fh-go" class="ib">' + (FH && FH.games ? 'Reload' : 'Load history') + '</button></div>' + (FH && FH.msg ? '<p class="sub" style="margin:8px 0 0">' + esc(FH.msg) + '</p>' : '') + fhBody + '</section>');
+        (privacyOn() ? '<p class="sub" style="margin:0">Not available in privacy mode: the profile pages show real names. Switch privacy off in the ⋯ menu to use it.</p></section>' : '<div class="tb"><button id="fh-go" class="ib">' + (FH && FH.games ? 'Reload' : 'Load history') + '</button></div>' + (FH && FH.msg ? '<p class="sub" style="margin:8px 0 0">' + esc(FH.msg) + '</p>' : '') + fhBody + '</section>'));
     } catch (eFh) { h.push('<section class="card wide"><h2>Friends over time</h2><p class="sub">Could not be built (' + esc(String(eFh && eFh.message || eFh)) + ').</p></section>'); }
     // Game info
     if (d.info) {
@@ -2631,6 +2730,7 @@
     var scrollY = w.scrollY || 0;
     ecDisposeAll(w);
     doc.body.innerHTML = h.join('');
+    ST.roundKind = d.finished || !d.live ? null : d.live.isOR ? 'or' : d.live.isSR ? 'sr' : 'other';
     applyLayout(w, d.finished ? 'review' : 'live');
     try { decorateNames(doc, d, pal, dark); } catch (eDn) {}
     w.scrollTo(0, scrollY);
@@ -2863,24 +2963,32 @@
       if (myTurn && ST.turnKey !== turnKey && ST.turnKey != null && soundOn) beep(w);
       ST.turnKey = turnKey;
     }
-    doc.getElementById('me').onchange = function () { lsSet('xxStats.me', this.value); ST.pfPlayer = null; ST.feedTab = null; rerender(); };
+    doc.getElementById('me').onchange = function () { lsSet('xxStats.me', privacyOn() && ST.aliasRev && ST.aliasRev[this.value] ? ST.aliasRev[this.value] : this.value); ST.pfPlayer = null; ST.feedTab = null; rerender(); };
     doc.getElementById('th').onclick = function () { lsSet('xxStats.theme', dark ? 'light' : 'dark'); rerender(); };
+    var flip = function (k) { lsSet(k, lsGet(k) === '1' ? '0' : '1'); };
+    var setPrivacy = function () { flip('xxStats.privacy'); ST.game = null; ST.verify = null; ST.ttCache = {}; ST.tt = null; ST.ttOpen = false; ST.cmp = null; ST.fh = null; refresh(true); };
+    doc.getElementById('pv').onclick = setPrivacy;
+    doc.getElementById('cbp').onclick = function () { flip('xxStats.cb'); rerender(); };
+    doc.getElementById('hcp').onclick = function () { flip('xxStats.hc'); rerender(); };
+    doc.getElementById('fol').onclick = function () { lsSet('xxStats.follow', followOn() ? '0' : '1'); rerender(); };
+    doc.getElementById('kb').onclick = function () { ST.menuOpen = false; showKeys(w); };
+    keyHandler(w, d, setPrivacy);
     var mn = doc.getElementById('mn'); if (mn) mn.ontoggle = function () { ST.menuOpen = mn.open; };
     doc.onclick = function (ev) { if (ST.menuOpen && mn && !ev.target.closest('#mn')) { mn.open = false; ST.menuOpen = false; } };
     var giEl = doc.getElementById('gi'); if (giEl) giEl.oninput = function () { ST.giVal = giEl.value; };
     var cpi = doc.getElementById('cpi');
     if (cpi) cpi.onclick = function () {
-      var lbl = function (t) { try { cpi.textContent = t; setTimeout(function () { try { cpi.textContent = 'copy as image'; } catch (e) {} }, 1800); } catch (e) {} };
+      var lbl = function (t) { try { cpi.textContent = t; setTimeout(function () { try { cpi.textContent = d.finished ? 'copy share card' : 'copy as image'; } catch (e) {} }, 1800); } catch (e) {} };
       try {
-        shareImage(d, ranked, pal, dark, m, me).toBlob(function (b) {
-          var save = function () { try { var a = w.document.createElement('a'); a.href = w.URL.createObjectURL(b); a.download = '18xx-standings.png'; w.document.body.appendChild(a); a.click(); a.remove(); lbl('saved as a file'); } catch (e) { lbl('copy failed'); } };
+        shareImage(d, ranked, pal, dark, m, me, d.finished && ST.badgesFor && ST.badgesFor.id === d.id ? ST.badgesFor.list : null).toBlob(function (b) {
+          var save = function () { try { var a = w.document.createElement('a'); a.href = w.URL.createObjectURL(b); a.download = d.finished ? '18xx-result.png' : '18xx-standings.png'; w.document.body.appendChild(a); a.click(); a.remove(); lbl('saved as a file'); } catch (e) { lbl('copy failed'); } };
           try { w.navigator.clipboard.write([new w.ClipboardItem({ 'image/png': b })]).then(function () { lbl('copied \u2713'); }, save); } catch (e) { save(); }
         }, 'image/png');
       } catch (e) { lbl('copy failed'); }
     };
     var cpb = doc.getElementById('cp');
     if (cpb) cpb.onclick = function () {
-      var lines = [d.title + ' #' + d.id + ' · ' + d.roundLabel + ' · phase ' + d.phase];
+      var lines = [d.title + (privacyOn() ? '' : ' #' + d.id) + ' · ' + d.roundLabel + ' · phase ' + d.phase];
       ranked.forEach(function (p, i) { lines.push((i + 1) + '. ' + p.name + ' ' + m(p.value) + ' (cash ' + m(p.cash) + ')'); });
       var px = d.ticker.filter(function (tk) { return !tk.closed; }).map(function (tk) { return tk.name + ' ' + m(tk.price); });
       if (px.length) lines.push('Share prices: ' + px.join(', '));
@@ -3113,6 +3221,19 @@
     secs.slice().sort(function (a, b) { return rank(a.getAttribute('data-key')) - rank(b.getAttribute('data-key')); }).forEach(function (sec) {
       var gid = gOf[sec.getAttribute('data-key')] || groups[groups.length - 1].id; bodies[gid].appendChild(sec);
     });
+    // Follow the round: in a live game the cards that matter in this kind of round move up into Now,
+    // just below the Now card. Only the screen changes; the saved order is kept (see persist).
+    var FOLLOW = { sr: ['stock-round-helper', 'stock-market', 'valuation'], or: ['corporations', 'trains-phases-bank', 'routes-revenue'], other: ['minors-private-companies'] };
+    if (mode === 'live' && followOn() && ST.roundKind && bodies.now) {
+      var nowCard = bodies.now.querySelector('section[data-key="now"]'), anchor = nowCard ? nowCard.nextSibling : bodies.now.firstChild;
+      FOLLOW[ST.roundKind].forEach(function (k) {
+        if (lay.dock.indexOf(k) >= 0) return;
+        var sx = main.querySelector('section[data-key="' + k + '"]'); if (!sx) return;
+        sx.setAttribute('data-follow', '1');
+        var stx = sx.querySelector('h2 .st'); if (stx) stx.insertAdjacentHTML('beforeend', '<span class="foltag" title="Moved up for this kind of round (Follow the round, in the ⋯ menu). Your own card order is kept.">this round</span>');
+        bodies.now.insertBefore(sx, anchor);
+      });
+    }
     // the dock: pinned cards live inside the sticky header, so they stay put while everything below scrolls
     var hdrEl = doc.querySelector('header'), dock = null;
     if (hdrEl && lay.dock.length) {
@@ -3132,7 +3253,10 @@
     if (cmpSec) { if (ST.cmpOpen) { cmpSec.classList.remove('collapsed'); main.insertBefore(cmpSec, main.firstChild); cmpSec.style.marginBottom = '12px'; } else cmpSec.parentNode.removeChild(cmpSec); }
     function persist() {
       var cur = Array.prototype.map.call(doc.querySelectorAll('main section[data-key], #dock section[data-key]'), function (s) { return s.getAttribute('data-key'); });
-      lay.order = cur.concat(lay.order.filter(function (k) { return cur.indexOf(k) < 0; }));
+      // cards moved by Follow the round keep their own saved place
+      var fol = {}; Array.prototype.forEach.call(doc.querySelectorAll('section[data-follow]'), function (s) { fol[s.getAttribute('data-key')] = 1; });
+      var q = cur.filter(function (k) { return !fol[k]; }), ord = lay.order.map(function (k) { return fol[k] || cur.indexOf(k) < 0 ? k : q.shift(); });
+      lay.order = ord.concat(q).concat(cur.filter(function (k) { return ord.indexOf(k) < 0 && q.indexOf(k) < 0; }));
       lay.collapsed = Array.prototype.map.call(doc.querySelectorAll('main section.collapsed, #dock section.collapsed'), function (s) { return s.getAttribute('data-key'); });
       lay.dock = Array.prototype.map.call(doc.querySelectorAll('#dock section[data-key]'), function (s) { return s.getAttribute('data-key'); });
       lay.gc = Array.prototype.map.call(main.querySelectorAll('.grp.gcol'), function (g2) { return g2.getAttribute('data-g'); });
@@ -3218,7 +3342,7 @@
     var top = res.length ? res[0].score : 1;
     w.document.title = raw.title + ' · ' + raw.id + ' · Stats';
     w.document.documentElement.setAttribute('data-theme', themePref() || 'dark');
-    w.document.body.innerHTML = '<header><div class="hr1"><h1>' + esc(raw.title) + ' <span style="color:var(--text-muted);font-weight:400">#' + esc(raw.id) + '</span></h1><span class="kv">' + esc(raw.description || '') + '</span>' +
+    w.document.body.innerHTML = '<header><div class="hr1"><h1>' + esc(raw.title) + ' <span style="color:var(--text-muted);font-weight:400">' + esc(gidTxt(raw.id)) + '</span></h1><span class="kv">' + esc(raw.description || '') + '</span>' +
       '<span class="grow"></span><span class="tb"><form id="gf" style="display:inline"><input id="gi" placeholder="game # or link" size="12" style="font:inherit;font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface-0);color:var(--text-primary)"> <button class="ib" style="font-size:12px">Open</button></form></span></div></header>' +
       '<main><section class="card wide"><h2>Archived game: only the final result is kept</h2><p class="sub">18xx.games deletes the moves of archived games, so there is no history to replay or chart. This is the final result as the site stored it.</p>' +
       '<div class="tw"><table><thead><tr><th>#</th><th style="text-align:left">Player</th><th>Final score</th><th style="width:40%"></th></tr></thead><tbody>' +
@@ -3332,7 +3456,7 @@
   }
   function verify(label) {
     var gm = ST.game; if (!gm) return Promise.resolve();
-    return fetch('/api/game/' + gm.id, { credentials: 'same-origin' }).then(function (r) { return r.text(); }).then(function (text) {
+    return gameText(gm.id).then(function (text) {
       var raw = JSON.parse(text);
       if (!raw.actions || ST.game !== gm) return;
       var same = raw.actions.length === gm.raw.actions.length && lastId(raw) === lastId(gm.raw);
@@ -3380,7 +3504,7 @@
     if (ST.busy) { ST.pending = true; ST.pendingForce = ST.pendingForce || !!force; return ST.busy; }
     var id = String(gameId());
     subscribe(id);
-    ST.busy = fetch('/api/game/' + id, { credentials: 'same-origin' }).then(function (r) { return r.text(); }).then(function (text) {
+    ST.busy = gameText(id).then(function (text) {
       var raw = JSON.parse(text);
       if (!raw.actions) throw new Error('Game ' + id + ' not found (' + (raw.error || 'no data') + ')');
       if (!raw.actions.length && (raw.status === 'archived' || (raw.result && Object.keys(raw.result).length))) { ST.game = null; renderArchived(w, raw); return; }

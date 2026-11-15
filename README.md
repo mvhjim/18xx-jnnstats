@@ -54,11 +54,15 @@ The bookmark is only a loader: it fetches `stats.js` from this repository each t
 6. **Half screen:** the window opens on the right half of your screen, so the game keeps the left half. Move or resize it and it remembers that next time; press **◨** to snap it back to the right half.
 7. **Light or dark:** press ☀ / 🌙 at the top. By default it follows your system.
 8. **Arrange it your way:** collapse a section with ▾, and move it by dragging the ⠿ handle or with ▲ ▼. The arrangement is saved separately for live games and for reviews of finished games. Live games start with *Now* and *What just happened* side by side at the top. **Reset layout** (in the **⋯** menu) restores the defaults.
+9. **Privacy mode:** the 🕶 Privacy button in the **⋯** menu (or key P) shows players as Player 1, 2… and hides game numbers and chat, for screenshots you can share anywhere.
+10. **Colours and contrast:** *Colour-blind* switches to a player palette that works with colour blindness; *High contrast* makes text and lines stronger. Both are in the **⋯** menu.
+11. **Keyboard:** press **?** for the list of shortcuts (1–9 jump to sections, H opens History, ← → step through it, and more).
 
 ## What the window shows
 
 While a game is in progress:
 
+- **Follow the round:** the cards that matter in this kind of round move up into Now (stock round helper and market in a stock round; corporations, trains and routes in an operating round). Switch it off in the **⋯** menu.
 - **Now:** who is to act, the order of the round, operating rounds left in the set, priority deal, a personal tile once you pick your name under *I am…*, a train rush warning and a game-end estimate that lists every way the game can end, with how many trains away a trigger train is.
 - **What just happened:** the latest moves, with new ones marked. A second tab, *Since your last turn*, lists everything logged after your own last move (shown when there is something, and once you are picked under *I am…*; the page's logged-in name is picked automatically when it matches a player).
 - **Stock round helper:** shares available, dividend per share, yield, presidency warnings, and where the price goes if a company pays or withholds.
@@ -69,7 +73,7 @@ Always:
 
 - **Stock market:** the title's own market grid with every company on its square, the price zones, your own companies outlined, and in a live game a dashed marker for where the acting company goes if it pays out or withholds. A slider steps the grid back through earlier rounds.
 - **Stock ticker:** each company's share price, the change since the previous round, and a trend line.
-- **Standings:** player value (cash + shares at market + private companies), gap to the leader, cash, certificates against the limit. **copy as text** puts the ranking and share prices on your clipboard; **copy as image** copies the ranking together with the Player value chart as a picture, for Discord or the forum.
+- **Standings:** player value (cash + shares at market + private companies), gap to the leader, cash, certificates against the limit. **copy as text** puts the ranking and share prices on your clipboard; **copy as image** copies the ranking together with the Player value chart as a picture, for Discord or the forum; in a finished game it becomes **copy share card**, which adds the winner and the badges.
 - **Player value over time:** the score race, round by round.
 - **Company revenue per OR:** ● paid out, ◉ half payout, ○ withheld; minors as dashed lines.
 - **Share price** history.
@@ -124,7 +128,8 @@ You are asked to run code from the internet on a page where you are logged in, s
 
 - **It reads, it never acts.** It replays the game with the site's own engine and draws numbers. It cannot make a move, change a setting or sign you in.
 - **It only talks to 18xx.games.** The only network requests in the code are to the site's own game data (`/api/game/<number>`, the same data the page shows) and the site's own rules files. Nothing is sent to anyone else, there is no analytics, and no cookies or passwords are read.
-- **Your settings stay in your browser.** Only a few small preferences are stored locally (your name selection, the sound switch, light/dark choice, window position and the section layout).
+- **Your settings stay in your browser.** Only a few small preferences are stored locally (your name selection, the sound switch, light/dark choice, colour and contrast choices, privacy mode, window position and the section layout).
+- **Privacy mode** only changes what the stats window shows. The game page itself, and the game on 18xx.games, are not touched.
 - **The "I am" auto-pick** only reads the display name in the page's header and compares it with the players of the game. It never touches passwords, cookies or tokens.
 - **Update note:** once every six hours the window loads a one-line script, `version.js`, from this repository (through jsDelivr) to see if a newer version exists, and shows a link if so. It sends nothing about you or your game.
 - **One chart library.** From 0.24 the charts use [Apache ECharts](https://echarts.apache.org) (Apache-2.0), loaded from jsDelivr at a fixed version (5.5.1) with a Subresource Integrity hash, so the browser refuses it if a single byte differs. If it cannot load, the earlier plain charts are used.

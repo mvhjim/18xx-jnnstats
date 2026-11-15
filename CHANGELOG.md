@@ -2,6 +2,16 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.26.0] - 2026-11-15
+
+### Added
+- **Privacy mode** (⋯ menu or key P): players are shown as Player 1, 2…, game numbers and chat are hidden, so a screenshot can be shared anywhere. It changes only what the window shows. Friends history is switched off while it is on, because profile pages show real names.
+- **Post-game share card:** in a finished game, *copy share card* (in Result) copies one picture with the winner, the standings, the Player value chart and the badges.
+- **Follow the round** (⋯ menu, on by default): in a live game the cards that matter in this kind of round move up into Now, just below the Now card: the stock round helper, stock market and valuation in a stock round; corporations, trains and routes in an operating round; minors and privates in an auction. They are marked *this round*, and your own card order is kept.
+- **Colour-blind colours** (⋯ menu or key C): an Okabe-Ito player palette that stays distinguishable with the common kinds of colour blindness.
+- **High contrast** (⋯ menu): brighter text, stronger lines and darker or whiter backgrounds.
+- **Keyboard shortcuts** (key ? or ⌨ Keys in the menu): 1–9 jump to a section, H History, ← → step rounds in History, Esc closes or leaves History, R refresh, M menu, D dark/light, P privacy, C colour-blind, F follow the round, T top.
+
 ## [0.25.2] - 2026-11-15
 
 ### Fixed
