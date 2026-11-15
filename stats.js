@@ -2248,7 +2248,9 @@
       var tc = T.entType === 'corporation' ? d.corps.filter(function (c) { return c.name === T.entity; })[0] : null;
       var acts = T.actions.filter(function (a) { return ACT_WORDS[a] !== null && !/^program_/.test(a) && (a !== 'bankrupt' || (tc && tc.buy && tc.buy.kind === 'stuck')); });
       h.push('<p class="nowline" style="font-size:13px">' + (mineNow ? '<span class="pill yours">● Your turn</span> ' : '') + who + ' is to act' + (T.desc ? ': <i>' + esc(T.desc) + '</i>' : '') + '.</p>');
-      if (acts.length) h.push('<h3 class="rh">What the rules allow right now</h3><ul class="wo">' + acts.map(function (a) { var w2 = ACT_WORDS[a] || [a.replace(/_/g, ' '), '']; return '<li><b>' + esc(w2[0]) + '</b>' + (w2[1] ? ' — ' + esc(w2[1]) : '') + '</li>'; }).join('') + '</ul><p class="sub" style="margin:4px 0 0">Make the move on the 18xx.games page; this window only explains.</p>');
+      if (acts.length) h.push('<h3 class="rh">What the rules allow right now</h3><ul class="wo">' + acts.map(function (a) { var w2 = ACT_WORDS[a] || [a.replace(/_/g, ' '), ''];
+         if (T.entType === 'corporation' && a === 'sell_shares') w2 = ['Issue shares', 'the company sells some of its own shares to the bank pool for cash; the price usually drops'];
+        if (T.entType === 'corporation' && a === 'buy_shares') w2 = ['Redeem shares', 'the company buys its own shares back from the bank pool']; return '<li><b>' + esc(w2[0]) + '</b>' + (w2[1] ? ' — ' + esc(w2[1]) : '') + '</li>'; }).join('') + '</ul><p class="sub" style="margin:4px 0 0">Make the move on the 18xx.games page; this window only explains.</p>');
       // operating turn steps
       if (L.isOR) {
         var SEQ = [['Track', 'Lay track'], ['Token', 'Station'], ['Route', 'Run trains'], ['Dividend', 'Pay or withhold'], ['Train', 'Buy trains']];
