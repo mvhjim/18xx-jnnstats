@@ -2967,7 +2967,7 @@
     var bank0 = d.primer && d.primer.bank; if (!bank0 && d.bank <= 0) g.push(gaugeSvg(1, 'Bank', 'broken', '#d9534f')); if (bank0) { var bv = 1 - Math.max(0, d.bank) / bank0; g.push(gaugeSvg(bv, 'Bank', d.bank <= 0 ? 'broken' : m(d.bank) + ' of ' + m(bank0) + ' left', gc(bv))); }
     var TG = (d.trainGroups || []).filter(function (t) { return !t.unlimited && t.total; }), tot = 0, gone = 0; TG.forEach(function (t) { tot += t.total; gone += t.total - (t.available || 0); });
     var nx = TG.filter(function (t) { return t.available > 0; })[0];
-    if (tot) g.push(gaugeSvg(gone / tot, 'Trains', nx ? nx.available + ' × ' + nx.sym + ' left before the next type' : 'all limited trains sold', gc(gone / tot)));
+    if (tot) g.push(gaugeSvg(gone / tot, 'Trains', nx ? nx.available + ' × ' + nx.sym + ' still to buy' : 'all limited trains sold', gc(gone / tot)));
     var cp = d.players.map(function (p) { return { n: p.name, v: p.certLimit ? p.certs / p.certLimit : 0, s: p.certs + ' / ' + p.certLimit }; }).sort(function (a, b) { return b.v - a.v; })[0];
     if (cp && cp.v) g.push(gaugeSvg(cp.v, 'Certificate limit', cp.n + ': ' + cp.s, gc(cp.v)));
     var ph = d.phases || [], pi = ph.map(function (p) { return p.status; }).indexOf('current');
