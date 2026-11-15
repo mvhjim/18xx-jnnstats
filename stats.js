@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.30.0';
+  var VERSION = '0.31.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -1051,6 +1051,8 @@
     '.redflag,.redflag td{outline:2px solid var(--crit);outline-offset:-2px;background:color-mix(in srgb,var(--crit) 10%,transparent)!important}',
     '#learn{position:fixed;inset:0;z-index:55;background:rgba(0,0,0,.55);display:flex;align-items:flex-start;justify-content:center;padding:24px 10px}#learn>div{background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:14px 16px;width:min(720px,100%);max-height:calc(100vh - 48px);display:flex;flex-direction:column}#learn .gh2{display:flex;justify-content:space-between;align-items:center}#learn .lb{overflow:auto;font-size:12.5px;line-height:1.45}#learn a{color:var(--accent)}#learn .lb p{margin:4px 0 8px}',
     '.ccards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}.ccard{border:1px solid var(--grid);border-radius:10px;padding:9px 11px}.ccard.hl{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}.ccard p{color:var(--text-secondary);margin:6px 0 0!important}.csvg{display:block;width:100%;max-width:320px;height:auto;margin-top:6px}',
+    '.rpcap{margin:0 0 8px;padding:7px 10px;border:1px solid color-mix(in srgb,var(--accent) 55%,var(--border));background:color-mix(in srgb,var(--accent) 9%,var(--surface-1));border-radius:8px;font-size:12.5px;line-height:1.45}.rpcap .rcb{float:right;margin-left:8px}.rpcap button[disabled]{opacity:.4;cursor:default}',
+    '.tourhl{outline:3px solid var(--accent)!important;outline-offset:2px;border-radius:10px}#tour{position:fixed;left:0;right:0;bottom:12px;z-index:65;display:flex;justify-content:center;pointer-events:none}#tour>div{pointer-events:auto;background:var(--surface-1);border:1px solid var(--accent);border-radius:12px;padding:10px 14px;width:min(460px,94%);box-shadow:0 8px 28px rgba(0,0,0,.45);font-size:13px}#tour p{margin:6px 0 8px;color:var(--text-secondary);line-height:1.45}#tour .grow{flex:1}',
     '.foltag{font-size:10.5px;font-weight:600;color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 50%,transparent);border-radius:99px;padding:0 6px;margin-left:6px;vertical-align:middle}',
     '*{box-sizing:border-box}body{margin:0;background:var(--surface-0);color:var(--text-primary);font:13px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}',
     '.hr3{display:flex;align-items:center;gap:8px;margin-top:6px;padding:4px 8px;border-radius:8px;font-size:12px;color:var(--text-secondary);border:1px solid var(--grid)}.hr3 input{flex:1;min-width:80px}.hr3.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--text)}.hr3 b{white-space:nowrap}.tt-note{color:var(--text-muted)}',
@@ -2430,6 +2432,107 @@
     };
     doc.body.appendChild(o);
   }
+
+  // ---------- Learning mode: teaching moments, captions, learning report, tour ------------------------------
+  function frameOf(d, roundLabel) {
+    if (!d.replay) return -1;
+    var lab = String(roundLabel).replace(/^Operating Round /, 'OR ').replace(/^Stock Round /, 'SR ').replace(/ \(of \d+\)$/, '');
+    return d.replay.labels.indexOf(lab);
+  }
+  // The 5–8 decisions and events that shaped the game, each with why it mattered
+  function teachMoments(d) {
+    var AN = d.analysis || {}, m = d.money, out = [], TG = d.trainGroups || [], tk = {};
+    (d.ticker || []).forEach(function (t) { tk[t.name] = t; });
+    // first train of a type that rusted or obsoleted others, or started a phase
+    var firstBuy = {}; (AN.trains || []).forEach(function (t) { if (t.depot && !firstBuy[t.train]) firstBuy[t.train] = t; });
+    TG.forEach(function (g) {
+      var trig = g.rustsOn || g.obsoleteOn; if (!trig) return;
+      var tg = TG.filter(function (x) { return x.sym === trig || x.names.indexOf(trig) >= 0; })[0], fb = null;
+      if (tg) [tg.sym].concat(tg.names).forEach(function (n) { if (!fb && firstBuy[n]) fb = firstBuy[n]; });
+      if (!fb) return;
+      var ph = (d.phases || []).filter(function (p) { return p.on.indexOf(trig) >= 0 || (tg && p.on.indexOf(tg.sym) >= 0); })[0];
+      out.push({ f: frameOf(d, fb.round), icon: '🚂', title: fb.buyer + (fb.pres ? ' (' + fb.pres + ')' : '') + ' buys the first ' + fb.train + ' (' + String(fb.round).replace(/ \(of \d+\)$/, '') + ')',
+        why: (g.rustsOn ? 'Every ' + g.sym + ' train in play rusted at once' : 'The ' + g.sym + ' trains became obsolete') + (ph ? ' and phase ' + ph.name + ' began' : '') + '. Companies that relied on those trains had to find money for new ones, or run short. Timing a purchase like this against your rivals is one of the biggest levers in 18xx.' });
+    });
+    // lead changes: the last one decided the game
+    var leads = (AN.moments || []).filter(function (x) { return x.kind === 'lead'; });
+    if (leads.length) { var ld = leads[leads.length - 1]; out.push({ f: ld.f, icon: '👑', title: ld.text, why: (d.finished ? 'The last lead change of the game: the leader from here on won. ' : 'The latest lead change. ') + 'Look at what the new leader did in the rounds before: which companies they held when those paid out.' }); }
+    // biggest single swing
+    var gains = (AN.moments || []).filter(function (x) { return x.kind === 'gain'; }).sort(function (a, b) { return b.amt - a.amt; });
+    if (gains[0]) out.push({ f: gains[0].f, icon: '📈', title: gains[0].text, why: 'The biggest jump in one round. Big jumps usually come from several of your companies paying out well at once, or a share price climbing several steps.' });
+    // largest withhold
+    var wh = (AN.withholds || []).slice().sort(function (a, b) { return b.rev - a.rev; })[0];
+    if (wh) out.push({ f: frameOf(d, wh.label), icon: '🛑', title: wh.corp + ' withholds ' + m(wh.rev) + ' (' + wh.label + ')' + (wh.pres ? ', president ' + wh.pres : ''), why: 'The shareholders got nothing that round and the share price usually drops. Withholding pays off when the money buys a train that earns more later; see Decisions review → Hindsight.' });
+    // share sale that looked worst in hindsight (sold well below the final price)
+    var sl = (AN.sales || []).map(function (x) { var t = tk[x.corp]; return { x: x, loss: t && t.price ? (t.price - x.per) * x.n : 0 }; }).sort(function (a, b) { return b.loss - a.loss; })[0];
+    if (sl && sl.loss > 0) out.push({ f: frameOf(d, sl.x.round || sl.x.label || ''), icon: '💸', title: sl.x.who + ' sells ' + sl.x.n + ' ' + sl.x.corp + ' at ' + m(sl.x.per), why: 'At the end of the ' + (d.finished ? 'game' : 'data') + ' those shares were worth ' + m(sl.loss) + ' more. Selling raises cash and can hurt a rival\'s company, but it gives up later dividends and price gains.' });
+    // a price crash
+    var cr = (AN.moments || []).filter(function (x) { return x.kind === 'crash'; })[0];
+    if (cr) out.push({ f: cr.f, icon: '💥', title: cr.text, why: 'A falling price hurts every holder. It usually follows withholding, heavy selling, or a company left without trains.' });
+    var run = (AN.moments || []).filter(function (x) { return x.kind === 'run'; })[0];
+    if (run) out.push({ f: d.replay ? Math.min(run.f, d.replay.labels.length - 1) : -1, icon: '🛤', title: run.text, why: 'Long trains on good track through valuable cities (and bonuses such as off-boards) make the big runs. Compare it with the map sketch in Routes & revenue.' });
+    out = out.filter(function (x) { return x.title; }).sort(function (a, b) { return (a.f < 0 ? 1e9 : a.f) - (b.f < 0 ? 1e9 : b.f); });
+    return out.slice(0, 8);
+  }
+  function teachCard(d, TM) {
+    if (!learnLevel() || !TM.length) return '';
+    return '<section class="card wide"><h2>Teaching moments</h2><p class="sub">The decisions and events that shaped this game, each with why it mattered. <button class="lnk" id="tm-go">▶ step through them in the Replay</button></p><ul class="wo">' +
+      TM.map(function (x) { return '<li><b>' + x.icon + ' ' + esc(x.title) + '</b>' + (d.replay && x.f >= 0 ? ' <button class="lnk km-rp" data-f="' + x.f + '">▶ replay</button>' : '') + '<br><span style="color:var(--text-secondary)">' + esc(x.why) + '</span></li>'; }).join('') + '</ul></section>';
+  }
+  function capHtml(d, k) {
+    var TM = ST.tm || []; if (!learnLevel() || !TM.length) return '';
+    var at = TM.filter(function (x) { return x.f === k; }), prev = TM.filter(function (x) { return x.f >= 0 && x.f < k; }).length, next = TM.filter(function (x) { return x.f > k; }).length;
+    return '<div class="rpcap"><span class="rcb"><button class="lnk" id="rp-cm-p"' + (prev ? '' : ' disabled') + '>◀ moment</button> <button class="lnk" id="rp-cm-n"' + (next ? '' : ' disabled') + '>moment ▶</button></span>' +
+      (at.length ? at.map(function (x) { return '<b>' + x.icon + ' ' + esc(x.title) + '</b><br>' + esc(x.why); }).join('<br><br>') : '<span style="color:var(--text-muted)">🎓 Teaching moments: step to the next one with “moment ▶”.</span>') + '</div>';
+  }
+  // Learning report: one player's game, read gently, with a tip per point
+  function learnReport(d, who) {
+    var AN = d.analysis || {}, m = d.money, items = [], tk = {}; (d.ticker || []).forEach(function (t) { tk[t.name] = t; });
+    var ranked = d.players.slice().sort(function (a, b) { return b.value - a.value; }), me = ranked.filter(function (p) { return p.name === who; })[0]; if (!me) return '';
+    var rk = ranked.indexOf(me) + 1, gap = ranked[0].value - me.value;
+    items.push(['🏁', (d.finished ? 'Finished ' : 'Now ') + rk + ' of ' + ranked.length + ' with ' + m(me.value) + (rk > 1 ? ', ' + m(gap) + ' behind ' + ranked[0].name : ', ahead by ' + m(me.value - (ranked[1] ? ranked[1].value : 0))) + '.', rk > 1 ? 'Player value over time shows the rounds where the gap opened.' : 'Look at the Teaching moments to see what made the difference.']);
+    var mo = (AN.money || []).filter(function (x) { return x.name === who; })[0];
+    if (mo) { var tot = mo.div + mo.priv + mo.sales || 1; items.push(['💰', 'Income: ' + Math.round(mo.div / tot * 100) + '% dividends, ' + Math.round(mo.sales / tot * 100) + '% share sales, ' + Math.round(mo.priv / tot * 100) + '% private companies.', mo.div / tot < 0.6 ? 'Most winning games run on dividends: owning shares of companies that pay out well, round after round.' : 'Dividends carried you; the next step is being in the best payers early.']); }
+    var wh = (AN.withholds || []).filter(function (x) { return x.pres === who; });
+    if (wh.length) items.push(['🛑', 'As president you withheld ' + wh.length + ' time' + (wh.length === 1 ? '' : 's') + ', keeping ' + m(wh.reduce(function (a, x) { return a + x.rev; }, 0)) + '.', 'Withholding is right when the money buys a train you could not otherwise afford; check Decisions review → Hindsight for what it cost you.']);
+    else items.push(['✅', 'As president you never withheld.', 'Paying out keeps the share price climbing; just make sure each company still has money for its next train.']);
+    var tb = (AN.trains || []).filter(function (x) { return x.pres === who; });
+    if (tb.length) items.push(['🚂', 'You bought ' + tb.length + ' train' + (tb.length === 1 ? '' : 's') + ' as president, for ' + m(tb.reduce(function (a, x) { return a + x.price; }, 0)) + '.', 'Buying the first train of a new type at the right moment can rust your rivals\' trains; see Train history → Timing.']);
+    var sales = (AN.sales || []).filter(function (x) { return x.who === who; });
+    if (sales.length) { var diff = sales.reduce(function (a, x) { var t = tk[x.corp]; return a + (t && t.price ? (t.price - x.per) * x.n : 0); }, 0);
+      items.push(['💸', 'You sold ' + sales.reduce(function (a, x) { return a + x.n; }, 0) + ' shares; at ' + (d.finished ? 'the end' : 'today\'s prices') + ' they would be worth ' + m(Math.abs(diff)) + (diff > 0 ? ' more' : ' less') + '.', diff > 0 ? 'Selling too early is common; selling right after a company pays out keeps more of the dividend.' : 'Good timing: you sold before prices fell.']); }
+    var cl = me.certLimit; if (cl && me.certs >= cl) items.push(['📜', 'You ended at the certificate limit (' + me.certs + '/' + cl + ').', 'At the limit, every new buy needs a sale first; prefer fewer, better certificates near the end.']);
+    var pc = (AN.presChanges || []).filter(function (x) { return x.to === who && x.from; });
+    if (pc.length) items.push(['🎩', 'You took over ' + pc.length + ' presidenc' + (pc.length === 1 ? 'y' : 'ies') + ' (' + pc.map(function (x) { return x.corp; }).join(', ') + ').', 'Check whether each came with train money; a presidency can be a gift or a burden.']);
+    return '<ul class="wo">' + items.map(function (it) { return '<li><b>' + it[0] + ' ' + esc(it[1]) + '</b><br><span style="color:var(--text-secondary)">Tip: ' + esc(it[2]) + '</span></li>'; }).join('') + '</ul>';
+  }
+  function reportCard(d, me) {
+    if (!learnLevel() || !d.analysis) return '';
+    var who = ST.lrWho && d.players.some(function (p) { return p.name === ST.lrWho; }) ? ST.lrWho : (me || d.players.slice().sort(function (a, b) { return b.value - a.value; })[0].name);
+    return '<section class="card wide"><h2>Learning report</h2><p class="sub">' + (d.finished ? 'How the game went' : 'How the game is going so far') + ' for one player, gently, with a tip for each point. <select id="lr-who">' +
+      d.players.map(function (p) { return '<option' + (p.name === who ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') + '</select></p>' + learnReport(d, who) + '</section>';
+  }
+  // First-open tour of the most important cards
+  var TOUR = [['#jump', 'The scoreboard: every player\'s value and how much it changed last round. The buttons jump to each section (keys 1–9).'],
+    ['section[data-key="now"]', 'Now: who is to act, the order of the round, the train rush and how close the game is to ending.'],
+    ['section[data-key="result"]', 'Result: the standings, badges and a short report of the game.'],
+    ['section[data-key="your-turn-explained"]', 'Your turn, explained: what the rules allow right now, the steps of the turn, and what the next train changes.'],
+    ['section[data-key="watch-outs"]', 'Watch-outs: what is easy to miss right now. Pick your name under I am in the ⋯ menu to get personal ones.'],
+    ['section[data-key="teaching-moments"]', 'Teaching moments: the decisions that shaped the game, with why they mattered.'],
+    ['section[data-key="stock-market"]', 'The stock market: every company on its square. Hover or tap a square to see what it means.'],
+    ['section[data-key="trains-phases-bank"]', 'Trains, phases & Bank: which train comes next and what it rusts. The train rush drives the whole game.'],
+    ['#mn', 'The ⋯ menu: Learning level, 📖 Glossary (G), 📘 Learn this title (L), privacy, colours and more. Press ? for all keys.']];
+  function runTour(w, step) {
+    var doc = w.document, old = doc.getElementById('tour'); if (old) old.remove();
+    Array.prototype.forEach.call(doc.querySelectorAll('.tourhl'), function (e) { e.classList.remove('tourhl'); });
+    var steps = TOUR.filter(function (t) { var el = doc.querySelector(t[0]); return el && el.offsetParent !== null; });
+    if (step == null || step >= steps.length || step < 0) { lsSet('xxStats.tourDone', '1'); return; }
+    var el = doc.querySelector(steps[step][0]); el.classList.add('tourhl'); try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
+    var o = doc.createElement('div'); o.id = 'tour';
+    o.innerHTML = '<div><b>🧭 ' + (step + 1) + ' / ' + steps.length + '</b><p>' + esc(steps[step][1]) + '</p><div class="tb"><button class="ib" data-t="end">end the tour</button><span class="grow"></span>' + (step ? '<button class="ib" data-t="back">back</button>' : '') + '<button class="ib on" data-t="next">' + (step === steps.length - 1 ? 'done' : 'next') + '</button></div></div>';
+    o.onclick = function (ev) { var t = ev.target.getAttribute && ev.target.getAttribute('data-t'); if (t === 'end') runTour(w, -1); if (t === 'back') runTour(w, step - 1); if (t === 'next') runTour(w, step + 1); };
+    doc.body.appendChild(o);
+  }
   // ---------- Live play: watch-outs, threat radar, turn pacing -------------------------------
   function sqw(col) { return '<i class="sw" style="background:' + displayColor(col || '#9a9a9a', ST.dark !== false) + '"></i>'; }
   function dur(ms) {
@@ -2601,7 +2704,7 @@
         '<button class="ib" id="kb" title="Keyboard shortcuts (key ?)">⌨ Keys</button>' +
       '</span>' +
       '<span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">🎓 Learning <select id="lrn" title="Explanations for new players: ⓘ next to words, a banner about the round, and the glossary. Beginner explains everything; Intermediate only the less obvious terms."><option value=""' + (learnLevel() ? '' : ' selected') + '>off</option><option value="beginner"' + (learnLevel() === 'beginner' ? ' selected' : '') + '>beginner</option><option value="intermediate"' + (learnLevel() === 'intermediate' ? ' selected' : '') + '>intermediate</option></select>' +
-        '<button class="ib" id="gls" title="All terms explained, with this game\'s own numbers (key G)">📖 Glossary</button><button class="ib" id="lrt" title="Primer, concept cards, how this title differs from a classic game, and rules of thumb (key L)">📘 Learn this title</button></span>' +
+        '<button class="ib" id="gls" title="All terms explained, with this game\'s own numbers (key G)">📖 Glossary</button><button class="ib" id="lrt" title="Primer, concept cards, how this title differs from a classic game, and rules of thumb (key L)">📘 Learn this title</button><button class="ib" id="tour-b" title="A short guided walk through the most important cards">🧭 Tour</button></span>' +
       '<span style="display:flex;gap:6px;flex-wrap:wrap"><button class="ib" id="bgl" title="A simpler live layout: the essential cards first, the rest folded away, and Learning set to beginner. Your own layout is kept.">' + (lsGet('xxStats.layoutBackup') ? '↩ My own layout' : '🌱 Beginner layout') + '</button></span>' +
         '<button id="lr" title="Restore the default order and expand all sections">Reset <span id="lm">layout</span></button>' +
         '<span style="display:flex;gap:6px;align-items:center">Text size <button id="zo" title="Smaller text">A−</button><button id="zi" title="Larger text">A+</button></span> <button id="sh-v" class="ib" title="Copy a link that opens this game with your card layout (no names or other data are in it)">🔗</button> ' +
@@ -3126,7 +3229,7 @@
       h.push('<section class="card wide"><h2>Replay</h2><p class="sub">Watch the game unfold round by round, or one move at a time with the move buttons: tiles and tokens on the board, who runs where in operating rounds, standings, prices.</p>' +
         '<div class="gslide"><button id="rp-play" title="Play or pause">' + (ST.rpPlay ? '⏸' : '▶') + '</button><button id="rp-p" title="Previous">◀</button><input type="range" id="rp-i" min="0" max="' + rpLast + '" value="' + rpK + '"><button id="rp-n" title="Next">▶</button><button id="rp-mp" title="Back one move">◂ move</button><button id="rp-mn" title="Forward one move">move ▸</button>' +
         '<b id="rp-l">' + esc(d.replay.labels[rpK]) + '</b><select id="rp-sp" title="Speed"><option value="0.5">slow</option><option value="1" selected>normal</option><option value="2">fast</option></select></div>' +
-        '<div class="rpb"><div id="rp-map" class="rpm">' + rf.map + '</div><div id="rp-side" class="rps">' + rf.side + '</div></div></section>');
+        '<div id="rp-cap">' + capHtml(d, rpK) + '</div><div class="rpb"><div id="rp-map" class="rpm">' + rf.map + '</div><div id="rp-side" class="rps">' + rf.side + '</div></div></section>');
     }
     // ---- 0.21 cards
     try {
@@ -3305,6 +3408,9 @@
         row('The game ends when', I.ends && I.ends.length ? I.ends.map(esc).join('<br>') : '') + '</tbody></table></div></section>');
     }
     h.push(pacingCard(d, pal, me));
+    ST.tm = learnLevel() ? teachMoments(d) : [];
+    h.push(teachCard(d, ST.tm));
+    h.push(reportCard(d, me));
     h.push('</main>');
 
     var scrollY = w.scrollY || 0;
@@ -3407,6 +3513,22 @@
         v = Math.min(Math.max(v, 0), d.replay.labels.length - 1); rpi.value = v; ST.rpIdx = v; ST.rpGame = d.id; ST.rpSub = sub == null ? null : sub;
         var fr = rpFrame(d, v, dark, pal, me, ST.rpSub); doc.getElementById('rp-l').textContent = d.replay.labels[v];
         doc.getElementById('rp-map').innerHTML = fr.map; doc.getElementById('rp-side').innerHTML = fr.side;
+        var cp = doc.getElementById('rp-cap'); if (cp) { cp.innerHTML = capHtml(d, v); wireCap(); }
+      };
+      var wireCap = function () {
+        var TM2 = (ST.tm || []).filter(function (x) { return x.f >= 0; }), cur = function () { return +rpi.value; };
+        var bp = doc.getElementById('rp-cm-p'), bn = doc.getElementById('rp-cm-n');
+        if (bp) bp.onclick = function () { var c = TM2.filter(function (x) { return x.f < cur(); }); if (c.length) rpSet(c[c.length - 1].f); };
+        if (bn) bn.onclick = function () { var c = TM2.filter(function (x) { return x.f > cur(); }); if (c.length) rpSet(c[0].f); };
+      };
+      wireCap();
+      var tmGo = doc.getElementById('tm-go');
+      if (tmGo) tmGo.onclick = function () {
+        var TM3 = (ST.tm || []).filter(function (x) { return x.f >= 0; }); if (!TM3.length) return;
+        var rs = doc.querySelector('section[data-key="board-and-replay"]') || doc.querySelector('section[data-key="replay"]');
+        var mt = rs && rs.querySelector('.mtb[data-p="replay"]'); if (mt) mt.click();
+        if (rs) { if (rs.classList.contains('collapsed')) { var tg2 = rs.querySelector('.tg'); if (tg2) tg2.click(); } var gp = rs.closest('.grp.gcol'); if (gp) { var gh2 = gp.querySelector('.gh'); if (gh2) gh2.click(); } }
+        rpSet(TM3[0].f); rs = doc.querySelector('section[data-key="board-and-replay"]') || doc.querySelector('section[data-key="replay"]'); if (rs) rs.scrollIntoView({ block: 'start' });
       };
       var rpStart = function () {
         if (ST.rpTimer) clearInterval(ST.rpTimer);
@@ -3553,7 +3675,9 @@
     doc.getElementById('fol').onclick = function () { lsSet('xxStats.follow', followOn() ? '0' : '1'); rerender(); };
     doc.getElementById('kb').onclick = function () { ST.menuOpen = false; showKeys(w); };
     keyHandler(w, d, setPrivacy);
-    doc.getElementById('lrn').onchange = function () { lsSet('xxStats.learn', this.value); rerender(); };
+    doc.getElementById('lrn').onchange = function () { var first = !learnLevel() && this.value && lsGet('xxStats.tourDone') !== '1'; lsSet('xxStats.learn', this.value); rerender(); if (first) setTimeout(function () { runTour(w, 0); }, 300); };
+    var lrw = doc.getElementById('lr-who'); if (lrw) lrw.onchange = function () { ST.lrWho = this.value; rerender(); };
+    doc.getElementById('tour-b').onclick = function () { ST.menuOpen = false; var mn4 = doc.getElementById('mn'); if (mn4) mn4.open = false; runTour(w, 0); };
     doc.getElementById('lrt').onclick = function () { ST.menuOpen = false; var mn3 = doc.getElementById('mn'); if (mn3) mn3.open = false; showLearn(w, d); };
     doc.getElementById('gls').onclick = function () { ST.menuOpen = false; var mn2 = doc.getElementById('mn'); if (mn2) mn2.open = false; showGlossary(w, d); };
     doc.getElementById('bgl').onclick = function () {
@@ -3695,10 +3819,10 @@
       { id: 'trains', title: 'Trains & board', keys: ['trains-phases-bank', 'routes-revenue', 'train-history', 'tile-manifest'] },
       { id: 'money', title: 'Money', keys: ['company-profit-and-loss', 'cash-flow-per-player', 'where-the-money-came-from', 'portfolios'] },
       { id: 'history', title: 'Players & history', keys: ['player-value-over-time', 'key-moments', 'board-and-replay', 'game-log', 'president-changes', 'priority-deal-tracker', 'turn-pacing'] },
-      { id: 'analysis', title: 'Analysis', keys: ['decisions-review', 'game-info'] }
+      { id: 'analysis', title: 'Analysis', keys: ['decisions-review', 'teaching-moments', 'learning-report', 'game-info'] }
     ],
     review: [
-      { id: 'now', title: 'Result', keys: ['result', 'player-value-over-time', 'key-moments'] },
+      { id: 'now', title: 'Result', keys: ['result', 'teaching-moments', 'learning-report', 'player-value-over-time', 'key-moments'] },
       { id: 'history', title: 'Players & history', keys: ['board-and-replay', 'game-log', 'president-changes', 'priority-deal-tracker', 'turn-pacing'] },
       { id: 'analysis', title: 'Analysis', keys: ['decisions-review'] },
       { id: 'money', title: 'Money', keys: ['company-profit-and-loss', 'cash-flow-per-player', 'where-the-money-came-from', 'portfolios', 'valuation'] },
