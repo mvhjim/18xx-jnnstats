@@ -854,7 +854,7 @@
         var get = function (n) { if (!byCorp[n]) { byCorp[n] = { corp: n, trains: [], total: null, kind: '', extra: [] }; order.push(n); } return byCorp[n]; };
         rd3.lines.forEach(function (ln) {
           var mm = /^(.+?) runs an? (.+?) train for (.+?): (.*)$/.exec(ln.msg);
-          if (mm) { var cr = get(mm[1]); if (!cr.act && ln.id > 0) cr.act = ln.id; cr.trains.push({ train: mm[2], rev: mm[3], stops: String(mm[4]).replace(/\s*\(([^()]*:[^()]*)\)\s*$/, ' + $1') }); return; }
+          if (mm) { var cr = get(mm[1]); if (!cr.act && ln.id > 0) cr.act = ln.id; cr.trains.push({ train: mm[2], rev: mm[3], stops: String(mm[4]).replace(/\s+\(([^()]+)\)\s*$/, ' + $1') }); return; }
           mm = /^(.+?) runs for (.+?) and pays (.+)$/.exec(ln.msg);
           if (mm) { var c3 = get(mm[1]); c3.total = mm[2]; c3.kind = 'pays ' + mm[3]; return; }
           mm = /^(.+?) pays out (.+?) = (.+?) per share/.exec(ln.msg);
