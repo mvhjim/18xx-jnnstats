@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.26.0';
+  var VERSION = '0.27.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -689,6 +689,22 @@
         if (gm && (gm.ifPayPos || gm.ifHoldPos)) ghost = { corp: gm.name, color: gm.color, pay: gm.ifPayPos, hold: gm.ifHoldPos, rev: gm.estRevenue };
       }
       grid = { cells: gcells, cols: gcols, zones: Object.keys(gzones), ghost: ghost };
+      // Where the price goes from each square, asked from the engine itself (right / left / up / down)
+      try {
+        var smk = g.$stock_market(), c0 = g.$corporations()[0];
+        if (c0 && rt(smk, 'right')) gcells.forEach(function (row, ri) {
+          row.forEach(function (cell, ci) {
+            if (!cell) return; cell.mv = {};
+            ['right', 'left', 'up', 'down'].forEach(function (dir) {
+              try {
+                var co = smk['$' + dir](c0, [ri, ci]); if (nil(co) || !co || co.length < 2) return;
+                var r2 = num(co[0]), c2 = num(co[1]), tc = gcells[r2] && gcells[r2][c2];
+                if (tc && (r2 !== ri || c2 !== ci)) cell.mv[dir] = tc.p;
+              } catch (eD) {}
+            });
+          });
+        });
+      } catch (eM) {}
       gridHist = snaps.map(function (sn) { return { label: sn.label, pos: sn.pos || {} }; });
     } catch (e) { grid = null; }
 
@@ -937,6 +953,31 @@
     var live = { isOR: isOR, isSR: isSR, acting: acting, current: curEnt, order: order, orNum: isOR ? num(call(r, 'round_num')) : null, orsInSet: orsInSet,
       priority: nameOf(call(g, 'priority_deal_player')), market: market, rush: rush, end: endInfo, hasPreview: !!divStep };
 
+    // Turn pacing: time between moves, from the timestamps the site stores with each action
+    var pacing = null;
+    try {
+      var byUid = {}; (raw.players || []).forEach(function (rp) { byUid[rp.id] = rp.name; });
+      var presOf = {}; corps.forEach(function (c) { presOf[c.name] = c.president; });
+      var tOf = function (a) { var v = a.created_at; if (v == null) return null; if (typeof v === 'number') return v < 1e12 ? v * 1000 : v; var t = Date.parse(v); return isNaN(t) ? null : t; };
+      var acts = raw.actions.filter(function (a) { return a.type !== 'message' && tOf(a) != null; });
+      if (acts.length > 3) {
+        var per = {}, turns = [], cur = null, prevT = tOf(acts[0]);
+        players.forEach(function (p) { per[p.name] = { name: p.name, idx: p.idx, turns: 0, total: 0, times: [], longest: 0 }; });
+        acts.slice(1).forEach(function (a) {
+          var t = tOf(a), who = a.user != null && byUid[a.user] ? byUid[a.user] : a.entity_type === 'player' ? a.entity : presOf[a.entity];
+          var gap = Math.max(0, t - prevT); prevT = t;
+          if (!who || !per[who]) return;
+          if (!cur || cur.who !== who) { cur = { who: who, time: 0 }; turns.push(cur); per[who].turns++; }
+          cur.time += gap; per[who].total += gap;
+        });
+        turns.forEach(function (tn) { per[tn.who].times.push(tn.time); per[tn.who].longest = Math.max(per[tn.who].longest, tn.time); });
+        var med = function (a) { if (!a.length) return 0; var b = a.slice().sort(function (x, y) { return x - y; }); return b[Math.floor(b.length / 2)]; };
+        var first = tOf(acts[0]), lastT = tOf(acts[acts.length - 1]);
+        pacing = { rows: Object.keys(per).map(function (k) { var x = per[k]; x.median = med(x.times); return x; }).filter(function (x) { return x.turns; }),
+          span: lastT - first, last: lastT, start: first };
+      }
+    } catch (eP) { pacing = null; }
+
     var notes = cfg.notes ? cfg.notes(g) : [];
     botPlayers.forEach(function (bp) {
       var hh = curSnap && curSnap.hold[bp.name] ? curSnap.hold[bp.name] : {}, parts = Object.keys(hh).map(function (cn) { return cn + ' ' + hh[cn].pct + '%'; });
@@ -950,7 +991,7 @@
       trainGroups: groups, phases: phases, risk: risk,
       ticker: ticker, portfolio: portfolio, holdings: holdings, minors: minorList, companies: companyList, snapErr: SNAP && SNAP.err,
       nextTrain: nextTrain ? { name: s(nextTrain.$name()), sym: s(call(nextTrain, 'sym')), price: num(nextTrain.$price()) } : null,
-      upcomingCount: upcoming.length, notes: notes, updated: new Date(), live: live, feed: feed, certNote: certNote, loanInfo: loanInfo, cheapest: cheapest,
+      upcomingCount: upcoming.length, notes: notes, pacing: pacing, updated: new Date(), live: live, feed: feed, certNote: certNote, loanInfo: loanInfo, cheapest: cheapest,
       events: events, info: info, replay: replay, grid: grid, gridHist: gridHist, bank2: bankInfo, tiles: tileInfo, recap: recap, gameLog: gameLog, routes: routeTable, analysis: analysis, hexMap: hexMap, pin: (raw.settings && raw.settings.pin) ? String(raw.settings.pin) : ''
     };
   }
@@ -963,6 +1004,8 @@
     ':root[data-theme="dark"]{' + DARKVARS + '}',
     ':root[data-contrast="high"]{--text-secondary:var(--text-primary);--grid:#6b6a64;--border:#8a8980}:root[data-contrast="high"][data-theme="dark"]{--text-muted:#c9c8bf;--surface-0:#000;--surface-1:#0d0d0c}:root[data-contrast="high"][data-theme="light"]{--text-muted:#3d3d38;--surface-0:#fff;--surface-1:#fff}:root[data-contrast="high"] .card{border-width:2px}',
     '#keys{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center}#keys>div{background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:16px 20px;max-width:420px;width:92%;box-shadow:0 8px 30px rgba(0,0,0,.4)}#keys table{width:100%}#keys td{text-align:left;border:0;padding:3px 6px;font-weight:400}#keys kbd{display:inline-block;min-width:22px;text-align:center;padding:1px 6px;border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;font:600 12px system-ui;background:var(--surface-0)}',
+    'ul.wo{margin:0;padding:0;list-style:none}ul.wo li{padding:4px 0 4px 10px;border-left:3px solid var(--border);margin:0 0 4px;font-size:12.5px}ul.wo li.wo1{border-left-color:var(--accent)}ul.wo li.wo2{border-left-color:var(--warn)}ul.wo li.wo3{border-left-color:var(--crit);background:color-mix(in srgb,var(--crit) 10%,transparent)}h3.rh{font-size:12px;margin:10px 0 4px;color:var(--text-secondary)}h3.rh:first-of-type{margin-top:4px}',
+    '.mkinfo{margin:6px 0 0;padding:6px 9px;border:1px solid var(--grid);border-radius:8px;font-size:12px;min-height:20px;color:var(--text-secondary)}.mkinfo b{color:var(--text-primary)}.mk .mc{cursor:help}.mk .mc.sel{outline:2px solid var(--accent);outline-offset:-2px}',
     '.foltag{font-size:10.5px;font-weight:600;color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 50%,transparent);border-radius:99px;padding:0 6px;margin-left:6px;vertical-align:middle}',
     '*{box-sizing:border-box}body{margin:0;background:var(--surface-0);color:var(--text-primary);font:13px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}',
     '.hr3{display:flex;align-items:center;gap:8px;margin-top:6px;padding:4px 8px;border-radius:8px;font-size:12px;color:var(--text-secondary);border:1px solid var(--grid)}.hr3 input{flex:1;min-width:80px}.hr3.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--text)}.hr3 b{white-space:nowrap}.tt-note{color:var(--text-muted)}',
@@ -1564,10 +1607,28 @@
   var ZONES = { par: ['#1a7f37', 'par price'], close: ['#c62828', 'company closes'], endgame: ['#7b1fa2', 'ends the game'], unlimited: ['#2a78d6', 'no limit on shares'],
     no_cert_limit: ['#00897b', 'no certificate limit'], multiple_buy: ['#8e24aa', 'buy several at once'], liquidation: ['#e65100', 'liquidation'], acquisition: ['#ef6c00', 'acquisition'],
     convert_range: ['#f9a825', 'conversion range'], safe_par: ['#2e7d32', 'safe par'], repar: ['#558b2f', 'repar'], ignore_one_sale: ['#78909c', 'one sale ignored'] };
+  var ZDESC = { par: 'a company can be started (floated) at this price', close: 'a company whose price falls here closes', endgame: 'the game ends when a company reaches here',
+    unlimited: 'no limit on how many shares of it one player may hold', no_cert_limit: 'its shares do not count toward the certificate limit', multiple_buy: 'you may buy more than one share of it in a turn',
+    liquidation: 'the company is liquidated here', acquisition: 'the company can be acquired here', convert_range: 'the company may convert in this range', safe_par: 'a safe price to start a company',
+    repar: 'a company that is re-started gets this price', ignore_one_sale: 'the first share sold in a round does not move the price' };
   var ZFALL = ['#6d4c41', '#00838f', '#ad1457', '#4e342e', '#455a64'];
   function zoneInfo(ty, all) { if (ZONES[ty]) return ZONES[ty]; return [ZFALL[Math.max(0, all.indexOf(ty)) % ZFALL.length], ty.replace(/_/g, ' ')]; }
   function chipTxt(col) { return luminance(col) > 0.45 ? '#111' : '#fff'; }
   // Body of the stock market section: slider label, the grid itself, and the legend
+
+  // Market square explainer: what a square means and where the price goes from it
+  function explainSquare(d, ri, ci) {
+    var G = d.grid, c = G && G.cells[ri] && G.cells[ri][ci]; if (!c) return '';
+    var m = d.money, oneD = G.cells.length === 1, parts = ['<b>' + esc(m(c.p)) + '</b>'];
+    if (c.t.length) parts.push(c.t.map(function (t) { var zi = zoneInfo(t, G.zones); return '<b>' + esc(zi[1]) + '</b>' + (ZDESC[t] ? ': ' + esc(ZDESC[t]) : ''); }).join('; '));
+    if (c.c.length) parts.push('here now: ' + c.c.map(esc).join(', '));
+    var mv = c.mv || {}, L = oneD ? [['right', '→', 'after a good payout'], ['left', '←', 'after withholding or a share sale']]
+      : [['right', '→', 'after a payout'], ['left', '←', 'after withholding'], ['down', '↓', 'for each share sold'], ['up', '↑', 'when sold out at the end of a stock round']];
+    var moves = L.filter(function (x) { return mv[x[0]] != null; }).map(function (x) { return x[1] + ' <b>' + esc(m(mv[x[0]])) + '</b> <span style="color:var(--text-muted)">(usually ' + x[2] + ')</span>'; });
+    var edge = L.filter(function (x) { return mv[x[0]] == null && c.mv; }).map(function (x) { return x[1]; });
+    return parts.join(' · ') + (moves.length ? '<br>From here: ' + moves.join(' · ') : '') + (edge.length && moves.length ? ' · ' + edge.join(' ') + ' stays put' : '') +
+      (moves.length ? '<br><span style="color:var(--text-muted)">Moves come from this title\'s rules engine; some titles move more than one step for big payouts.</span>' : '');
+  }
   function gridBody(d, dark, me, idx, m) {
     var G = d.grid, hist = d.gridHist, last = hist.length - 1, i = Math.min(Math.max(idx, 0), Math.max(last, 0)), isNow = i === last;
     var pos = hist.length ? hist[i].pos : {}, byCell = {}, pres = {}, colr = {};
@@ -1592,7 +1653,7 @@
         if (!c) { h.push('<div class="mc empty"></div>'); continue; }
         var zi = c.t.length ? zoneInfo(c.t[0], G.zones) : null, here = byCell[ri + ',' + ci] || [];
         var bg = zi ? 'color-mix(in srgb,' + zi[0] + ' ' + (dark ? 30 : 22) + '%,var(--surface-1))' : 'var(--surface-1)';
-        h.push('<div class="mc" style="background:' + bg + '" title="' + esc(m(c.p) + (c.t.length ? ' · ' + c.t.map(function (x) { return zoneInfo(x, G.zones)[1]; }).join(', ') : '') + (here.length ? ' · ' + here.join(', ') : '')) + '"><div class="mp">' + c.p + '</div>');
+        h.push('<div class="mc" data-r="' + ri + '" data-c="' + ci + '" style="background:' + bg + '" title="' + esc(m(c.p) + (c.t.length ? ' · ' + c.t.map(function (x) { return zoneInfo(x, G.zones)[1]; }).join(', ') : '') + (here.length ? ' · ' + here.join(', ') : '')) + '"><div class="mp">' + c.p + '</div>');
         here.forEach(function (cn) {
           var col = displayColor(colr[cn] || '#9a9a9a', dark);
           h.push('<span class="cp' + (me && pres[cn] === me ? ' mine' : '') + '" data-corp="' + esc(cn) + '" style="background:' + col + ';color:' + chipTxt(col) + '">' + esc(cn) + '</span>');
@@ -1605,7 +1666,8 @@
       }
     });
     h.push('</div><div class="zl">' + G.zones.map(function (z) { var zi2 = zoneInfo(z, G.zones); return '<span><i style="background:color-mix(in srgb,' + zi2[0] + ' ' + (dark ? 30 : 22) + '%,var(--surface-1))"></i>' + esc(zi2[1]) + '</span>'; }).join('') +
-      (isNow && G.ghost ? '<span><span class="cp gh" style="display:inline;border-color:var(--text-muted);color:var(--text-secondary)">▲ ■</span> where <b>' + esc(G.ghost.corp) + '</b> goes if it pays out (▲) or withholds (■), if it earns its last revenue again</span>' : '') + '</div>');
+      (isNow && G.ghost ? '<span><span class="cp gh" style="display:inline;border-color:var(--text-muted);color:var(--text-secondary)">▲ ■</span> where <b>' + esc(G.ghost.corp) + '</b> goes if it pays out (▲) or withholds (■), if it earns its last revenue again</span>' : '') + '</div>' +
+      '<div class="mkinfo">Hover or tap a square to see what it means and where the price goes from there.</div>');
     return h.join('');
   }
   // Short animated chips that glide from the old holder to the new one when shares or trains change hands
@@ -1980,8 +2042,132 @@
     var sumBar = SM.n ? '<p class="sub" style="margin:0 0 6px"><b>' + SM.n + ' of ' + SM.tot + ' runs checked:</b> ' + (SM.short ? SM.short + ' left money on the table, <span class="st-warn">' + esc(d.money(SM.gap)) + ' in total</span>' : '<span class="st-good">all matched the best found</span>') + '</p>' : '';
     return gameBar + sumBar + (anyChk ? '<p class="sub" style="margin:0 0 6px"><button class="lnk rt-all">check every company in this round</button> <small style="color:var(--text-muted)">replays to just before each run and asks the site\'s own auto-router for the best routes it can find; about 15 seconds each</small></p>' : '') + '<table class="rt"><thead><tr><th>Company</th><th>Train</th><th>Revenue</th><th>Stops (as the engine logs them)</th></tr></thead><tbody>' + rows + '</tbody></table>';
   }
+
+  // ---------- Live play: watch-outs, threat radar, turn pacing -------------------------------
+  function sqw(col) { return '<i class="sw" style="background:' + displayColor(col || '#9a9a9a', ST.dark !== false) + '"></i>'; }
+  function dur(ms) {
+    var sec = Math.round(ms / 1000); if (sec < 60) return sec + ' s';
+    var mi = sec / 60; if (mi < 60) return Math.round(mi) + ' min';
+    var hr = mi / 60; if (hr < 24) return (hr < 10 ? hr.toFixed(1) : Math.round(hr)) + ' h';
+    var dy = hr / 24; return (dy < 10 ? dy.toFixed(1) : Math.round(dy)) + ' days';
+  }
+  // What the next train purchase does: phase change, which trains rust, who ends up trainless
+  function nextBuyEffects(d) {
+    var out = { phase: null, rust: [], obs: [] };
+    (d.phases || []).forEach(function (p) { if (p.status === 'future' && p.inPurchases === 1 && !out.phase) out.phase = p; });
+    d.corps.forEach(function (c) {
+      if (c.closed || !c.rustIn) return;
+      var lost = c.rustIn.filter(function (x) { return x === 1; }).length;
+      if (lost) out.rust.push({ c: c, lost: lost, left: c.trains.length - lost });
+      var obs = (c.obsIn || []).filter(function (x) { return x === 1; }).length;
+      if (obs) out.obs.push({ c: c, n: obs });
+    });
+    return out;
+  }
+  // Companies a president could hand to someone else by selling: another holder has at least the president's certificate
+  function dumpRisks(d) {
+    var out = [];
+    (d.live && d.live.market || []).forEach(function (mk) {
+      if (!mk.pres) return;
+      var c = d.corps.filter(function (x) { return x.name === mk.name; })[0]; if (!c || c.closed) return;
+      var presCert = 2 * (mk.sharePct || 10);
+      d.holdings.rows.forEach(function (r) {
+        var cell = r.cells[mk.name]; if (!cell || r.name === mk.pres.name || cell.pct < presCert) return;
+        // the president must end below this holder; the bank pool usually holds at most 50%
+        var sell = mk.pres.pct - cell.pct + (mk.sharePct || 10), poolNow = (mk.pool || 0) * (mk.sharePct || 10);
+        if (sell > mk.pres.pct || poolNow + sell > 50) return;
+        var bad = c.trainless || (c.buy && (c.buy.kind === 'stuck' || c.buy.kind === 'emergency'));
+        out.push({ corp: mk.name, color: mk.color, pres: mk.pres.name, presPct: mk.pres.pct, to: r.name, pct: cell.pct, sell: sell, bad: bad, c: c });
+      });
+    });
+    return out;
+  }
+  function watchOuts(d, me, m) {
+    if (d.finished || !d.live) return '';
+    var items = [], add = function (lvl, html) { items.push({ lvl: lvl, html: html }); };
+    var nb = nextBuyEffects(d), nt = d.nextTrain;
+    var mine = function (c) { return me && c.president === me; };
+    if (nt && (nb.phase || nb.rust.length || nb.obs.length)) {
+      var mineHit = nb.rust.filter(function (x) { return mine(x.c); }), mineObs = nb.obs.filter(function (x) { return mine(x.c); });
+      var txt = 'The next train bought (<b>' + esc(nt.name) + '</b>, ' + esc(m(nt.price)) + ')' + (nb.phase ? ' starts phase <b>' + esc(nb.phase.name) + '</b>' : '') +
+        (nb.rust.length ? (nb.phase ? ' and' : '') + ' rusts trains of ' + nb.rust.map(function (x) { return sqw(x.c.color) + '<b>' + esc(x.c.name) + '</b>' + (x.left === 0 ? ' <span class="st-crit">(left without trains)</span>' : ''); }).join(', ') : '') +
+        (nb.obs.length ? ((nb.phase || nb.rust.length) ? '; it also makes trains obsolete (they leave at a later point under this title\'s rules) for ' : ' makes trains obsolete for ') + nb.obs.map(function (x) { return sqw(x.c.color) + '<b>' + esc(x.c.name) + '</b> (' + x.n + ')'; }).join(', ') : '') + '.';
+      add(mineHit.some(function (x) { return x.left === 0; }) ? 3 : (mineHit.length || mineObs.length) ? 2 : 1, txt);
+    }
+    d.corps.forEach(function (c) {
+      if (c.closed || !c.buy) return;
+      if (c.buy.kind === 'stuck') add(mine(c) ? 3 : 1, sqw(c.color) + '<b>' + esc(c.name) + '</b> has no train and its president ' + esc(c.president) + ' cannot pay for one either (' + esc(m(c.buy.shortAfter)) + ' short): shares may have to be sold, or bankruptcy.');
+      else if (c.buy.kind === 'emergency' && mine(c)) add(2, sqw(c.color) + '<b>' + esc(c.name) + '</b> has no train: you will have to pay ' + esc(m(c.buy.add)) + ' from your own cash for one.');
+    });
+    var meP = me ? d.players.filter(function (p) { return p.name === me; })[0] : null;
+    if (meP && meP.certLimit) {
+      if (meP.certs > meP.certLimit) add(3, 'You are <b>over the certificate limit</b> (' + meP.certs + '/' + meP.certLimit + '): you will have to sell down.');
+      else if (meP.certs === meP.certLimit) add(2, 'You are <b>at the certificate limit</b> (' + meP.certs + '/' + meP.certLimit + '): you cannot buy more certificates.');
+      else if (meP.certs === meP.certLimit - 1) add(1, 'One certificate left before the limit (' + meP.certs + '/' + meP.certLimit + ').');
+    }
+    (d.live.market || []).forEach(function (mk) {
+      if (me && mk.pres && mk.pres.name === me && mk.canTake && mk.chal) add(2, '<b>' + esc(mk.chal.name) + '</b> can take ' + sqw(mk.color) + '<b>' + esc(mk.name) + '</b> from you by buying ' + mk.need + ' share' + (mk.need === 1 ? '' : 's') + ' (' + (mk.ipo + mk.pool) + ' available).');
+    });
+    dumpRisks(d).forEach(function (x) {
+      if (me && x.to === me) add(x.bad ? 3 : 1, esc(x.pres) + ' could hand you ' + sqw(x.color) + '<b>' + esc(x.corp) + '</b> by selling ' + x.sell + '% in a stock round (you hold ' + x.pct + '%, they hold ' + x.presPct + '%)' + (x.bad ? ' <span class="st-crit">and it has no money for a train</span>' : '') + '.');
+    });
+    var en = d.live.end;
+    if (en && !en.triggered && en.bankORs != null && en.bankORs <= 2) add(en.bankORs <= 1 ? 2 : 1, 'The bank is likely to break in about <b>' + en.bankORs.toFixed(1) + ' ORs</b> at this pace.');
+    if (!items.length) return '';
+    items.sort(function (a, b) { return b.lvl - a.lvl; });
+    var cls = ['', 'wo1', 'wo2', 'wo3'];
+    return '<section class="card wide"><h2>Watch-outs</h2><p class="sub">Things that are easy to miss right now' + (me ? ', for you first' : '; pick your name under <b>I am</b> in the ⋯ menu for personal ones') + '.</p><ul class="wo">' +
+      items.slice(0, 6).map(function (it) { return '<li class="' + cls[it.lvl] + '">' + it.html + '</li>'; }).join('') + '</ul>' + (items.length > 6 ? '<p class="sub" style="margin:4px 0 0">+' + (items.length - 6) + ' more in Threat radar</p>' : '') + '</section>';
+  }
+  function threatRadar(d, me, m) {
+    if (d.finished || !d.live) return '';
+    var h = [], nt = d.nextTrain, nb = nextBuyEffects(d), open = d.corps.filter(function (c) { return !c.closed && c.price != null; });
+    var who = function (n) { return me && n === me ? '<span class="mename">' + esc(n) + '</span>' : esc(n); };
+    if (nt) {
+      var can = open.filter(function (c) { return c.cash >= nt.price; }).sort(function (a, b) { return b.cash - a.cash; });
+      h.push('<h3 class="rh">Next train: ' + esc(nt.name) + ' · ' + esc(m(nt.price)) + '</h3><p>' + (can.length ? 'Can buy it from the treasury now: ' + can.map(function (c) { return sqw(c.color) + '<b>' + esc(c.name) + '</b> ' + esc(m(c.cash)) + ' (' + who(c.president) + ')'; }).join(', ') : 'No company has the cash for it in its treasury right now.') + '</p>');
+      if (nb.phase || nb.rust.length || nb.obs.length) h.push('<p>Buying it ' + (nb.phase ? 'starts phase <b>' + esc(nb.phase.name) + '</b>' : '') + (nb.rust.length ? (nb.phase ? ' and ' : '') + 'rusts: ' + nb.rust.map(function (x) { return sqw(x.c.color) + '<b>' + esc(x.c.name) + '</b> loses ' + x.lost + ' of ' + x.c.trains.length + (x.left === 0 ? ' <span class="st-crit">→ no trains</span>' : ''); }).join(', ') : '') +
+        (nb.obs.length ? ((nb.phase || nb.rust.length) ? '; ' : '') + 'makes obsolete: ' + nb.obs.map(function (x) { return sqw(x.c.color) + '<b>' + esc(x.c.name) + '</b> ' + x.n; }).join(', ') : '') + '.</p>');
+    }
+    // rust ahead, by number of purchases
+    var by = {}; (d.risk || []).forEach(function (r) { (by[r.inPurchases] = by[r.inPurchases] || []).push(r); });
+    var ks = Object.keys(by).map(Number).sort(function (a, b) { return a - b; }).slice(0, 4);
+    if (ks.length) {
+      var col = {}; d.corps.forEach(function (c) { col[c.name] = c.color; });
+      h.push('<h3 class="rh">Rust ahead</h3><div class="tw"><table class="tight"><thead><tr><th>When</th><th style="text-align:left">Companies losing trains</th></tr></thead><tbody>' + ks.map(function (k) {
+        return '<tr><td>' + (k === 1 ? 'next buy' : 'in ' + k + ' buys') + '</td><td style="text-align:left;white-space:normal">' + by[k].map(function (r) { return sqw(col[r.corp]) + '<b>' + esc(r.corp) + '</b> ' + r.count + ' of ' + r.ofTotal + (r.count === r.ofTotal ? ' <span class="st-crit">all</span>' : ''); }).join(', ') + '</td></tr>';
+      }).join('') + '</tbody></table></div>');
+    }
+    // presidencies in play
+    var takes = (d.live.market || []).filter(function (mk) { return mk.canTake && mk.chal && mk.pres; });
+    if (takes.length) h.push('<h3 class="rh">Presidencies in play</h3><ul class="wo">' + takes.map(function (mk) { return '<li>' + who(mk.chal.name) + ' can take ' + sqw(mk.color) + '<b>' + esc(mk.name) + '</b> from ' + who(mk.pres.name) + ' by buying ' + mk.need + ' share' + (mk.need === 1 ? '' : 's') + ' (' + mk.chal.pct + '% vs ' + mk.pres.pct + '%, ' + (mk.ipo + mk.pool) + ' available)</li>'; }).join('') + '</ul>');
+    // dump danger
+    var dr = dumpRisks(d);
+    if (dr.length) h.push('<h3 class="rh">Who could be handed a company</h3><p class="sub" style="margin:0 0 4px">In a stock round a president can sell enough to pass the company to another player holding at least the president\'s certificate (assuming the usual 50% limit on shares in the bank pool).</p><ul class="wo">' + dr.sort(function (a, b) { return (b.bad ? 1 : 0) - (a.bad ? 1 : 0); }).map(function (x) { return '<li class="' + (x.bad ? 'wo2' : '') + '">' + sqw(x.color) + '<b>' + esc(x.corp) + '</b>: ' + who(x.pres) + ' (' + x.presPct + '%) could pass it to ' + who(x.to) + ' (' + x.pct + '%) by selling ' + x.sell + '%' + (x.bad ? ' <span class="st-crit">· no money for a train</span>' : '') + '</li>'; }).join('') + '</ul>');
+    // certificate squeeze
+    var sq = d.players.filter(function (p) { return p.certLimit && p.certs >= p.certLimit - 1; });
+    if (sq.length) h.push('<h3 class="rh">Certificate squeeze</h3><p>' + sq.map(function (p) { return who(p.name) + ' ' + p.certs + '/' + p.certLimit; }).join(' · ') + '</p>');
+    if (!h.length) return '';
+    return '<section class="card wide"><h2>Threat radar</h2><p class="sub">What the other players can do to the board and to you next: the next train, rust, presidencies and dumps.</p>' + h.join('') + '</section>';
+  }
+  function pacingCard(d, pal, me) {
+    var P = d.pacing; if (!P || !P.rows.length) return '';
+    var tot = P.rows.reduce(function (a, r) { return a + r.total; }, 0) || 1;
+    var rows = P.rows.slice().sort(function (a, b) { return b.total - a.total; });
+    var waitLine = '';
+    if (!d.finished && !d.tt && d.live && d.live.acting.length) {
+      var since = Date.now() - P.last;
+      waitLine = '<p class="nowline" style="font-size:13px">Waiting on <b>' + d.live.acting.map(esc).join(', ') + '</b> for ' + dur(since) + '.</p>';
+    }
+    return '<section class="card wide"><h2>Turn pacing</h2><p class="sub">Time between moves, from the timestamps 18xx.games keeps: each turn counts from the previous player\'s last move to this player\'s last move. In an asynchronous game this includes the time before someone opened the game. Game length so far: ' + dur(P.span) + '.</p>' + waitLine +
+      '<div class="tw"><table class="tight"><thead><tr><th>Player</th><th>Turns</th><th>Typical turn</th><th>Longest</th><th>Total</th><th style="width:30%">Share of the clock</th></tr></thead><tbody>' + rows.map(function (r) {
+        var col = pal[r.idx % pal.length];
+        return '<tr' + (me && r.name === me ? ' class="merow"' : '') + '><td>' + sqw(col) + esc(r.name) + '</td><td>' + r.turns + '</td><td>' + dur(r.median) + '</td><td>' + dur(r.longest) + '</td><td>' + dur(r.total) + '</td><td><div class="bar"><i style="width:' + (r.total / tot * 100).toFixed(1) + '%;background:' + col + '"></i></div></td></tr>';
+      }).join('') + '</tbody></table></div></section>';
+  }
   function render(w, d) {
     var doc = w.document, dark = isDark(w), pal = playerPal(dark);
+    ST.dark = dark;
     var m = d.money;
     var me = myName(d.players.map(function (p) { return p.name; }));
     var myTurn = !!me && !d.finished && !d.tt && !!d.live && d.live.acting.indexOf(me) >= 0;
@@ -2088,6 +2274,8 @@
           : '<div class="v sm2">not triggered</div>') +
         (endList ? '<details class="d2" style="margin-top:6px"><summary style="cursor:pointer"><b>How the game can end</b></summary>' + endList + '</details>' : '') + '</div>');
       h.push('</div></section>');
+      h.push(watchOuts(d, me, m));
+      h.push(threatRadar(d, me, m));
 
       // What just happened: latest moves, plus everything since your own last move
       var rc = me && d.recap && d.recap.lines.length ? d.recap : null;
@@ -2285,7 +2473,7 @@
         : '<span class="st-good">✓ safe</span>';
       if (obsSoon.length) status += ' <span class="st-warn" title="Obsolete is not rusted: the train is on its way out under this title\'s rules">◔ ' + obsSoon.length + ' obsolete ' + buysTxt(Math.min.apply(null, obsSoon)) + '</span>';
       h.push('<tr data-corp="' + esc(c.name) + '" data-crow="' + esc(c.name) + '"' + (!d.finished && L && L.current === c.name && L.isOR ? ' class="actrow"' : '') + '><td>' + (!d.finished && L && L.current === c.name && L.isOR ? '<span class="act" title="operating now">▶</span> ' : '') + '<i class="sw" style="background:' + displayColor(c.color, dark) + '"></i><b>' + esc(c.name) + '</b></td><td>' + esc(c.president) + '</td><td>' + (c.price != null ? esc(m(c.price)) : '—') + '</td><td data-f="ct:' + esc(c.name) + '">' + esc(m(c.cash)) + '</td><td>' + can + '</td>');
-      h.push('<td style="white-space:normal;min-width:70px">' + (c.trains.map(function (t) { return '<span style="white-space:nowrap">' + trainGlyph(d.title, t.name) + esc(t.name) + '</span>'; }).join(', ') || '—') + '</td><td>' + status + '</td><td>' + (c.tokensTotal ? c.tokensLeft + '/' + c.tokensTotal : '—') + '</td>' + (anyLoans ? '<td>' + (c.loans ? c.loans + (c.maxLoans ? '/' + c.maxLoans : '') : '') + '</td><td>' + (c.interestOwed ? esc(m(c.interestOwed)) : '') + '</td>' : ''));
+      h.push('<td style="white-space:normal;min-width:70px">' + (c.trains.map(function (t) { return '<span style="white-space:nowrap">' + trainGlyph(d.title, t.name) + esc(t.name) + '</span>'; }).join(', ') || '—') + '</td><td style="white-space:normal;min-width:90px">' + status + '</td><td>' + (c.tokensTotal ? c.tokensLeft + '/' + c.tokensTotal : '—') + '</td>' + (anyLoans ? '<td>' + (c.loans ? c.loans + (c.maxLoans ? '/' + c.maxLoans : '') : '') + '</td><td>' + (c.interestOwed ? esc(m(c.interestOwed)) : '') + '</td>' : ''));
       h.push('<td>' + (last ? esc(m(last.revenue)) + (last.kind && last.kind !== 'payout' ? ' <small style="color:var(--text-muted)">' + esc(last.kind) + '</small>' : '') : '—') + '</td><td>' + (avg != null ? esc(m(avg)) : '—') + '</td></tr>');
     });
     h.push('</tbody></table></div>');
@@ -2387,7 +2575,7 @@
         if (Wn.n) whRows.push({ corp: c.name, pres: c.president, color: c.color, W: Wn, P: Pn });
       });
       if (whRows.length) {
-        h.push('<section class="card wide"><h2>Withholding vs paying out</h2><p class="sub">Each time a company kept its revenue instead of paying it out, and how its share price moved in those rounds compared with the rounds it paid. Price moves include everything that happened that round, not only the dividend.</p><div class="tw"><table><thead><tr><th>Company</th><th>President</th><th>Withheld</th><th>Revenue kept</th><th>Longest streak</th><th>Avg price move when withholding</th><th>Avg price move when paying</th></tr></thead><tbody>' +
+        h.push('<section class="card wide"><h2>Withholding vs paying out</h2><p class="sub">Each time a company kept its revenue instead of paying it out, and how its share price moved in those rounds compared with the rounds it paid. Price moves include everything that happened that round, not only the dividend.</p><div class="tw"><table class="tight"><thead><tr><th>Company</th><th>President</th><th>Withheld</th><th>Revenue kept</th><th>Longest streak</th><th title="Average share price move in rounds it withheld">Avg move withholding</th><th title="Average share price move in rounds it paid out">Avg move paying</th></tr></thead><tbody>' +
           whRows.sort(function (a, b) { return b.W.rev - a.W.rev; }).map(function (x) {
             return '<tr><td>' + cs(x.color) + '<b>' + esc(x.corp) + '</b></td><td>' + esc(x.pres || '') + '</td><td>' + x.W.n + ' of ' + (x.W.n + x.P.n) + ' ORs</td><td>' + esc(m(x.W.rev)) + '</td><td>' + x.W.best + '</td><td>' + sgn(avg(x.W.mv)) + '</td><td>' + sgn(avg(x.P.mv)) + '</td></tr>';
           }).join('') + '</tbody></table></div></section>');
@@ -2725,6 +2913,7 @@
         row('Auto routing', esc(I.auto)) + row('Pinned version', esc(I.pin)) +
         row('The game ends when', I.ends && I.ends.length ? I.ends.map(esc).join('<br>') : '') + '</tbody></table></div></section>');
     }
+    h.push(pacingCard(d, pal, me));
     h.push('</main>');
 
     var scrollY = w.scrollY || 0;
@@ -2973,6 +3162,20 @@
     doc.getElementById('fol').onclick = function () { lsSet('xxStats.follow', followOn() ? '0' : '1'); rerender(); };
     doc.getElementById('kb').onclick = function () { ST.menuOpen = false; showKeys(w); };
     keyHandler(w, d, setPrivacy);
+    var de = doc.documentElement;
+    de.__xxD = d;
+    if (!de.__mkDeleg) {
+      de.__mkDeleg = 1;
+      var showSq = function (ev, pin) {
+        var cell = ev.target.closest && ev.target.closest('.mk .mc[data-r]'); if (!cell) return;
+        var box = cell.closest('.mk').parentNode.querySelector('.mkinfo'); if (!box) return;
+        if (!pin && box.__pinned) return;
+        box.innerHTML = explainSquare(de.__xxD, +cell.getAttribute('data-r'), +cell.getAttribute('data-c'));
+        if (pin) { box.__pinned = true; Array.prototype.forEach.call(cell.parentNode.querySelectorAll('.mc.sel'), function (x) { x.classList.remove('sel'); }); cell.classList.add('sel'); }
+      };
+      doc.addEventListener('mouseover', function (ev) { showSq(ev, false); });
+      doc.addEventListener('click', function (ev) { showSq(ev, true); });
+    }
     var mn = doc.getElementById('mn'); if (mn) mn.ontoggle = function () { ST.menuOpen = mn.open; };
     doc.onclick = function (ev) { if (ST.menuOpen && mn && !ev.target.closest('#mn')) { mn.open = false; ST.menuOpen = false; } };
     var giEl = doc.getElementById('gi'); if (giEl) giEl.oninput = function () { ST.giVal = giEl.value; };
@@ -3081,16 +3284,16 @@
   ];
   var GROUPS = {
     live: [
-      { id: 'now', title: 'Now', keys: ['now', 'what-just-happened', 'standings', 'stock-round-helper', 'game-end-clock'] },
+      { id: 'now', title: 'Now', keys: ['now', 'watch-outs', 'what-just-happened', 'standings', 'stock-round-helper', 'threat-radar', 'game-end-clock'] },
       { id: 'companies', title: 'Companies', keys: ['stock-ticker', 'stock-market', 'corporations', 'share-price', 'company-revenue-per-operating-round', 'ownership-over-time', 'who-holds-what', 'valuation', 'minors-private-companies'] },
       { id: 'trains', title: 'Trains & board', keys: ['trains-phases-bank', 'routes-revenue', 'train-history', 'tile-manifest'] },
       { id: 'money', title: 'Money', keys: ['company-profit-and-loss', 'cash-flow-per-player', 'where-the-money-came-from', 'portfolios'] },
-      { id: 'history', title: 'Players & history', keys: ['player-value-over-time', 'key-moments', 'board-and-replay', 'game-log', 'president-changes', 'priority-deal-tracker'] },
+      { id: 'history', title: 'Players & history', keys: ['player-value-over-time', 'key-moments', 'board-and-replay', 'game-log', 'president-changes', 'priority-deal-tracker', 'turn-pacing'] },
       { id: 'analysis', title: 'Analysis', keys: ['decisions-review', 'game-info'] }
     ],
     review: [
       { id: 'now', title: 'Result', keys: ['result', 'player-value-over-time', 'key-moments'] },
-      { id: 'history', title: 'Players & history', keys: ['board-and-replay', 'game-log', 'president-changes', 'priority-deal-tracker'] },
+      { id: 'history', title: 'Players & history', keys: ['board-and-replay', 'game-log', 'president-changes', 'priority-deal-tracker', 'turn-pacing'] },
       { id: 'analysis', title: 'Analysis', keys: ['decisions-review'] },
       { id: 'money', title: 'Money', keys: ['company-profit-and-loss', 'cash-flow-per-player', 'where-the-money-came-from', 'portfolios', 'valuation'] },
       { id: 'companies', title: 'Companies', keys: ['stock-ticker', 'stock-market', 'corporations', 'share-price', 'company-revenue-per-operating-round', 'ownership-over-time', 'who-holds-what', 'minors-private-companies'] },
@@ -3103,7 +3306,7 @@
   function loadLayout(mode) {
     try {
       var v = JSON.parse(localStorage.getItem('xxStats.layout2.' + mode) || 'null');
-      if (v && v.order) { layoutKeys(mode).forEach(function (k) { if (v.order.indexOf(k) < 0) v.order.push(k); }); v.collapsed = v.collapsed || []; v.gc = v.gc || []; v.dock = Array.isArray(v.dock) ? v.dock.filter(function (k) { return layoutKeys(mode).indexOf(k) >= 0; }).slice(0, 3) : []; return v; }
+      if (v && v.order) { var dk = layoutKeys(mode); dk.forEach(function (k, i) { if (v.order.indexOf(k) >= 0) return; var at = -1; for (var j = i - 1; j >= 0 && at < 0; j--) at = v.order.indexOf(dk[j]); v.order.splice(at + 1, 0, k); }); v.collapsed = v.collapsed || []; v.gc = v.gc || []; v.dock = Array.isArray(v.dock) ? v.dock.filter(function (k) { return layoutKeys(mode).indexOf(k) >= 0; }).slice(0, 3) : []; return v; }
     } catch (e) {}
     return { order: layoutKeys(mode), collapsed: ['minors-private-companies', 'tile-manifest', 'game-info'], gc: DEFAULT_GC[mode].slice(), dock: [] };
   }
@@ -3225,7 +3428,7 @@
     // just below the Now card. Only the screen changes; the saved order is kept (see persist).
     var FOLLOW = { sr: ['stock-round-helper', 'stock-market', 'valuation'], or: ['corporations', 'trains-phases-bank', 'routes-revenue'], other: ['minors-private-companies'] };
     if (mode === 'live' && followOn() && ST.roundKind && bodies.now) {
-      var nowCard = bodies.now.querySelector('section[data-key="now"]'), anchor = nowCard ? nowCard.nextSibling : bodies.now.firstChild;
+      var nowCard = bodies.now.querySelector('section[data-key="watch-outs"]') || bodies.now.querySelector('section[data-key="now"]'), anchor = nowCard ? nowCard.nextSibling : bodies.now.firstChild;
       FOLLOW[ST.roundKind].forEach(function (k) {
         if (lay.dock.indexOf(k) >= 0) return;
         var sx = main.querySelector('section[data-key="' + k + '"]'); if (!sx) return;
