@@ -211,7 +211,7 @@
       if ((mm = rxTile.exec(q)) && cn[mm[1]]) { var c1 = getT(mm[1]); c1.tiles++; if (mm[2]) c1.tileCost += N(mm[2]); var th0 = tilesLaid[mm[4]] || (tilesLaid[mm[4]] = { n: 0 }); th0.n++; th0.corp = mm[1]; th0.tile = mm[3]; th0.round = rd.label; th0.id = ln.id; th0.who = pres[mm[1]] || ''; return; }
       if ((mm = rxTok.exec(q)) && cn[mm[1]]) { var c2 = getT(mm[1]); c2.tokens++; if (mm[2]) c2.tokenCost += N(mm[2]); return; }
       if ((mm = rxTokBuy.exec(q)) && cn[mm[1]]) { getT(mm[1]).tokenCost += N(mm[3]); return; }
-      if ((mm = rxDiv.exec(q))) { mm[2].split(', ').forEach(function (part) { var pp = rxPart.exec(part); if (pp && pn[pp[2]]) { ms[pp[2]].div += N(pp[1]); cr.pp[pp[2]].div += N(pp[1]); } }); return; }
+      if ((mm = rxDiv.exec(q))) { mm[2].split(', ').forEach(function (part) { var pp = rxPart.exec(part); if (pp && pn[pp[2]]) { var dv = N(pp[1]) * (/^[^\d]*-/.test(part) ? -1 : 1); ms[pp[2]].div += dv; cr.pp[pp[2]].div += dv; } }); return; }
       if ((mm = rxPriv.exec(q)) && pn[mm[1]]) { ms[mm[1]].priv += N(mm[2]); cr.pp[mm[1]].priv += N(mm[2]); return; }
       if ((mm = rxSell.exec(q)) && pn[mm[1]]) {
         ms[mm[1]].sales += N(mm[2]); cr.pp[mm[1]].sales += N(mm[2]);
@@ -2844,7 +2844,7 @@
     var links = {}, add = function (a, b, v) { if (!v) return; var k = a + '\u0001' + b; links[k] = (links[k] || 0) + v; }, tot = 0;
     GL.rounds.forEach(function (r) { r.lines.forEach(function (ln) {
       var msg = ln.msg, x;
-      if ((x = /^(.+?) (?:pays out|pays) .*?\(([^()]*\bto\b[^()]*)\)\s*$/.exec(msg))) x[2].split(', ').forEach(function (part) { var y = /^(.+?) to (.+)$/.exec(part); if (y && pn[y[2]]) { var v = moneyNum(y[1]); add(x[1] + ' dividends', y[2], v); tot += v; } });
+      if ((x = /^(.+?) (?:pays out|pays) .*?\(([^()]*\bto\b[^()]*)\)\s*$/.exec(msg))) x[2].split(', ').forEach(function (part) { var y = /^(.+?) to (.+)$/.exec(part); if (y && pn[y[2]]) { var v = moneyNum(y[1]) * (/^[^\d]*-/.test(y[1]) ? -1 : 1); if (v >= 0) add(x[1] + ' dividends', y[2], v); else add(y[2], 'Dividends paid on shorts', -v); tot += v; } });
       else if ((x = /^(.+?) collects (\S+) from (.+)$/.exec(msg)) && pn[x[1]]) { var v2 = moneyNum(x[2]); add('Private companies', x[1], v2); tot += v2; }
       else if ((x = /^(.+?) (?:sells|shorts) .*? (?:and receives|for) (\S+)\s*$/.exec(msg)) && pn[x[1]]) { var v3 = moneyNum(x[2]); add('Share sales and shorts', x[1], v3); tot += v3; }
     }); });
@@ -4244,7 +4244,7 @@
         var etf = doc.getElementById('c-tflow'), cc0 = corpCol(d);
         if (etf) { var tfm = trainFlowModel(d); ecSankey(w, etf, tfm.links, function (n) { return cc0[n] ? displayColor(cc0[n], dark) : /^Still/.test(n) ? '#2e9e5b' : n === 'Gone' ? '#9a9a9a' : trainColor(d, n.replace(/ train$/, '')); }, dark, null, null, tfm.nodes); }
         var emf = doc.getElementById('c-mflow');
-        if (emf) { var mfm = moneyFlowModel(d), pc0 = {}; d.players.forEach(function (p) { pc0[p.name] = pal[p.idx % pal.length]; }); ecSankey(w, emf, mfm.links, function (n) { var cn = n.replace(/ dividends$/, ''); return pc0[n] || (cc0[cn] ? displayColor(cc0[cn], dark) : n === 'Share sales and shorts' ? '#9a9a9a' : '#c9a227'); }, dark, m); }
+        if (emf) { var mfm = moneyFlowModel(d), pc0 = {}; d.players.forEach(function (p) { pc0[p.name] = pal[p.idx % pal.length]; }); ecSankey(w, emf, mfm.links, function (n) { var cn = n.replace(/ dividends$/, ''); return pc0[n] || (cc0[cn] ? displayColor(cc0[cn], dark) : n === 'Share sales and shorts' ? '#9a9a9a' : n === 'Dividends paid on shorts' ? '#d9534f' : '#c9a227'); }, dark, m); }
         var ewi = doc.getElementById('c-whatif'); if (ewi && ST.wiModel) ecWhatIf(w, ewi, d, pal, dark, m);
         var esy = doc.getElementById('c-style'); if (esy) ecStyle(w, esy, d, pal, dark, styleVectors(d));
         if (ST.crModel) {
