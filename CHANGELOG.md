@@ -2,7 +2,12 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
-## [Unreleased]
+## [0.25.2] - 2026-11-15
+
+### Fixed
+- **Player colours stay the same all game.** They followed the engine's current player order, which some titles change during the game, so a player could change colour between rounds or in History mode. They now follow the seat order.
+- **Wide tables at half-screen width:** the *Held by* column in Trains, phases & Bank and the *Trains* column in Corporations wrap instead of running off the card, and the Supply bar column is narrower.
+- **Company profit and loss chart:** the company colour dots no longer overlap the company names.
 
 ### Added
 - **Views section in the README:** a screenshot and a short description of every card and tab (including the live-game cards, the ⋯ menu, History and Compare), from finished 1846 and 1862 games with players shown as Player 1–4. Images are in `docs/views/`.
