@@ -155,7 +155,7 @@ Not affiliated with 18xx.games; thanks to its authors for an open, well-structur
 
 ## Views
 
-Every card and tab in the window, one picture each. They were taken from two finished games (1846 and 1862) with version 0.25.1 in dark mode; players are shown as Player 1–4. The live-game cards come from the 1846 game in History mode (after OR 5.1), with *I am* set to Player 1. Click a section to open it.
+Every card and tab in the window, one picture each. They were taken from two finished games (1846 and 1862) in dark mode, with version 0.26.0 in privacy mode (players shown as Player 1–4); a few cards that did not change are from 0.25.1. The live-game cards come from the 1846 game in History mode (after OR 5.1), with *I am* set to Player 1. Click a section to open it.
 
 <details>
 <summary><b>Top bar, menu and History</b></summary>
@@ -168,9 +168,13 @@ Every card and tab in the window, one picture each. They were taken from two fin
 
 ![History slider](docs/views/1846-history-header.jpg)
 
-**Menu (⋯).** *I am*, sound, Half / Third size, dark/light, reset layout, text size, the 🔗 layout link, *Auto size*, *Layout code…*, open another game by number, *Compare games…*, and the version line.
+**Menu (⋯).** *I am*, sound, Half / Third size, dark/light, Privacy, Colour-blind, High contrast, Follow the round, Keys, reset layout, text size, the 🔗 layout link, *Auto size*, *Layout code…*, open another game by number, *Compare games…*, and the version line.
 
 ![The ⋯ menu](docs/views/1846-menu.jpg)
+
+**Keyboard shortcuts.** Press **?** (or ⌨ Keys in the menu) for the list.
+
+![Keyboard shortcuts](docs/views/1846-keys.jpg)
 
 **Compare: Another game.** Type up to three other games of the same title to see them side by side.
 
@@ -184,6 +188,10 @@ Every card and tab in the window, one picture each. They were taken from two fin
 
 <details>
 <summary><b>Now (live games)</b></summary>
+
+**Follow the round.** In a live game the cards that matter in this kind of round move up into Now, marked *this round*. Here, in a stock round: the stock round helper, the market and valuation. Switch it off in the ⋯ menu.
+
+![Follow the round in a stock round](docs/views/1846-live-follow.jpg)
 
 **Now.** Who is to act and for which company, the round and how many ORs are left in the set, priority deal, the order of the round, your own tile (value, rank, gap, cash, certificate room) and a game-end estimate.
 
@@ -221,6 +229,10 @@ Every card and tab in the window, one picture each. They were taken from two fin
 **Standings.** Final ranking by player value, gap to the leader, cash and certificates. *copy as text* and *copy as image* share it in chat. In a live game this card is called Standings.
 
 ![Standings](docs/views/1846-result-standings.jpg)
+
+**Share card.** In a finished game, *copy share card* copies one picture with the winner, the standings, the Player value chart and the badges.
+
+![Share card](docs/views/1846-share-card.jpg)
 
 **Badges.** Just-for-fun awards such as biggest comeback, most time in the lead, dividend king and best single run, each with a runner-up.
 

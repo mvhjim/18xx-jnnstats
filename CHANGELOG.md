@@ -2,6 +2,11 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [Unreleased]
+
+### Changed
+- **README screenshots refreshed** for 0.26.0: the new player colours, the fixed tables and chart labels, the new menu, plus new pictures of the share card, the keyboard shortcuts and Follow the round.
+
 ## [0.26.0] - 2026-11-15
 
 ### Added
