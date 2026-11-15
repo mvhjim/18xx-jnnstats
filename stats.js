@@ -3208,7 +3208,7 @@
           var k = idx + 1;
           for (; k < eff.length; k++) {
             var a = eff[k]; if (a.type === 'message') { res.steps++; continue; }
-            try { apply(a); res.steps++; } catch (eA) { res.stop = { id: a.id, type: a.type, entity: a.entity, msg: String(eA && eA.message || eA).replace(/^.*?Error:?\s*/, '').replace(/ at \d+$/, '').slice(0, 240) }; break; }
+            try { apply(a); res.steps++; } catch (eA) { var en = a.entity; if (a.entity_type === 'player') (raw.players || []).forEach(function (pp) { if (pp.id === a.entity) en = pp.name; }); res.stop = { id: a.id, type: a.type, entity: en, msg: String(eA && eA.message || eA).replace(/^.*?Error:?\s*/, '').replace(/ at \d+$/, '').slice(0, 240) }; break; }
           }
           res.at = k; var ga = actual(Math.min(k, eff.length));
           var vals = function (gg) { var o = {}; gg.$players().forEach(function (p) { o[s(p.$name())] = num(call(gg, 'player_value', p)); }); return o; };
@@ -3243,7 +3243,7 @@
         rows.map(function (r) { var df = r.w - r.a; return '<tr><td style="text-align:left">' + (r.n === who ? '<b>' + esc(r.n) + '</b>' : esc(r.n)) + '</td><td>' + esc(m(r.a)) + '</td><td>' + esc(m(r.w)) + '</td><td style="color:' + (df > 0 ? '#2e9e5b' : df < 0 ? '#d9534f' : 'inherit') + '">' + (df > 0 ? '+' : df < 0 ? '−' : '') + esc(m(Math.abs(df))) + '</td></tr>'; }).join('') + '</tbody></table></div>' +
         (pc.length ? '<p class="sub">Share prices that differ: ' + pc.map(function (c) { return esc(c) + ' ' + esc(m(R.actP[c])) + ' → ' + esc(m(R.wiP[c])); }).join(' · ') + '</p>' : '');
     }
-    return '<section class="card wide"><h2>What-if sandbox</h2><p class="sub">Change one decision and let the 18xx.games rules engine replay everything after it, with every other move kept as it was. When a later move stops being legal the replay stops there, because from that point the game would really have gone differently. Read only: the game itself is never touched.</p>' +
+    return '<section class="card wide"><h2>What-if sandbox</h2><p class="sub">Change one decision and let the 18xx.games rules engine replay everything after it, with every other move kept as it was. When a later move stops being legal the replay stops there, because from that point the game would really have gone differently. Changing a payout usually replays a long way; dropping a move often stops soon, because the next moves assumed it happened. Read only: the game itself is never touched.</p>' +
       '<p class="sub">Player <select id="sb-who">' + d.players.map(function (p) { return '<option' + (p.name === who ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') + '</select> ' +
       (D.length ? 'decision <select id="sb-sel" style="max-width:100%">' + D.slice().reverse().map(function (x) { return '<option value="' + x.i + '"' + (x.i === sel ? ' selected' : '') + '>' + esc(x.round + ' · ' + x.text) + '</option>'; }).join('') + '</select>' : 'has no decisions to change') + '</p>' +
       (cur ? '<p class="sub">' + opts + ' <button class="pill" id="sb-run">▶ Replay with the change</button></p>' : '') + body + '</section>';
