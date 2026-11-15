@@ -1120,7 +1120,7 @@
     '.tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}.tabs button{font:inherit;font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:var(--surface-0);color:var(--text-secondary);cursor:pointer}.tabs button.on{background:var(--accent);border-color:var(--accent);color:#fff}',
     '.pres{color:var(--warn);font-weight:700}.short{color:var(--crit);font-weight:600}.cellv{display:block;font-size:11px;color:var(--text-muted)}',
     '.hmk{display:grid;grid-template-columns:repeat(var(--cols),minmax(34px,1fr));gap:2px;overflow-x:auto}.hc{border:1px solid var(--grid);border-radius:5px;padding:2px 3px;min-height:34px;font-size:11px;min-width:0;display:flex;flex-direction:column;justify-content:space-between}.hc.empty{border-color:transparent;background:none!important}.hc b{font-size:12px;text-align:right}',
-    '.tl text,.fp text{font-size:12px;fill:var(--text-secondary)}.tl .tln{font-weight:650;fill:var(--text-primary)}.tlx{font-size:11px}.fpg{transition:opacity .2s}.fpb.on{font-weight:700;text-decoration:underline}',
+    '.tl text,.fp text{font-size:15px;fill:var(--text-secondary)}.tl .tln{font-weight:650;fill:var(--text-primary)}.tl .tlx,.fp .tlx{font-size:13.5px}.fpg{transition:opacity .2s}.fpb.on{font-weight:700;text-decoration:underline}',
     '.mk{display:grid;grid-template-columns:repeat(var(--cols),minmax(34px,1fr));gap:2px;overflow-x:auto}',
     '.mc{border:1px solid var(--grid);border-radius:5px;padding:2px 3px;min-height:40px;font-size:11px;min-width:0}.mc.empty{border-color:transparent}.mp{color:var(--text-secondary);font-variant-numeric:tabular-nums;font-size:10.5px}',
     '.cp{display:block;border-radius:4px;padding:0 3px;margin-top:2px;font-size:10.5px;font-weight:700;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default}.cp.mine{outline:2px solid var(--accent);outline-offset:1px}.cp.gh{background:transparent!important;border:1.5px dashed;font-weight:600}',
@@ -2667,7 +2667,7 @@
   function timelineCard(d, dark, pal) {
     var O = d.analysis && d.analysis.own; if (!O || !O.labels.length) return '';
     var L = O.labels, col = corpCol(d), pcol = {}; d.players.forEach(function (p) { pcol[p.name] = pal[p.idx % pal.length]; });
-    var corps = d.corps.filter(function (c) { return O.corps[c.name]; }), rowH = 26, left = 64, W = 1000, cw = (W - left - 8) / L.length, H = corps.length * rowH + 34;
+    var corps = d.corps.filter(function (c) { return O.corps[c.name]; }), rowH = 28, left = 70, W = 1000, cw = (W - left - 8) / L.length, H = corps.length * rowH + 34;
     var buys = {}; ((d.analysis && d.analysis.trains) || []).forEach(function (t) { var k = t.buyer + '|' + shortRound(t.round); (buys[k] = buys[k] || []).push(t.train); });
     var s = ['<svg class="tl" viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="Company timeline">'];
     L.forEach(function (l, i) { if (/^SR/.test(l) || i === 0) s.push('<rect x="' + (left + i * cw).toFixed(1) + '" y="0" width="' + cw.toFixed(1) + '" height="' + (H - 20) + '" fill="' + (dark ? 'rgba(255,255,255,.035)' : 'rgba(0,0,0,.035)') + '"/>'); });
@@ -2678,13 +2678,13 @@
       L.forEach(function (l, i) {
         var p = pl[i]; if (!p) return; var x = left + i * cw;
         s.push('<rect x="' + (x + 0.5).toFixed(1) + '" y="' + y + '" width="' + Math.max(1, cw - 1).toFixed(1) + '" height="16" rx="2" fill="' + (pcol[p] || '#888') + '" opacity=".78"><title>' + esc(c.name + ' · ' + l + ' · president ' + p) + '</title></rect>');
-        var o = ohBy[l]; if (o) s.push('<circle cx="' + (x + cw / 2).toFixed(1) + '" cy="' + (y + 8) + '" r="3.4" fill="' + (o.kind === 'withhold' || o.kind === 'none' ? 'var(--surface-1)' : '#fff') + '" stroke="#000" stroke-width=".8"><title>' + esc(c.name + ' ' + l + ': ' + (o.kind === 'withhold' ? 'withheld ' : o.kind === 'half' ? 'paid half of ' : 'paid out ') + d.money(o.revenue)) + '</title></circle>');
+        var o = ohBy[l]; if (o) s.push('<circle cx="' + (x + cw / 2).toFixed(1) + '" cy="' + (y + 8) + '" r="3.6" fill="' + (o.kind === 'withhold' || o.kind === 'none' ? 'none' : '#fff') + '" stroke="' + (o.kind === 'withhold' || o.kind === 'none' ? '#fff' : '#000') + '" stroke-width="' + (o.kind === 'withhold' || o.kind === 'none' ? 1.6 : .8) + '"><title>' + esc(c.name + ' ' + l + ': ' + (o.kind === 'withhold' ? 'withheld ' : o.kind === 'half' ? 'paid half of ' : 'paid out ') + d.money(o.revenue)) + '</title></circle>');
         var b = buys[c.name + '|' + l]; if (b) s.push('<path d="M' + (x + cw / 2 - 4).toFixed(1) + ' ' + (y + 22) + 'l4 -6l4 6z" fill="' + displayColor(col[c.name] || '#888', dark) + '"><title>' + esc(c.name + ' bought ' + b.join(', ') + ' in ' + l) + '</title></path>');
       });
       if (c.closed) s.push('<text x="' + (W - 4) + '" y="' + (y + 13) + '" text-anchor="end" class="tlx">closed</text>');
     });
     s.push('</svg>');
-    return '<section class="card wide"><h2>Company timeline</h2><p class="sub">Each company\'s life from start to now. The bar has the colour of its president at the time, ● it paid out, ○ it withheld, ▲ it bought a train. Shaded columns are stock rounds.</p>' +
+    return '<section class="card wide"><h2>Company timeline</h2><p class="sub">Each company\'s life from start to now. The bar has the colour of its president at the time; a white dot means it paid out, a ring that it withheld, ▲ that it bought a train. Shaded columns are stock rounds.</p>' +
       '<p class="sub">' + d.players.map(function (p) { return '<span style="white-space:nowrap"><i class="sw" style="background:' + pal[p.idx % pal.length] + '"></i>' + esc(p.name) + '</span>'; }).join(' &nbsp;') + '</p>' + s.join('') + '</section>';
   }
   // 13 Market heat map: where on the stock market the companies spent their time
@@ -2749,11 +2749,11 @@
     var b = bumpModel(d), C = ecInk(dark), ch = ecInit(w, el, Math.max(200, d.players.length * 44 + 60));
     ch.setOption({
       animationDuration: 450, textStyle: { fontFamily: 'inherit' }, aria: { enabled: true },
-      grid: { left: 30, right: 90, top: 16, bottom: 34 },
+      grid: { left: 30, right: 90, top: 20, bottom: 38 },
       tooltip: { trigger: 'axis', backgroundColor: C.surf, borderColor: C.grid, textStyle: { color: C.ink, fontSize: 12 }, confine: true, formatter: function (ps) { var k = ps[0].dataIndex; return '<div style="color:#898781">' + esc(b.labels[k]) + '</div>' + ps.slice().sort(function (x, y) { return x.value - y.value; }).map(function (p) { return '<div>' + p.value + '. <b>' + esc(p.seriesName) + '</b> ' + esc(m(b.values[p.seriesIndex][k])) + '</div>'; }).join(''); } },
       xAxis: { type: 'category', data: b.labels, boundaryGap: false, axisTick: { show: false }, axisLine: { lineStyle: { color: C.grid } }, axisLabel: { color: C.mut, fontSize: 10.5, hideOverlap: true } },
       yAxis: { type: 'value', inverse: true, min: 1, max: d.players.length, interval: 1, axisLabel: { color: C.mut, formatter: function (v) { return v + '.'; } }, splitLine: { lineStyle: { color: C.grid } } },
-      series: d.players.map(function (p, i) { var c = pal[p.idx % pal.length]; return { name: p.name, type: 'line', data: b.ranks[i], smooth: 0.35, symbolSize: 7, lineStyle: { width: 3.5, color: c }, itemStyle: { color: c }, endLabel: { show: true, formatter: '{a}', color: c, fontSize: 12, fontWeight: 600 }, emphasis: { focus: 'series' } }; })
+      series: d.players.map(function (p, i) { var c = pal[p.idx % pal.length]; return { name: p.name, type: 'line', data: b.ranks[i], smooth: 0.35, symbolSize: 7, clip: false, lineStyle: { width: 3.5, color: c }, itemStyle: { color: c }, endLabel: { show: true, formatter: '{a}', color: c, fontSize: 12, fontWeight: 600 }, emphasis: { focus: 'series' } }; })
     });
   }
   // 14 Train flows: which train types went to which companies, and where they are now
@@ -2763,12 +2763,12 @@
     var bought = {}, still = {};
     T.forEach(function (t) { add(t.train + ' train', t.buyer, 1); bought[t.buyer] = (bought[t.buyer] || 0) + 1; });
     d.corps.forEach(function (c) { still[c.name] = (c.trains || []).length; });
-    Object.keys(bought).forEach(function (b) { var s2 = Math.min(still[b] || 0, bought[b]); if (s2) add(b, 'Still running', s2); if (bought[b] - s2) add(b, 'Gone (rusted, removed or sold on)', bought[b] - s2); });
-    return { nodes: Object.keys(nodes), links: Object.keys(links).map(function (k) { var ab = k.split('\u0001'); return { source: ab[0], target: ab[1], value: links[k] }; }), n: T.length };
+    Object.keys(bought).forEach(function (b) { var s2 = Math.min(still[b] || 0, bought[b]); if (s2) add(b, 'Still running', s2); if (bought[b] - s2) add(b, 'Gone', bought[b] - s2); });
+    return { nodes: Object.keys(nodes).sort(function (a, b) { var r = function (n) { return / train$/.test(n) ? 0 : n === 'Still running' || n === 'Gone' ? 2 : 1; }; return r(a) - r(b); }), links: Object.keys(links).map(function (k) { var ab = k.split('\u0001'); return { source: ab[0], target: ab[1], value: links[k] }; }), n: T.length };
   }
   function trainFlowCard(d) {
     var t = trainFlowModel(d); if (!t) return '';
-    return '<section class="card wide"><h2>Train flows</h2><p class="sub">All ' + t.n + ' train purchases: from the train type (left) to the company that bought it (middle) to what became of it (right). A train sold from one company to another counts once for each.</p><div class="chart" id="c-tflow"></div></section>';
+    return '<section class="card wide"><h2>Train flows</h2><p class="sub">All ' + t.n + ' train purchases: from the train type (left) to the company that bought it (middle) to what became of it (right): still running, or gone (rusted, removed or sold on). A train sold from one company to another counts once for each.</p><div class="chart" id="c-tflow"></div></section>';
   }
   // 27 Money flow: where each player's income came from, read from the game log
   function moneyFlowModel(d) {
@@ -2778,7 +2778,7 @@
     GL.rounds.forEach(function (r) { r.lines.forEach(function (ln) {
       var msg = ln.msg, x;
       if ((x = /^(\S+) (?:pays out|pays) .*?\(([^()]*\bto\b[^()]*)\)\s*$/.exec(msg))) x[2].split(/,\s*/).forEach(function (part) { var y = /^(.+?) to (.+)$/.exec(part); if (y && pn[y[2]]) { var v = moneyNum(y[1]); add(x[1] + ' dividends', y[2], v); tot += v; } });
-      else if ((x = /^(.+?) collects (\S+) from (.+)$/.exec(msg)) && pn[x[1]]) { var v2 = moneyNum(x[2]); add(x[3].replace(/\s*\(.*\)$/, ''), x[1], v2); tot += v2; }
+      else if ((x = /^(.+?) collects (\S+) from (.+)$/.exec(msg)) && pn[x[1]]) { var v2 = moneyNum(x[2]); add('Private companies', x[1], v2); tot += v2; }
       else if ((x = /^(.+?) sells .* and receives (\S+)$/.exec(msg)) && pn[x[1]]) { var v3 = moneyNum(x[2]); add('Share sales', x[1], v3); tot += v3; }
     }); });
     var L = Object.keys(links).map(function (k) { var ab = k.split('\u0001'); return { source: ab[0], target: ab[1], value: links[k] }; });
@@ -2788,13 +2788,13 @@
     var mf = moneyFlowModel(d); if (!mf) return '';
     return '<section class="card wide"><h2>Money flow</h2><p class="sub">Every dividend, private-company income and share sale in the log, from where the money came from (left) to the player who got it (right): ' + esc(d.money(mf.tot)) + ' in all. Hover a band for the amount.</p><div class="chart" id="c-mflow"></div></section>';
   }
-  function ecSankey(w, el, links, colOf, dark, m, h) {
-    var C = ecInk(dark), names = []; links.forEach(function (l) { [l.source, l.target].forEach(function (n) { if (names.indexOf(n) < 0) names.push(n); }); });
+  function ecSankey(w, el, links, colOf, dark, m, h, order) {
+    var C = ecInk(dark), names = (order || []).slice(); links.forEach(function (l) { [l.source, l.target].forEach(function (n) { if (names.indexOf(n) < 0) names.push(n); }); });
     var ch = ecInit(w, el, h || Math.max(260, names.length * 22));
     ch.setOption({
       animationDuration: 450, textStyle: { fontFamily: 'inherit' }, aria: { enabled: true },
       tooltip: { backgroundColor: C.surf, borderColor: C.grid, textStyle: { color: C.ink, fontSize: 12 }, confine: true, formatter: function (p) { return p.dataType === 'edge' ? esc(p.data.source) + ' → ' + esc(p.data.target) + ': <b>' + esc(m ? m(p.data.value) : p.data.value) + '</b>' : esc(p.name) + ': <b>' + esc(m ? m(p.value) : p.value) + '</b>'; } },
-      series: [{ type: 'sankey', left: 4, right: 130, top: 6, bottom: 6, nodeWidth: 12, nodeGap: 7, draggable: false, emphasis: { focus: 'adjacency' },
+      series: [{ type: 'sankey', left: 4, right: 130, top: 6, bottom: 6, nodeWidth: 12, nodeGap: 7, draggable: false, layoutIterations: order ? 0 : 32, emphasis: { focus: 'adjacency' },
         data: names.map(function (n) { return { name: n, itemStyle: { color: colOf(n) || C.mut, borderColor: colOf(n) || C.mut } }; }), links: links,
         lineStyle: { color: 'gradient', opacity: dark ? .38 : .3, curveness: .5 }, label: { color: C.ink, fontSize: 11.5 } }]
     });
@@ -3724,7 +3724,7 @@
         var epl = doc.getElementById('c-pl'); if (epl && typeof plRows !== 'undefined') ecPL(w, epl, plRows, { dark: dark, m: m, cols: (function () { var cc = {}; plRows.forEach(function (r) { cc[r.corp] = displayColor(tk21[r.corp] || '#999', dark); }); return cc; })() });
         var ebp = doc.getElementById('c-bump'); if (ebp) ecBump(w, ebp, d, pal, dark, m);
         var etf = doc.getElementById('c-tflow'), cc0 = corpCol(d);
-        if (etf) { var tfm = trainFlowModel(d); ecSankey(w, etf, tfm.links, function (n) { return cc0[n] ? displayColor(cc0[n], dark) : /^Still/.test(n) ? '#2e9e5b' : /^Gone/.test(n) ? '#9a9a9a' : trainColor(d, n.replace(/ train$/, '')); }, dark, null); }
+        if (etf) { var tfm = trainFlowModel(d); ecSankey(w, etf, tfm.links, function (n) { return cc0[n] ? displayColor(cc0[n], dark) : /^Still/.test(n) ? '#2e9e5b' : n === 'Gone' ? '#9a9a9a' : trainColor(d, n.replace(/ train$/, '')); }, dark, null, null, tfm.nodes); }
         var emf = doc.getElementById('c-mflow');
         if (emf) { var mfm = moneyFlowModel(d), pc0 = {}; d.players.forEach(function (p) { pc0[p.name] = pal[p.idx % pal.length]; }); ecSankey(w, emf, mfm.links, function (n) { var cn = n.replace(/ dividends$/, ''); return pc0[n] || (cc0[cn] ? displayColor(cc0[cn], dark) : n === 'Share sales' ? '#9a9a9a' : '#c9a227'); }, dark, m); }
         var ecs = doc.getElementById('c-cash'); if (ecs && d.analysis && d.analysis.cash) ecHeat(w, ecs, d.analysis.cash, d.players, { dark: dark, m: m });
