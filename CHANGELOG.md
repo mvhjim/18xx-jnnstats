@@ -2,6 +2,14 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.31.0] - 2026-11-15
+
+### Added
+- **Teaching moments** (Learning mode): the five to eight decisions and events that shaped the game, each with why it mattered: the first train of a type that rusted or obsoleted others and started a phase, the decisive lead change, the biggest one-round jump, the biggest withhold, the share sale that looked worst in hindsight, a price crash and the best run. Each has a ▶ replay link.
+- **Replay with captions:** with Learning mode on, the Replay shows the teaching moment of the round on screen, and *◀ moment* / *moment ▶* jump between them. *Step through them in the Replay* in the Teaching moments card starts at the first one.
+- **Learning report** (Learning mode): how the game went (or is going) for one player, with a tip for each point: final place and gap, where their income came from, withholds and trains bought as president, share sales against later prices, the certificate limit and presidencies taken over. Pick the player in the card.
+- **🧭 Tour** (⋯ menu): a short guided walk through the most important cards. It starts by itself the first time Learning mode is switched on.
+
 ## [0.30.0] - 2026-11-15
 
 ### Added

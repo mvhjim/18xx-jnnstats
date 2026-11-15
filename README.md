@@ -57,7 +57,7 @@ The bookmark is only a loader: it fetches `stats.js` from this repository each t
 9. **Privacy mode:** the 🕶 Privacy button in the **⋯** menu (or key P) shows players as Player 1, 2… and hides game numbers and chat, for screenshots you can share anywhere.
 10. **Colours and contrast:** *Colour-blind* switches to a player palette that works with colour blindness; *High contrast* makes text and lines stronger. Both are in the **⋯** menu.
 11. **Keyboard:** press **?** for the list of shortcuts (1–9 jump to sections, H opens History, ← → step through it, and more).
-12. **New to 18xx?** In the **⋯** menu set **🎓 Learning** to *beginner*: an ⓘ appears next to words like phase, rust or president, a banner explains the current round, and **📖 Glossary** (key G) explains every term with this game's own numbers and links to the official rules. **🌱 Beginner layout** shows only the essential cards; press it again to get your own layout back. **📘 Learn this title** (key L) has a primer, illustrated concept cards, how the title differs from 1830, and rules of thumb.
+12. **New to 18xx?** In the **⋯** menu set **🎓 Learning** to *beginner*: an ⓘ appears next to words like phase, rust or president, a banner explains the current round, and **📖 Glossary** (key G) explains every term with this game's own numbers and links to the official rules. **🌱 Beginner layout** shows only the essential cards; press it again to get your own layout back. **📘 Learn this title** (key L) has a primer, illustrated concept cards, how the title differs from 1830, and rules of thumb. In a finished game, **Teaching moments** and a **Learning report** explain what decided it, and **🧭 Tour** walks you through the main cards.
 
 ## What the window shows
 
@@ -159,7 +159,7 @@ Not affiliated with 18xx.games; thanks to its authors for an open, well-structur
 
 ## Views
 
-Every card and tab in the window, one picture each. They were taken from two finished games (1846 and 1862) in dark mode, with versions 0.26.0–0.30.0 in privacy mode (players shown as Player 1–4); a few cards that did not change are from 0.25.1. The live-game cards come from the 1846 game in History mode (after OR 5.1), with *I am* set to Player 1. Click a section to open it.
+Every card and tab in the window, one picture each. They were taken from two finished games (1846 and 1862) in dark mode, with versions 0.26.0–0.31.0 in privacy mode (players shown as Player 1–4); a few cards that did not change are from 0.25.1. The live-game cards come from the 1846 game in History mode (after OR 5.1), with *I am* set to Player 1. Click a section to open it.
 
 <details>
 <summary><b>Top bar, menu and History</b></summary>
@@ -218,6 +218,18 @@ Every card and tab in the window, one picture each. They were taken from two fin
 *How it differs* from 1830, the classic most 18xx games build on, and *Rules of thumb* (tips, not rules).
 
 ![How it differs](docs/views/1846-learn-differs.jpg)
+
+**Teaching moments.** The decisions and events that shaped the game, each with why it mattered and a ▶ replay link.
+
+![Teaching moments](docs/views/1846-learn-moments.jpg)
+
+**Replay with captions.** In Learning mode the Replay shows the teaching moment of the round; *◀ moment* / *moment ▶* jump between them.
+
+![Replay with captions](docs/views/1846-learn-replay-captions.jpg)
+
+**Learning report.** How the game went for one player, with a tip for each point.
+
+![Learning report](docs/views/1846-learn-report.jpg)
 
 **Glossary** (⋯ menu or key G). Every term, searchable, with links to the title's official rules and its 18xx.games wiki page.
 
