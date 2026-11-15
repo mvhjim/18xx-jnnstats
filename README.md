@@ -57,6 +57,7 @@ The bookmark is only a loader: it fetches `stats.js` from this repository each t
 9. **Privacy mode:** the 🕶 Privacy button in the **⋯** menu (or key P) shows players as Player 1, 2… and hides game numbers and chat, for screenshots you can share anywhere.
 10. **Colours and contrast:** *Colour-blind* switches to a player palette that works with colour blindness; *High contrast* makes text and lines stronger. Both are in the **⋯** menu.
 11. **Keyboard:** press **?** for the list of shortcuts (1–9 jump to sections, H opens History, ← → step through it, and more).
+12. **New to 18xx?** In the **⋯** menu set **🎓 Learning** to *beginner*: an ⓘ appears next to words like phase, rust or president, a banner explains the current round, and **📖 Glossary** (key G) explains every term with this game's own numbers and links to the official rules. **🌱 Beginner layout** shows only the essential cards; press it again to get your own layout back.
 
 ## What the window shows
 
@@ -158,7 +159,7 @@ Not affiliated with 18xx.games; thanks to its authors for an open, well-structur
 
 ## Views
 
-Every card and tab in the window, one picture each. They were taken from two finished games (1846 and 1862) in dark mode, with versions 0.26.0 and 0.27.0 in privacy mode (players shown as Player 1–4); a few cards that did not change are from 0.25.1. The live-game cards come from the 1846 game in History mode (after OR 5.1), with *I am* set to Player 1. Click a section to open it.
+Every card and tab in the window, one picture each. They were taken from two finished games (1846 and 1862) in dark mode, with versions 0.26.0–0.28.0 in privacy mode (players shown as Player 1–4); a few cards that did not change are from 0.25.1. The live-game cards come from the 1846 game in History mode (after OR 5.1), with *I am* set to Player 1. Click a section to open it.
 
 <details>
 <summary><b>Top bar, menu and History</b></summary>
@@ -186,6 +187,23 @@ Every card and tab in the window, one picture each. They were taken from two fin
 **Compare: Friends.** *Load history* reads the players' public profile pages for head-to-head records, progress game after game and a pace benchmark.
 
 ![Compare, friends](docs/views/1846-compare-friends.jpg)
+
+</details>
+
+<details>
+<summary><b>Learning mode (for new players)</b></summary>
+
+**Round banner.** With 🎓 Learning on (⋯ menu), a banner explains the current round: what can be decided in it and what comes next, with the phase, train limit and next train. An ⓘ appears next to words such as round, phase and bank.
+
+![Round banner and ⓘ marks](docs/views/1846-learn-banner.jpg)
+
+**ⓘ explanations.** Press an ⓘ for a short explanation that uses this game's own numbers. *Got it* hides that ⓘ from then on; the *intermediate* level skips the basic terms.
+
+![An explanation](docs/views/1846-learn-explain.jpg)
+
+**Glossary** (⋯ menu or key G). Every term, searchable, with links to the title's official rules and its 18xx.games wiki page.
+
+![Glossary](docs/views/1846-learn-glossary.jpg)
 
 </details>
 
