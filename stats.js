@@ -3048,11 +3048,12 @@
       return f;
     });
   }
-  var DEC_PARTS = [['sales', 'Share sales', 'Sold before prices fell rather than before they rose'], ['growth', 'Companies run', 'How the share price of the companies you ran grew, compared with the others'], ['payout', 'Paying out', 'How often your companies paid out, compared with the others'], ['rust', 'Trains kept', 'Trains bought as president that were not lost to rust'], ['ret', 'Investments', 'Dividends received for each money spent on shares, compared with the others']];
+  var DEC_PARTS = [['sales', 'Share sales', 'Sold before prices fell rather than before they rose'], ['growth', 'Companies run', 'How the share price of the companies you ran grew, compared with the best'], ['payout', 'Paying out', 'How often your companies paid out (half counts half)'], ['rust', 'Trains kept', 'Trains bought as president that were not lost to rust'], ['ret', 'Investments', 'Dividends received for each money spent on shares, compared with the best'], ['value', 'Result', 'Your value compared with the leader']];
   function decisionScores(d) {
-    var F = playerFacts(d), g = pctRank(F.map(function (f) { return f.growth; })), py = pctRank(F.map(function (f) { return f.payout; })), rt = pctRank(F.map(function (f) { return f.ret; }));
+    var F = playerFacts(d), rel = function (k) { var mx = Math.max.apply(null, F.map(function (f) { return f[k] || 0; }).concat([1e-9])); return F.map(function (f) { return f[k] == null ? null : Math.max(0, f[k]) / mx; }); };
+    var g = rel('growth'), rt = rel('ret'), vmax = Math.max.apply(null, d.players.map(function (p) { return p.value || 0; }).concat([1]));
     return F.map(function (f, i) {
-      var parts = { sales: f.sales, growth: g[i], payout: py[i], rust: f.rust, ret: rt[i] }, have = Object.keys(parts).filter(function (k) { return parts[k] != null; });
+      var parts = { sales: f.sales, growth: g[i], payout: f.payout, rust: f.rust, ret: rt[i], value: Math.max(0, d.players[i].value || 0) / vmax }, have = Object.keys(parts).filter(function (k) { return parts[k] != null; });
       var sc = have.length ? Math.round(have.reduce(function (a, k) { return a + parts[k]; }, 0) / have.length * 100) : null;
       return { name: f.name, score: sc, parts: parts, facts: f };
     });
@@ -3064,7 +3065,7 @@
     D.sort(function (a, b) { return b.score - a.score; });
     var bar = function (v) { return v == null ? '<span style="color:var(--text-muted)">–</span>' : '<div class="dsb"><i style="width:' + Math.round(v * 100) + '%;background:' + (v >= .66 ? '#2e9e5b' : v >= .33 ? '#e0a419' : '#d9534f') + '"></i></div>'; };
     var best = function (x) { var ks = DEC_PARTS.filter(function (p) { return x.parts[p[0]] != null; }); if (ks.length < 2) return ''; ks.sort(function (a, b) { return x.parts[b[0]] - x.parts[a[0]]; }); return 'strongest: ' + ks[0][1].toLowerCase() + ', weakest: ' + ks[ks.length - 1][1].toLowerCase(); };
-    return '<section class="card wide"><h2>Decision score</h2><p class="sub">A rough score from 0 to 100 for each player, from what the log shows: ' + DEC_PARTS.map(function (p) { return '<b>' + p[1].toLowerCase() + '</b> (' + esc(p[2].toLowerCase()) + ')'; }).join(', ') + '. Most parts compare the players in this game with each other. It measures outcomes, not skill: luck and table talk are not in the log.</p>' +
+    return '<section class="card wide"><h2>Decision score</h2><p class="sub">A rough score from 0 to 100 for each player, from what the log shows: ' + DEC_PARTS.map(function (p) { return '<b>' + p[1].toLowerCase() + '</b> (' + esc(p[2].toLowerCase()) + ')'; }).join(', ') + '. Parts marked “compared with the best” are scaled so the best player in this game gets full marks. It measures outcomes, not skill: luck and table talk are not in the log.</p>' +
       '<div class="tw"><table class="tight"><thead><tr><th style="text-align:left">Player</th><th>Score</th>' + DEC_PARTS.map(function (p) { return '<th title="' + esc(p[2]) + '">' + esc(p[1]) + '</th>'; }).join('') + '</tr></thead><tbody>' +
       D.map(function (x) { return '<tr><td style="text-align:left"><i class="sw" style="background:' + pc[x.name] + '"></i><b>' + esc(x.name) + '</b><br><span style="font-size:11px;color:var(--text-secondary)">' + esc(best(x)) + '</span></td><td><b style="font-size:17px">' + x.score + '</b></td>' + DEC_PARTS.map(function (p) { return '<td>' + bar(x.parts[p[0]]) + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table></div></section>';
   }
