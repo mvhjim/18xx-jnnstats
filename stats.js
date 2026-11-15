@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.36.0';
+  var VERSION = '0.36.1';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -43,6 +43,8 @@
                         dark:  ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'] };
 
   // ---------- Opal helpers ----------------------------------------------------------------
+  // first number in a text such as "$1,234", "£80" or "L.396" (the dot after L is not a decimal point)
+  function numIn(t) { var q = String(t == null ? '' : t).replace(/,/g, '').match(/-?\d+(\.\d+)?/); return q ? parseFloat(q[0]) : 0; }
   function nil(o) { return o == null || (typeof Opal !== 'undefined' && o === Opal.nil); }
   function s(x) { return nil(x) ? '' : String(x); }
   function bool(x) { return x === true; }
@@ -934,7 +936,7 @@
       var trig = call(g, 'game_end_check');
       if (trig && trig.length) endInfo.triggered = { reason: s(trig[0]).replace(/_/g, ' '), timing: s(trig[1]).replace(/_/g, ' ').replace(/\bor\b/g, 'OR') };
     } catch (e) {}
-    if (info) info.ends = endInfo.conditions.map(function (c4) { return (c4.text || c4.reason) + ' (' + c4.timing + ')'; });
+    if (info) info.ends = endInfo.conditions.map(function (c4) { var t4 = String(c4.text || c4.reason || ''); return t4.charAt(0).toUpperCase() + t4.slice(1) + ' (' + c4.timing + ')'; });
     var orSnaps = snaps.filter(function (sn) { return /^OR /.test(sn.label) && sn.bank != null; });
     if (orSnaps.length >= 2 && endInfo.conditions.some(function (c) { return c.reason === 'bank'; })) {
       var k0 = Math.max(0, orSnaps.length - 3), span = orSnaps.length - 1 - k0;
@@ -2074,7 +2076,7 @@
   function saveRtb(d) {
     try { var o = {}, pre = d.id + '|'; Object.keys(ST.rtBest || {}).forEach(function (k) { var r = ST.rtBest[k]; if (k.indexOf(pre) === 0 && r.s === 'ok') o[k.slice(pre.length)] = { b: r.best, p: r.paths || [] }; }); localStorage.setItem('xxStats.rtb.' + d.id, JSON.stringify(o)); } catch (e) {}
   }
-  function runActual(c) { return c.trains.reduce(function (a, x) { return a + (parseFloat(String(x.rev).replace(/[^\d.]/g, '')) || 0); }, 0); }
+  function runActual(c) { return c.trains.reduce(function (a, x) { return a + numIn(x.rev); }, 0); }
   function rtSummary(d) {
     loadRtb(d);
     var o = { tot: 0, n: 0, gap: 0, short: 0 };
@@ -2270,6 +2272,23 @@
     '1862': ['Each train level comes in variants (Express, Freight, Local) chosen when you buy it; the coloured dot shows which.',
       'Parliamentary obligations: companies are chartered through obligations bought from the bank.',
       'The game ends when the bank breaks or the last train is bought (the current set of ORs is finished).'],
+    '1849: Kingdom of the Two Sicilies': ['An expansion of 1849 (Sicily) onto a larger map of southern Italy, with two more companies.',
+      'Companies become available in a fixed, random order: you can only start the next one in line.',
+      'Hex trains (4H, 6H, … 16H) count the hex edges they cross, not the stops; every town and city on the way pays. Narrow gauge edges count double; the R6H counts narrow gauge as 1 and broad gauge as 2.',
+      'A company moves right on the market only if its revenue is at least its share price; otherwise it moves left.',
+      'At the end of a stock round, a company with shares in the bank pool drops one step; one with none in the pool or treasury rises.',
+      'Each company\'s last certificate is a 20% share, bought after its 10% shares in the same place.',
+      'Station tokens are paid for when the company starts, so placing them later is free.',
+      'A company whose price falls into the closed box, or that loses its only station, is removed and goes to the back of the queue to start again.',
+      'Ports: a route may start or end at a port but not run through it.'],
+    'The Old Prince 1871': ['The PEIR (Prince Edward Island Railway) is a special company: it has no share price, always operates last, its shares cannot be sold, and it splits off into ordinary companies over the game as their PEIR shares float.',
+      'Two PEIR companies are drawn at setup: the Mainline starts floated, the Shortline needs one more 10% share before it operates.',
+      'The Union Bank is a private company its owner acts for: once per stock round they may buy a certificate or start a company with its money, topping it up themselves. At the end its cash and shares go to the owner.',
+      'H trains (2H–6H) count hexes: a 6H may cross six hex edges, stopping at every town and city on the way. + trains (2+, 3+, 4+) count cities or off-boards, with the towns between them free. The 7 runs to seven stops, the D has no limit.',
+      'New companies start from a tranche chart: the next tranche opens only when the current one is full and every company in it has operated or sold out. Starting prices fall as the trains advance.',
+      'A president with at least four shares of a floated company that has two stations may split off a branch company, sharing out cash, trains and shares.',
+      'Selling moves the price down once per sale, not per share, and you may sell at most 30% of one company in a turn.',
+      'Private companies close on the first 4+ (except the Union Bank). After the first D, the game finishes that set of ORs, then one last stock round and three more ORs. PEIR shares count $80 each at the end.'],
     '1817': ['Companies start small (2 shares) and can grow (5, then 10 shares).',
       'Companies take loans, paying interest every OR; too much debt and a low price can force liquidation.',
       'You may short shares: a short pays the dividend instead of receiving it, and must be closed later.',
@@ -2437,6 +2456,8 @@
     general: ['Count the trains before yours rust (Trains, phases & Bank) and keep money for the next one.', 'Do not hold 20% or more of a company without train money unless you are ready to run it: it can be dumped on you.', 'Priority deal matters most in the stock round just before a big train purchase.', 'Selling shares drops the price; selling right after a payout keeps more of the dividend.', 'A company that withholds now to buy a train can be worth more than one that pays out and ends up trainless.'],
     '1846': ['East-West routes between the off-boards are usually the best earners; plan track toward them.', 'Issuing shares can fund a train in a hurry, at the cost of a lower share price.', 'The bank tends to break quickly once the late trains run; have your holdings where you want them before it does.', 'Private companies and the two minors are early income; their bonuses (mail, meat, steamboat) can swing routes.'],
     '1862': ['Pick the train variant that fits the routes your company can actually reach.', 'Watch which charters (parliamentary obligations) are still available; they decide which companies can start.'],
+    '1849: Kingdom of the Two Sicilies': ['With hex trains, a long route through many small towns can beat a short one between big cities: count edges, not stops.', 'Aim for revenue at least equal to your share price; falling short moves the price left even when you pay out.', 'Avoid leaving shares in the bank pool at the end of a stock round: the price drops a step.', 'Know which company starts next in the queue; buying into it early decides who runs it.'],
+    'The Old Prince 1871': ['PEIR shares cannot be sold and become 10% shares of the company they belong to when it floats: think of them as cheap entries into future companies.', 'H trains reward dense track with many towns; + trains reward links between cities. Plan your track for the trains you expect to run.', 'The Union Bank lets its owner start or buy into a company with outside money once per stock round; watch who holds it.', 'Splitting off a branch can give you a second presidency, but it halves the parent shareholding of everyone.'],
     '1817': ['Loans are cheap early, but interest grows and a low price with many loans can liquidate a company.', 'A short pays you if the price falls, but you pay its dividends while it is open.', 'Small 2-share companies are cheap to start and can grow into 5- and 10-share companies later.']
   };
   function thumbsHtml(d) {
@@ -2625,7 +2646,7 @@
       if (!skip && v != null) { sum += v; vals.push({ v: v, k: kind }); }
       rows.push('<tr><td>' + esc(id) + '</td><td style="text-align:left">' + esc(h && h.loc ? h.loc : '') + '</td><td>' + esc(kind) + '</td><td>' + (skip ? '<span style="color:var(--text-muted)">passed through, no revenue</span>' : v != null ? esc(m(v)) : '?') + '</td></tr>');
     });
-    var rev = parseFloat(String(revTxt).replace(/[^\d.-]/g, '')) || 0, diff = rev - sum, best = '';
+    var rev = numIn(revTxt), diff = rev - sum, best = '';
     var ns = (String(train).split(' ').pop().match(/\d+/g) || []).map(Number);
     if (diff < 0) ns.forEach(function (n) {
       if (best || vals.length <= n) return;
@@ -2656,7 +2677,7 @@
   }
   // ---------- New visualizations (tranche D1) ----------
   function shortRound(lbl) { return String(lbl || '').replace(/^Operating Round ([\d.]+).*/, 'OR $1').replace(/^Stock Round (\d+).*/, 'SR $1'); }
-  function moneyNum(t) { return parseFloat(String(t).replace(/[^\d.-]/g, '')) || 0; }
+  function moneyNum(t) { return numIn(t); }
   function corpCol(d) { var c = {}; d.corps.forEach(function (x) { c[x.name] = x.color; }); (d.ticker || []).forEach(function (x) { if (!c[x.name]) c[x.name] = x.color; }); (d.minors || []).forEach(function (x) { if (!c[x.name]) c[x.name] = x.color; }); return c; }
   // who was president of each company in each round, from the ownership history
   function presLine(d, cn) {
@@ -4037,7 +4058,7 @@
         var rr = d.trainGroups.filter(function (g) { return g.owned && (g.rustsOn || g.obsoleteOn); });
         if (rr.length) {
           var lastRun = {}; (d.routes || []).forEach(function (R) { R.corps.forEach(function (c) { if (c.trains.length) lastRun[c.corp] = c; }); });
-          var nn = function (x) { var q = parseFloat(String(x == null ? '' : x).replace(/[^\d.-]/g, '')); return isNaN(q) ? 0 : q; };
+          var nn = numIn;
           var ownTr = {}; d.corps.forEach(function (c) { ownTr[c.name] = c.trains.length; });
           var rrows = rr.slice().sort(function (a, b) { return (a.rustIn > 0 ? a.rustIn : 99) - (b.rustIn > 0 ? b.rustIn : 99); }).map(function (g) {
             var owners = Object.keys(g.owners || {}), eff = owners.map(function (o) {
