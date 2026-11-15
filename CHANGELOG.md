@@ -9,7 +9,7 @@ From a code review and a test batch across 17 titles (1817, 1822, 1830, 1846, 18
 ### Fixed
 - **Shorts (1817):** a dividend a short seller pays (logged as "$-15 to …") was counted as income. It now lowers their dividend income in Where the money came from, Cash flow, the Learning report and the Decision score, and Money flow shows it as *Dividends paid on shorts*.
 - **Money flow:** payouts of 1,000 or more to one player were cut in two, and money from shorting was left out; the total now matches Where the money came from in every title tested.
-- **Route bonuses in brackets** (18Ireland's narrow gauge, "F6-D6 (Narrow: £10)") were read as part of the last stop: the map sketch dropped that stop, the route *why?* showed "?", and the money map lost that revenue.
+- **Route bonuses in brackets** (18Ireland's narrow gauge "F6-D6 (Narrow: £10)", 1822's "H5-G4-H1 (£40)") were read as part of the last stop: the map sketch dropped that stop, the route *why?* showed "?", and the money map lost that revenue.
 - **Privacy mode:** after switching to another game in the window, players were numbered on from the previous game (Player 9, 10…); numbering now starts at Player 1 for each game.
 - **Why did that happen?** now strips round names such as "Auction Round 1" correctly, and explains bids, auctions won, loans, mergers, nationalisation, exchanges and shorts.
 
