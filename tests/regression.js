@@ -46,7 +46,7 @@
           if (d2.phase !== String(g2.$phase().$name())) xbad.push('after action ' + pick[pi] + ': phase differs from engine');
         }
         var ids2 = {}; (d.hexMap ? d.hexMap.hexes : []).forEach(function (h) { ids2[h.id] = 1; });
-        var stopN = 0, stopOk = 0; d.routes.forEach(function (r) { r.corps.forEach(function (c) { c.trains.forEach(function (tr) { tr.stops.split('-').forEach(function (x) { var k = x.replace(/[\[\]()]/g, '').split(' + ')[0].trim(); stopN++; if (ids2[k]) stopOk++; }); }); }); });
+        var stopN = 0, stopOk = 0; d.routes.forEach(function (r) { r.corps.forEach(function (c) { c.trains.forEach(function (tr) { String(tr.stops).split(' + ')[0].split('-').forEach(function (x) { var k = x.replace(/[\[\]()]/g, '').split(' + ')[0].trim(); stopN++; if (ids2[k]) stopOk++; }); }); }); });
         row.map = !d.hexMap ? 'no hex data' : Math.round(100 * stopOk / Math.max(stopN, 1)) + '% of route stops found on the map (' + d.hexMap.hexes.length + ' hexes)';
         try { var AN = d.analysis, trainLines = 0, divLines = 0; d.gameLog.rounds.forEach(function (r2) { r2.lines.forEach(function (l2) { if (/ buys an? \S+ train for .* from /.test(l2.msg)) trainLines++; if (/ pays out .*per share \(/.test(l2.msg)) divLines++; }); });
           var divSum = AN && AN.money ? AN.money.reduce(function (a2, p2) { return a2 + p2.div; }, 0) : 0;
