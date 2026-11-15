@@ -381,7 +381,7 @@
         name: s(c.$name()), fullName: s(call(c, 'full_name')), color: s(call(c, 'color')) || '#888', cash: num(c.$cash()),
         price: sp ? num(call(sp, 'price')) : null, president: owner && rt(owner, 'name') ? s(owner.$name()) : '',
         trains: (call(c, 'trains') || []).map(function (t) { return { name: s(t.$name()), sym: s(call(t, 'sym')), rustsOn: s(call(t, 'rusts_on')), obsoleteOn: s(call(t, 'obsolete_on')) }; }),
-        operated: bool(call(c, 'operated?')), closed: bool(call(c, 'closed?')), oh: oh,
+        operated: bool(call(c, 'operated?')), floated: bool(call(c, 'floated?')), closed: bool(call(c, 'closed?')), oh: oh,
         tokensLeft: (call(c, 'tokens') || []).filter(function (t) { return !bool(call(t, 'used')); }).length,
         tokensTotal: (call(c, 'tokens') || []).length,
         loans: (call(c, 'loans') || []).length,
@@ -2297,7 +2297,7 @@
   var STATION_NOTE = 'Stations: a company\'s routes must start from one of its own stations, and a city whose slots are all taken by other companies cannot be run through. Placing a station early in a busy city can block a rival.';
   function trainEconomics(d, me, m) {
     var cheapest = d.cheapest, mk = {}; (d.live && d.live.market || []).forEach(function (x) { mk[x.name] = x; });
-    var open = d.corps.filter(function (c) { return !c.closed && c.price != null; });
+    var open = d.corps.filter(function (c) { return !c.closed && c.price != null && c.floated !== false; });
     if (me) open.sort(function (a, b) { return (b.president === me ? 1 : 0) - (a.president === me ? 1 : 0); });
     return open.map(function (c) {
       var t = c.trains.map(function (x) { return x.name; }).join(', ') || 'no trains';
