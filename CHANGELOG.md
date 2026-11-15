@@ -2,6 +2,16 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.28.0] - 2026-11-15
+
+### Added
+- **Learning mode** (⋯ menu → 🎓 Learning: beginner or intermediate), the first part of a set of features for new players:
+  - **ⓘ explanations** next to words such as phase, rust, president, certificate limit, bank pool and train status. They use this game's own numbers, for example which train rusts which in this title. *Got it* hides that ⓘ from then on.
+  - **Explanation level:** *beginner* explains everything; *intermediate* only the less obvious terms (pool, obsolete, train limit, dumping…).
+  - **Round banner** at the top of a live game: what kind of round it is, what can be decided in it, and what comes next, with the phase, train limit and next train for beginners.
+  - **Glossary** (⋯ menu or key G): every term, searchable, with this game's numbers, and links to the title's official rules and its 18xx.games wiki page (taken from the rules engine's own metadata; nothing is fetched).
+  - **Beginner layout** (⋯ menu): the essential live cards first and the rest folded away. Your own layout is kept, and the same button brings it back.
+
 ## [0.27.0] - 2026-11-15
 
 ### Added

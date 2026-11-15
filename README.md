@@ -57,6 +57,7 @@ The bookmark is only a loader: it fetches `stats.js` from this repository each t
 9. **Privacy mode:** the 🕶 Privacy button in the **⋯** menu (or key P) shows players as Player 1, 2… and hides game numbers and chat, for screenshots you can share anywhere.
 10. **Colours and contrast:** *Colour-blind* switches to a player palette that works with colour blindness; *High contrast* makes text and lines stronger. Both are in the **⋯** menu.
 11. **Keyboard:** press **?** for the list of shortcuts (1–9 jump to sections, H opens History, ← → step through it, and more).
+12. **New to 18xx?** In the **⋯** menu set **🎓 Learning** to *beginner*: an ⓘ appears next to words like phase, rust or president, a banner explains the current round, and **📖 Glossary** (key G) explains every term with this game's own numbers and links to the official rules. **🌱 Beginner layout** shows only the essential cards; press it again to get your own layout back.
 
 ## What the window shows
 
