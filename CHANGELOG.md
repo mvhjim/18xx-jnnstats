@@ -2,6 +2,22 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.36.2] - 2026-11-15
+
+From a code review and a test batch across 17 titles (1817, 1822, 1830, 1846, 1848, 1849: Kingdom of the Two Sicilies, 1856, 1860, 1862, 1867, 1882, 1889, 18Chesapeake, 18CO, 18Ireland, 18MEX, The Old Prince 1871).
+
+### Fixed
+- **Shorts (1817):** a dividend a short seller pays (logged as "$-15 to …") was counted as income. It now lowers their dividend income in Where the money came from, Cash flow, the Learning report and the Decision score, and Money flow shows it as *Dividends paid on shorts*.
+- **Money flow:** payouts of 1,000 or more to one player were cut in two, and money from shorting was left out; the total now matches Where the money came from in every title tested.
+- **Route bonuses in brackets** (18Ireland's narrow gauge "F6-D6 (Narrow: £10)", 1822's "H5-G4-H1 (£40)") were read as part of the last stop: the map sketch dropped that stop, the route *why?* showed "?", and the money map lost that revenue.
+- **Privacy mode:** after switching to another game in the window, players were numbered on from the previous game (Player 9, 10…); numbering now starts at Player 1 for each game.
+- **Why did that happen?** now strips round names such as "Auction Round 1" correctly, and explains bids, auctions won, loans, mergers, nationalisation, exchanges and shorts.
+
+### Changed
+- **Faster:** the analyses behind the newer cards are worked out once per move instead of on every redraw, and charts below the screen are drawn when you scroll near them. A click that redraws the window takes about half as long.
+- Decision score bars are narrower in a narrow window.
+- The regression script reads route bonuses such as 1848's correctly.
+
 ## [0.36.1] - 2026-11-15
 
 ### Fixed
