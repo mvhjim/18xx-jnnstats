@@ -2862,7 +2862,7 @@
       V.series[k].forEach(function (v, i) { if (v == null) return; var x = cx0 + 10 + (cw - 20) * i / (V.labels.length - 1), y = cy0 + ch - 10 - (ch - 20) * (v - vmin) / (vmax - vmin || 1); if (!st) { ctx.moveTo(x, y); st = true; } else ctx.lineTo(x, y); }); ctx.stroke(); });
     // three facts
     var facts = [], best = null; (d.routes || []).forEach(function (r) { r.corps.forEach(function (c) { (c.trains || []).forEach(function (t) { var v = moneyNum(t.rev); if (!best || v > best.v) best = { v: v, c: c.corp, t: t.train, r: shortRound(r.label) }; }); }); });
-    if (best) facts.push(['Best run', m(best.v), best.c + ' ' + best.t + ' · ' + best.r]);
+    if (best) facts.push(['Best train run', m(best.v), best.c + ' ' + best.t + ' · ' + best.r]);
     var climb = null; (d.ticker || []).forEach(function (t) { if (t.first && t.price && (!climb || t.price / t.first > climb.x)) climb = { x: t.price / t.first, n: t.name, a: t.first, b: t.price }; });
     if (climb) facts.push(['Biggest climb', climb.n, m(climb.a) + ' → ' + m(climb.b)]);
     var nt = ((d.analysis && d.analysis.trains) || []).length; facts.push(['Trains bought', String(nt), (d.trainGroups || []).reduce(function (a, g) { return a + (g.rusted || 0); }, 0) + ' rusted']);
