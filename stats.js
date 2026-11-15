@@ -2920,9 +2920,17 @@
     var mm = moneyMapModel(d); if (!mm) return '';
     var byId = {}; d.hexMap.hexes.forEach(function (h) { byId[h.id] = h; });
     var top = Object.keys(mm.cnt).sort(function (a, b) { return mm.cnt[b] - mm.cnt[a]; }).slice(0, 5);
-    mm.col = '#e0a419'; mm.tip = function (id, n) { return id + (byId[id] && byId[id].loc ? ' ' + byId[id].loc : '') + ': about ' + d.money(n) + ' of run revenue'; };
-    return '<section class="card wide"><h2>Money map</h2><p class="sub">Where the money was earned: each run\'s revenue shared out over its stops by their value on the board. The brighter, the more. Top: ' +
-      top.map(function (id) { return '<b>' + esc(byId[id].loc || id) + '</b> ' + esc(d.money(mm.cnt[id])); }).join(' · ') + '.</p>' + boardSvg(d, null, [], 760, mm) + '</section>';
+    var u = 26, G = hexPos(d, u), flat = G.flat, o = ['<svg viewBox="0 0 ' + G.W.toFixed(0) + ' ' + G.H.toFixed(0) + '" role="img" aria-label="Money map" style="max-width:760px;width:100%;display:block;margin:0 auto">'];
+    var poly = function (cx, cy, r) { var pts = []; for (var a = 0; a < 6; a++) { var rad = ((flat ? 0 : 30) + a * 60) * Math.PI / 180; pts.push((cx + r * Math.cos(rad)).toFixed(1) + ',' + (cy + r * Math.sin(rad)).toFixed(1)); } return pts.join(' '); };
+    var topSet = {}; top.forEach(function (id, i) { topSet[id] = i + 1; });
+    d.hexMap.hexes.forEach(function (h) {
+      var c = G.pos[h.id], v = mm.cnt[h.id] || 0, f = v / mm.max;
+      o.push('<polygon points="' + poly(c[0], c[1], u - 1) + '" fill="' + (v ? 'color-mix(in srgb,#f2b31b ' + Math.round(12 + 88 * Math.sqrt(f)) + '%,color-mix(in srgb,var(--text-muted) 16%,var(--surface-1)))' : 'color-mix(in srgb,var(--text-muted) 16%,var(--surface-1))') + '" stroke="var(--grid)" stroke-width="1"><title>' + esc(h.id + (h.loc ? ' ' + h.loc : '') + (v ? ': about ' + d.money(v) + ' of run revenue' : ': no revenue')) + '</title></polygon>');
+      if (topSet[h.id]) o.push('<text x="' + c[0].toFixed(1) + '" y="' + (c[1] + 4).toFixed(1) + '" text-anchor="middle" style="font-size:12px;font-weight:800;fill:#111;pointer-events:none">' + topSet[h.id] + '</text>');
+    });
+    o.push('</svg>');
+    return '<section class="card wide"><h2>Money map</h2><p class="sub">Where the money was earned: each run\'s revenue shared out over its stops by their value on the board. The brighter the hex, the more. Hover a hex for its amount. Top five: ' +
+      top.map(function (id, i) { return (i + 1) + ' <b>' + esc(byId[id].loc || id) + '</b> ' + esc(d.money(mm.cnt[id])); }).join(' · ') + '.</p>' + o.join('') + '</section>';
   }
   // 34 Company report cards: a grade per company
   function reportCardsCard(d) {
