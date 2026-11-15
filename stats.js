@@ -1395,12 +1395,24 @@
   function ecInit(w, el, h) {
     if (el.closest && el.closest('#dock')) h = Math.min(h, 200);
     el.innerHTML = ''; el.style.height = h + 'px'; el.style.position = 'relative';
-    var ch = w.echarts.init(el, null, { renderer: 'svg', width: el.clientWidth || 600, height: h });
-    (w.__ecInst = w.__ecInst || []).push(ch);
-    if (w.ResizeObserver) { var ro = new w.ResizeObserver(function () { try { ch.resize({ width: 'auto', height: h }); } catch (e) {} }); ro.observe(el); ch.__ro = ro; }
-    return ch;
+    var real = null, pending = null;
+    var make = function () {
+      if (real) return real;
+      real = w.echarts.init(el, null, { renderer: 'svg', width: el.clientWidth || 600, height: h });
+      (w.__ecInst = w.__ecInst || []).push(real);
+      if (w.ResizeObserver) { var ro = new w.ResizeObserver(function () { try { real.resize({ width: 'auto', height: h }); } catch (e) {} }); ro.observe(el); real.__ro = ro; }
+      if (pending) real.setOption(pending);
+      return real;
+    };
+    // charts below the screen are drawn when they come near (the window redraws often); charts above are drawn at once so the page does not jump
+    var r = el.getBoundingClientRect(), near = !w.IntersectionObserver || (!!el.offsetParent && r.top < (w.innerHeight || 900) + 400);
+    if (near) return make();
+    var io = new w.IntersectionObserver(function (es) { if (es.some(function (e2) { return e2.isIntersecting; })) { io.disconnect(); make(); } }, { rootMargin: '400px' });
+    io.observe(el); (w.__ecIO = w.__ecIO || []).push(io);
+    return { setOption: function (o) { if (real) real.setOption(o); else pending = o; }, resize: function () { if (real) real.resize.apply(real, arguments); } };
   }
-  function ecDisposeAll(w) { (w.__ecInst || []).forEach(function (c) { try { if (c.__ro) c.__ro.disconnect(); c.dispose(); } catch (e) {} }); w.__ecInst = []; }
+  function ecDisposeAll(w) {
+    (w.__ecIO || []).forEach(function (io) { try { io.disconnect(); } catch (e) {} }); w.__ecIO = []; (w.__ecInst || []).forEach(function (c) { try { if (c.__ro) c.__ro.disconnect(); c.dispose(); } catch (e) {} }); w.__ecInst = []; }
   function ecTip(model, extra) {
     return function (params) {
       var ps = (Array.isArray(params) ? params : [params]).filter(function (p) { return p.value != null && p.value !== '-' && p.seriesType === 'line'; });
