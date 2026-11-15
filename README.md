@@ -292,6 +292,10 @@ Every card and tab in the window, one picture each. They were taken from two fin
 
 ![Stock market during a live game](docs/views/1846-live-market.jpg)
 
+**Pressure gauge.** How close the bank, the trains, the certificate limit, the phases and the game end are to their limits (also under Analysis in a finished game).
+
+![Pressure gauge](docs/views/1846-pressure-gauge.jpg)
+
 </details>
 
 <details>
@@ -321,6 +325,10 @@ Every card and tab in the window, one picture each. They were taken from two fin
 
 ![Key moments](docs/views/1846-key-moments.jpg)
 
+**Game poster.** The whole game on one picture: winner, standings, everyone's value over time, the best train run, the biggest climb and the trains bought. *copy* or *save as PNG*.
+
+![Game poster](docs/views/1846-game-poster.jpg)
+
 </details>
 
 <details>
@@ -349,6 +357,10 @@ Every card and tab in the window, one picture each. They were taken from two fin
 **Rank bump chart.** Everyone's place after each round, with how many players have led and how often places changed.
 
 ![Rank bump chart](docs/views/1862-rank-bump-chart.jpg)
+
+**Score race.** Player value round by round as an animated race, at 1×, 2× or 4×. *save as video* plays it once and saves a WebM video made by your browser.
+
+![Score race](docs/views/1846-score-race.jpg)
 
 </details>
 
@@ -470,6 +482,14 @@ Every card and tab in the window, one picture each. They were taken from two fin
 
 ![Market flight paths](docs/views/1862-market-flight-paths.jpg)
 
+**Ownership streamgraph.** The market value of all shares held by players, round by round, split by player or by company.
+
+![Ownership streamgraph](docs/views/1846-ownership-streamgraph.jpg)
+
+**Company report cards.** A grade per company from share price growth, revenue per run and how often it paid out, with its trains and presidents.
+
+![Company report cards](docs/views/1846-company-report-cards.jpg)
+
 </details>
 
 <details>
@@ -512,6 +532,14 @@ Every card and tab in the window, one picture each. They were taken from two fin
 **Train flows.** Every train purchase, from train type to buying company to whether it is still running or gone.
 
 ![Train flows](docs/views/1862-train-flows.jpg)
+
+**Money map.** Where on the board the revenue was earned, with the top five places.
+
+![Money map](docs/views/1846-money-map.jpg)
+
+**Train graveyard.** Every time trains rusted or were removed, which companies lost them and what they had cost.
+
+![Train graveyard](docs/views/1846-train-graveyard.jpg)
 
 </details>
 

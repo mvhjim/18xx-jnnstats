@@ -2873,7 +2873,7 @@
   // 31 Train graveyard: every train that rusted or was removed, when, and who lost it
   function graveyardCard(d) {
     var GL = d.gameLog; if (!GL) return '';
-    var price = {}; (d.trainGroups || []).forEach(function (g) { (g.names || [g.sym]).forEach(function (n) { price[n] = g.price; }); });
+    var price = {}; (d.trainGroups || []).forEach(function (g) { (g.names || [g.sym]).forEach(function (n) { price[n] = price[n.replace(/\*$/, '')] = g.price; }); });
     var graves = [], lost = {}, obs = [], byKey = {};
     GL.rounds.forEach(function (r) { r.lines.forEach(function (ln, li) {
       var ob = /Event:\s*(.+?) trains? (?:are|become) obsolete/i.exec(ln.msg); if (ob) { obs = ob[1].split(/,\s*/); return; }
