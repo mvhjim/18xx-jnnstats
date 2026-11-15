@@ -1409,10 +1409,18 @@
     if (near) return make();
     var io = new w.IntersectionObserver(function (es) { if (es.some(function (e2) { return e2.isIntersecting; })) { io.disconnect(); make(); } }, { rootMargin: '400px' });
     io.observe(el); (w.__ecIO = w.__ecIO || []).push(io);
+    // backup for browsers that pause the observer: a light check on scroll and when sections are opened
+    (w.__ecLazy = w.__ecLazy || []).push({ el: el, make: function () { io.disconnect(); make(); } });
+    if (!w.__ecLazyOn) {
+      w.__ecLazyOn = 1;
+      var check = function () { w.__ecLazy = (w.__ecLazy || []).filter(function (x) { if (!x.el.isConnected) return false; var rr = x.el.getBoundingClientRect(); if (x.el.offsetParent && rr.top < (w.innerHeight || 900) + 400 && rr.bottom > -400) { x.make(); return false; } return true; }); };
+      var tmr = null, later = function () { if (!tmr) tmr = w.setTimeout(function () { tmr = null; check(); }, 120); };
+      w.addEventListener('scroll', later, { passive: true }); w.addEventListener('resize', later); w.document.addEventListener('click', later);
+    }
     return { setOption: function (o) { if (real) real.setOption(o); else pending = o; }, resize: function () { if (real) real.resize.apply(real, arguments); } };
   }
   function ecDisposeAll(w) {
-    (w.__ecIO || []).forEach(function (io) { try { io.disconnect(); } catch (e) {} }); w.__ecIO = []; (w.__ecInst || []).forEach(function (c) { try { if (c.__ro) c.__ro.disconnect(); c.dispose(); } catch (e) {} }); w.__ecInst = []; }
+    (w.__ecIO || []).forEach(function (io) { try { io.disconnect(); } catch (e) {} }); w.__ecIO = []; w.__ecLazy = []; (w.__ecInst || []).forEach(function (c) { try { if (c.__ro) c.__ro.disconnect(); c.dispose(); } catch (e) {} }); w.__ecInst = []; }
   function ecTip(model, extra) {
     return function (params) {
       var ps = (Array.isArray(params) ? params : [params]).filter(function (p) { return p.value != null && p.value !== '-' && p.seriesType === 'line'; });
