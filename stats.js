@@ -971,7 +971,7 @@
     '#jump{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin:6px 0 0}#jump .sb{font-size:12px;display:inline-flex;align-items:center;gap:4px}#jump .sb b{font-variant-numeric:tabular-nums}#jump .jg{margin-left:auto;display:inline-flex;flex-wrap:wrap;gap:4px}#jump .jg button{font:inherit;font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:none;color:var(--text-secondary);cursor:pointer}#jump .jg button:hover{border-color:var(--accent);color:var(--accent)}',
     'body{font-variant-numeric:tabular-nums}.tw thead th{position:sticky;top:0;background:var(--surface-1);z-index:1}.mtabs{margin:0 0 8px}.mpane[hidden]{display:none}.sinfo{font-size:11px}',
     '.card{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:12px 14px;min-width:0}.card.wide{grid-column:1/-1}',
-    '.tw{overflow-x:auto}.card h2{font-size:13px;margin:0 0 2px;font-weight:650}.card .sub{color:var(--text-muted);font-size:12px;margin:0 0 8px}',
+    'table.tight th,table.tight td{padding-left:4px;padding-right:4px}.tw{overflow-x:auto}.card h2{font-size:13px;margin:0 0 2px;font-weight:650}.card .sub{color:var(--text-muted);font-size:12px;margin:0 0 8px}',
     'table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}th,td{padding:4px 8px;text-align:right;border-bottom:1px solid var(--grid);white-space:nowrap}th{font-weight:600;color:var(--text-secondary);font-size:12px}th:first-child,td:first-child{text-align:left}',
     '.sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px;box-shadow:0 0 0 1px rgba(0,0,0,.25)}',
     '.legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin:0 0 6px;color:var(--text-secondary);font-size:12px}.legend span{cursor:default}',
@@ -2150,7 +2150,7 @@
         (p.status === 'future' && p.inPurchases > 0 ? '<div class="d">' + (p.inPurchases === 1 ? 'next buy' : 'in ' + p.inPurchases + ' buys') + '</div>' : p.status === 'current' ? '<div class="d">now</div>' : '') + '</div>';
     }).join('') + '</div>');
 
-    h.push('<div class="tw"><table><thead><tr><th>Train</th><th>Variants</th><th>Price</th><th>In bank</th><th>Pool</th><th>Running</th><th>Rusted / gone</th><th style="width:9%">Supply</th><th title="Rusted trains are removed">Rusts when</th><th title="Obsolete is not rusted: the train is on its way out under the rules of this title">Obsolete when</th><th style="text-align:left;min-width:110px">Held by</th></tr></thead><tbody>');
+    h.push('<div class="tw"><table class="tight"><thead><tr><th>Train</th><th>Variants</th><th>Price</th><th>In bank</th><th>Pool</th><th>Running</th><th>Rusted / gone</th><th style="width:9%">Supply</th><th title="Rusted trains are removed">Rusts when</th><th title="Obsolete is not rusted: the train is on its way out under the rules of this title">Obsolete when</th><th style="text-align:left;min-width:110px">Held by</th></tr></thead><tbody>');
     d.trainGroups.forEach(function (g) {
       var tot = g.total || 1;
       var isNext = d.nextTrain && d.nextTrain.sym === g.sym;
@@ -2167,7 +2167,7 @@
 
     // Corporations
     var anyLoans = d.corps.some(function (c) { return c.loans > 0; });
-    h.push('<section class="card wide"><h2>Corporations</h2><p class="sub">Treasury vs next train, train health, recent results</p><div class="tw"><table><thead><tr><th>Corp</th><th>President</th><th>Price</th><th>Treasury</th><th>' + (d.cheapest ? 'Cheapest train (' + esc(d.cheapest.name) + (d.cheapest.pool ? ', bank pool' : '') + ' ' + esc(m(d.cheapest.price)) + ')' : 'Buy a train') + '</th><th>Trains</th><th>Train status</th><th title="Station tokens not yet placed / total">Tokens left</th>' + (anyLoans ? '<th>Loans</th><th title="Interest this company owes at its next operating turn">Interest due</th>' : '') + '<th>Last revenue</th><th>Avg last 3</th></tr></thead><tbody>');
+    h.push('<section class="card wide"><h2>Corporations</h2><p class="sub">Treasury vs next train, train health, recent results</p><div class="tw"><table class="tight"><thead><tr><th>Corp</th><th>President</th><th>Price</th><th>Treasury</th><th>' + (d.cheapest ? 'Cheapest train (' + esc(d.cheapest.name) + (d.cheapest.pool ? ', bank pool' : '') + ' ' + esc(m(d.cheapest.price)) + ')' : 'Buy a train') + '</th><th>Trains</th><th>Train status</th><th title="Station tokens not yet placed / total">Tokens left</th>' + (anyLoans ? '<th>Loans</th><th title="Interest this company owes at its next operating turn">Interest due</th>' : '') + '<th>Last revenue</th><th>Avg last 3</th></tr></thead><tbody>');
     d.corps.forEach(function (c) {
       var ohs = c.oh.slice().sort(function (a, b) { return (a.t * 100 + a.r) - (b.t * 100 + b.r); });
       var last = ohs[ohs.length - 1];
