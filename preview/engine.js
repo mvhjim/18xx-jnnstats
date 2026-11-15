@@ -20,7 +20,7 @@
   var VERSION = '0.1.0';
   var API_MAJOR = '1';                 // the JNN-API major version this code is written for
   var API_MIN = '1.1';                 // the oldest minor version it can use
-  var FALLBACK_SHA = '7867834';        // a JNN-stats release known to work, used if the latest is incompatible
+  var FALLBACK_SHA = '068c1ed';        // a JNN-stats release known to work, used if the latest is incompatible
   var STATS_CDN = 'https://cdn.jsdelivr.net/gh/mvhjim/18xx-jnnstats@';
   var REFRESH_MS = 10000;
   // Titles tested with JNN-Engine. Others are shown, but sending moves (in later versions) stays off.
@@ -144,8 +144,8 @@
     h.push('<div class="ft">JNN-Engine ' + VERSION + ' · built on 18xx-JNNstats ' + esc(J.version) + ' (JNN-API ' + esc(J.apiVersion) + ')' + (E.pinned ? ' · pinned to a known-good JNN-stats release because the latest one is not compatible' : '') +
       ' · ' + (sup ? 'tested title' : 'title not tested with JNN-Engine yet') + ' · updated ' + new Date().toLocaleTimeString() + ' · the 18xx.games page is always the place to play if anything here looks wrong.</div>');
     var y = w.scrollY || 0;
+    if (!doc.getElementById('jcss')) { doc.head.innerHTML = '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>JNN-Engine</title><style id="jcss"></style><style id="jcss2"></style>'; }
     doc.title = (myTurn ? '● Your turn · ' : '') + d.title + ' · JNN-Engine';
-    if (!doc.getElementById('jcss')) { doc.head.innerHTML = '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style id="jcss"></style><style id="jcss2"></style>'; }
     doc.getElementById('jcss').textContent = J.css(); doc.getElementById('jcss2').textContent = CSS_EXTRA;
     doc.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
     doc.body.innerHTML = h.join('');
