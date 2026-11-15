@@ -2603,6 +2603,7 @@
     if (/ passes\b/.test(msg)) return 'Passing ends this player\'s turn. In a stock round, when everyone passes in a row, the round ends.';
     if (/closes/i.test(msg)) return 'A private company closes when the phase or its own rules say so (or when its power is used); a company closes when its price falls into the closing zone or by a title rule.';
     if (/^-- (Operating|Stock) Round/.test(msg)) return /Operating/.test(msg) ? 'An operating round begins: companies take their turns, highest share price first in most titles.' : 'A stock round begins: players buy and sell shares, starting with the priority deal.';
+    if ((x = /^(.+?) operates (\S+)/.exec(msg))) return x[2] + '\'s turn in this operating round, run by its president ' + x[1] + ': lay track, place a station, run trains, pay out or withhold, buy trains.';
     if (/skips /.test(msg)) return 'This step was skipped: the company had nothing it could, or wanted to, do here.';
     return null;
   }
@@ -2628,15 +2629,15 @@
     if (!learnLevel() || !d.hexMap) return '';
     var H = d.hexMap.hexes, open = d.corps.filter(function (c) { return !c.closed && c.price != null; });
     var full = [], freeN = 0;
-    H.forEach(function (h) { (h.st || []).forEach(function (ct) { if (ct.k !== 'city' || !ct.slots) return; if (ct.tk.length >= ct.slots) full.push({ id: h.id, loc: h.loc, tk: ct.tk }); else freeN++; }); });
+    H.forEach(function (h) { var all = []; (h.st || []).forEach(function (ct) { if (ct.k === 'city') all = all.concat(ct.tk); }); (h.st || []).forEach(function (ct) { if (ct.k !== 'city' || !ct.slots) return; if (ct.tk.length >= ct.slots) full.push({ id: h.id, loc: h.loc, tk: ct.tk, hexTk: all }); else freeN++; }); });
     var col = {}; d.corps.forEach(function (c) { col[c.name] = c.color; });
     var rows = open.map(function (c) {
       var mine = []; H.forEach(function (h) { (h.st || []).forEach(function (ct) { if (ct.k === 'city' && ct.tk.indexOf(c.name) >= 0) mine.push(h.loc ? h.loc + ' (' + h.id + ')' : h.id); }); });
-      var blocks = full.filter(function (f) { return f.tk.indexOf(c.name) < 0; });
+      var seen = {}, blocks = full.filter(function (f) { if (f.hexTk.indexOf(c.name) >= 0 || seen[f.id]) return false; seen[f.id] = 1; return true; });
       return '<li>' + sqw(col[c.name]) + '<b>' + esc(c.name) + '</b>: ' + (mine.length ? 'stations in ' + esc(mine.join(', ')) : 'no stations yet') + (c.tokensTotal ? ' · ' + c.tokensLeft + ' of ' + c.tokensTotal + ' still to place' : '') +
-        (blocks.length ? '<br><span style="color:var(--text-secondary)">Blocked by full cities: ' + blocks.map(function (f) { return esc((f.loc || f.id) + ' (' + f.tk.join(', ') + ')'); }).join('; ') + '</span>' : '') + '</li>';
+        (blocks.length ? '<br><span style="color:var(--text-secondary)">Cannot run through (full of other companies\' stations): ' + blocks.map(function (f) { return esc((f.loc || f.id) + ' (' + f.tk.join(', ') + ')'); }).join('; ') + '</span>' : '') + '</li>';
     });
-    return '<section class="card wide"><h2>Stations explained</h2><p class="sub">Routes must start from a company\'s own station, and a city whose slots are all taken can only be run through by the companies holding them. ' + full.length + ' cities are full; ' + freeN + ' city spaces still have room.</p><ul class="wo">' + rows.join('') + '</ul></section>';
+    return '<section class="card wide"><h2>Stations explained</h2><p class="sub">Routes must start from a company\'s own station, and a city whose slots are all taken can only be run through by the companies holding them (in most titles a route may still end there). ' + full.length + ' cities are full; ' + freeN + ' city spaces still have room.</p><ul class="wo">' + rows.join('') + '</ul></section>';
   }
   // ---------- Live play: watch-outs, threat radar, turn pacing -------------------------------
   function sqw(col) { return '<i class="sw" style="background:' + displayColor(col || '#9a9a9a', ST.dark !== false) + '"></i>'; }
