@@ -12,8 +12,8 @@ All notable changes to this project are listed here. The format follows [Keep a 
 
 ### Fixed
 - **Payout or withhold** table fits a half-screen window (shorter headers, tighter cells).
-
-## [Unreleased]
+- **New cards keep their place** in a saved card layout (they used to be added at the end), and the *Train status* column in Corporations wraps.
+- **Dark company colours** (such as NYC's) are brightened in the new cards so they stay visible in dark mode.
 
 ### Changed
 - **README screenshots refreshed** for 0.26.0: the new player colours, the fixed tables and chart labels, the new menu, plus new pictures of the share card, the keyboard shortcuts and Follow the round.

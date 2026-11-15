@@ -2044,7 +2044,7 @@
   }
 
   // ---------- Live play: watch-outs, threat radar, turn pacing -------------------------------
-  function sqw(col) { return '<i class="sw" style="background:' + (col || '#9a9a9a') + '"></i>'; }
+  function sqw(col) { return '<i class="sw" style="background:' + displayColor(col || '#9a9a9a', ST.dark !== false) + '"></i>'; }
   function dur(ms) {
     var sec = Math.round(ms / 1000); if (sec < 60) return sec + ' s';
     var mi = sec / 60; if (mi < 60) return Math.round(mi) + ' min';
@@ -2155,7 +2155,7 @@
     var tot = P.rows.reduce(function (a, r) { return a + r.total; }, 0) || 1;
     var rows = P.rows.slice().sort(function (a, b) { return b.total - a.total; });
     var waitLine = '';
-    if (!d.finished && d.live && d.live.acting.length) {
+    if (!d.finished && !d.tt && d.live && d.live.acting.length) {
       var since = Date.now() - P.last;
       waitLine = '<p class="nowline" style="font-size:13px">Waiting on <b>' + d.live.acting.map(esc).join(', ') + '</b> for ' + dur(since) + '.</p>';
     }
@@ -2167,6 +2167,7 @@
   }
   function render(w, d) {
     var doc = w.document, dark = isDark(w), pal = playerPal(dark);
+    ST.dark = dark;
     var m = d.money;
     var me = myName(d.players.map(function (p) { return p.name; }));
     var myTurn = !!me && !d.finished && !d.tt && !!d.live && d.live.acting.indexOf(me) >= 0;
