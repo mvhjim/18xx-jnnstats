@@ -2,6 +2,12 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.36.0] - 2026-11-15
+
+### Added
+- **What-if lines** (Analysis): for one player, how much more (or less) they would have been worth had they kept the shares they sold (at the market price), or had the withholds in their companies been paid out, drawn as the gain against the real game round by round. Worked out from the log; knock-on effects are ignored, as the card says.
+- **What-if sandbox** (Analysis): pick one of a player's decisions (payout or withhold, share sales and purchases, par, trains, tiles, stations, bids), change it (for payouts: pay out, withhold or pay half) or leave it out, and the site's own rules engine replays the rest of the game with every other move kept. The replay stops at the first move that is no longer legal, and the card compares player values and share prices with the real game at that moment. It runs in a copy in memory; the game is never touched.
+
 ## [0.35.0] - 2026-11-15
 
 ### Added

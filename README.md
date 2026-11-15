@@ -395,6 +395,14 @@ Every card and tab in the window, one picture each. They were taken from two fin
 
 ![Style fingerprint](docs/views/1846-style-fingerprint.jpg)
 
+**What-if lines.** Two simple what-ifs for one player, worked out from the log: the shares they sold kept at the market price, and the dividends they lost to withholds paid out. The chart shows the gain against the real game, round by round.
+
+![What-if lines](docs/views/1862-what-if-lines.jpg)
+
+**What-if sandbox.** Pick one of a player's decisions (a payout choice, a share sale or purchase, a train, a tile, a station…), change it or leave it out, and the 18xx.games rules engine replays everything after it with all other moves unchanged. When a later move is no longer legal the replay stops there, and the card compares every player's value and the share prices with the real game at that moment. Read only: the game itself is never touched.
+
+![What-if sandbox](docs/views/1846-what-if-sandbox.jpg)
+
 **Career.** One player across games. *Load* reads their 18xx.games profile for finished games, wins, placing score, the last 30 places and a table per title (not in privacy mode). Every finished game you open is also remembered in your own browser, with its decision score and style, to show the trend and the usual style.
 
 ![Career](docs/views/1862-career.jpg)
