@@ -2576,7 +2576,7 @@
   // Explains one log line in plain words; null when there is nothing useful to add
   function whyLine(d, msg) {
     var m = d.money, oneD = d.grid && d.grid.cells.length === 1, x;
-    msg = String(msg).replace(/\s*↗\s*$/, '').trim();
+    msg = String(msg).replace(/\s*↗\s*$/, '').trim().replace(/^(Start|Auction|Draft|Stock Round \d+|Operating Round [\d.]+(?: \(of \d+\))?|Merger Round [\d.]+|(SR|OR) [\d.]+)\s+/, '');
     if ((x = /share price moves (right|left|up|down) from (\S+) to (\S+)(?: \((\d+) steps?\))?/.exec(msg))) {
       var dir = x[1], why = { right: 'it paid out (a bigger payout can move it more than one step)', left: oneD ? 'it withheld, or shares were sold' : 'it withheld (or paid out too little)', down: 'shares were sold into the bank pool: each sale pushes the price down', up: 'all its shares were held by players at the end of the stock round (sold out), which pushes the price up' }[dir];
       return 'The share price moved ' + dir + (x[4] ? ' ' + x[4] + ' steps' : '') + ' because ' + why + '. The exact moves are this title\'s rules; tap a square in the Stock market card to see them.';
@@ -2588,14 +2588,14 @@
       var tg = (d.trainGroups || []).filter(function (g) { return g.rustsOn === x[2] || g.obsoleteOn === x[2]; });
       return x[1] + ' bought a ' + x[2] + ' train' + (/depot|bank/i.test(x[4]) ? ' from the bank' : ' from ' + x[4]) + ' for ' + x[3] + '.' + (tg.length ? ' The first ' + x[2] + ' of the game ' + tg.map(function (g) { return g.rustsOn === x[2] ? 'rusts the ' + g.sym + ' trains' : 'makes the ' + g.sym + ' trains obsolete'; }).join(' and ') + '.' : '') + ' Buying the first train of a new type can also start a new phase.';
     }
-    if ((x = /^(.+?) sells (\d+) shares? of (\S+) and receives (\S+)/.exec(msg))) return x[1] + ' sold ' + x[2] + ' share' + (x[2] === '1' ? '' : 's') + ' of ' + x[3] + ' into the bank pool for ' + x[4] + '. The money comes from the bank, not the company, and the price usually drops. Selling can also pass the presidency to another player.';
+    if ((x = /^(.+?) sells (?:an? )?(\d+%? )?shares?(?: of)? (\S+) and receives (\S+)/.exec(msg))) return x[1] + ' sold ' + (x[2] || '').trim() + ' of ' + x[3] + ' into the bank pool for ' + x[4] + '. The money comes from the bank, not the company, and the price usually drops. Selling can also pass the presidency to another player.';
     if ((x = /^(.+?) buys an? (\d+)% share of (\S+) from the (\S+) for (\S+)/.exec(msg))) return x[1] + ' bought ' + x[2] + '% of ' + x[3] + ' from the ' + x[4] + ' for ' + x[5] + '. ' + (/market|pool/i.test(x[4]) ? 'Money for bank-pool shares goes to the bank.' : 'Money for shares bought from the company ' + (d.primer && d.primer.capitalization === 'incremental' ? 'goes to the company now (incremental capitalization).' : 'is paid to the company when it floats, depending on the title.'));
     if ((x = /^(.+?) pars (\S+) at (\S+)/.exec(msg))) return x[1] + ' started ' + x[2] + ' at a par price of ' + x[3] + ', buying the president\'s certificate. The par price sets where the share price starts.';
     if ((x = /^(.+?) becomes the president of (\S+)/.exec(msg))) return x[1] + ' now holds the most shares of ' + x[2] + ' and takes over the president\'s certificate: from now on they make its decisions.';
     if ((x = /^(\S+) floats/.exec(msg))) return x[1] + ' has sold enough shares to float: it gets its money' + (d.primer && d.primer.capitalization === 'full' ? ' (10 times its par price)' : '') + ' and will operate in the next operating round.';
     if ((x = /places a token on (\S+)/.exec(msg))) return 'A station on ' + x[1] + '. Routes must start from one of the company\'s own stations, and a city whose slots are all taken blocks the companies without one there.';
     if ((x = /lays tile #(\S+) with rotation \d+ on (\S+)/.exec(msg))) return 'Tile ' + x[1] + ' was laid on ' + x[2] + '. New track extends where routes can go; an upgrade (to green, brown, grey) usually raises the value of the cities on it.';
-    if (/collects? .* from|receives .* from/.test(msg) && /private|company/i.test(msg)) return 'Income from a private company, paid by the bank every operating round until the private closes.';
+    if (/ collects \S+ from /.test(msg)) return 'Income from a private company, paid by the bank every operating round until the private closes.';
     if (/^-- Phase (\S+)/.test(msg) || /Phase (\S+) begins/i.test(msg)) return 'A new phase began because the first train of a new type was bought. It can allow new tile colours, change the train limit and the number of operating rounds, and close private companies.';
     if (/rust/i.test(msg)) return 'Trains rust when the first train of a later type is bought: they are removed at once. A company left without a train must buy one.';
     if (/obsolete/i.test(msg)) return 'Obsolete trains are on their way out: under this title\'s rules they run one last time (or until a later point) and are then removed.';
