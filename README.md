@@ -145,6 +145,10 @@ You are asked to run code from the internet on a page where you are logged in, s
 
 If 18xx-JNNstats is useful to you, you can buy me a coffee on [Ko-fi](https://ko-fi.com/jimiste). It is entirely optional; the tool stays free.
 
+## For developers: JNN-API
+
+The game reading and analysis behind the window are also available to other tools as a small, versioned, read-only interface. See [docs/API.md](docs/API.md).
+
 ## Contributing
 
 Ideas and fixes are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Changes are listed in [CHANGELOG.md](CHANGELOG.md).
