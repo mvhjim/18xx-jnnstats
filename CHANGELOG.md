@@ -2,6 +2,19 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.36.1] - 2026-11-15
+
+### Fixed
+- **Amounts in lira ("L.") were misread** in titles such as 1849 and 1849: Kingdom of the Two Sicilies: the dot after the L was taken as a decimal point, so Money flow, the poster's best run, route *why?* sums and the Route mistakes check showed tiny numbers. All amounts are now read the same way.
+- **Unlimited bank:** in titles where the bank never runs out (The Old Prince 1871), the header and the pressure gauge no longer call a negative bank "broken"; the header says *unlimited*.
+- **Per-turn sell limit:** in titles that limit how much of one company you may sell in a turn (30% in The Old Prince 1871), the threat radar and the watch-outs no longer suggest dumps that are not allowed.
+- **Your turn, explained** lists only companies that have floated (not ones still waiting to start), so it no longer warns that an unstarted company's president must pay for a train.
+- Game-end conditions start with a capital letter, and the phase gauge reads "phase 4 of 6 (10H)".
+
+### Added
+- **Notes and tips for The Old Prince 1871 and 1849: Kingdom of the Two Sicilies** in Learn this title (How it differs, Rules of thumb) and in Your turn, explained: the PEIR, the Union Bank, H and + trains, tranches and branch companies; the company queue, hex trains and narrow gauge, the revenue-versus-price market rule, ports and the 20% last certificate.
+- The primer and How it differs now show an unlimited bank and a per-turn sell limit when the rules engine has them.
+
 ## [0.36.0] - 2026-11-15
 
 ### Added

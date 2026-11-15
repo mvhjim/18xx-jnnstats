@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.36.0';
+  var VERSION = '0.36.1';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -43,6 +43,8 @@
                         dark:  ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'] };
 
   // ---------- Opal helpers ----------------------------------------------------------------
+  // first number in a text such as "$1,234", "£80" or "L.396" (the dot after L is not a decimal point)
+  function numIn(t) { var q = String(t == null ? '' : t).replace(/,/g, '').match(/-?\d+(\.\d+)?/); return q ? parseFloat(q[0]) : 0; }
   function nil(o) { return o == null || (typeof Opal !== 'undefined' && o === Opal.nil); }
   function s(x) { return nil(x) ? '' : String(x); }
   function bool(x) { return x === true; }
@@ -379,7 +381,7 @@
         name: s(c.$name()), fullName: s(call(c, 'full_name')), color: s(call(c, 'color')) || '#888', cash: num(c.$cash()),
         price: sp ? num(call(sp, 'price')) : null, president: owner && rt(owner, 'name') ? s(owner.$name()) : '',
         trains: (call(c, 'trains') || []).map(function (t) { return { name: s(t.$name()), sym: s(call(t, 'sym')), rustsOn: s(call(t, 'rusts_on')), obsoleteOn: s(call(t, 'obsolete_on')) }; }),
-        operated: bool(call(c, 'operated?')), closed: bool(call(c, 'closed?')), oh: oh,
+        operated: bool(call(c, 'operated?')), floated: bool(call(c, 'floated?')), closed: bool(call(c, 'closed?')), oh: oh,
         tokensLeft: (call(c, 'tokens') || []).filter(function (t) { return !bool(call(t, 'used')); }).length,
         tokensTotal: (call(c, 'tokens') || []).length,
         loans: (call(c, 'loans') || []).length,
@@ -934,7 +936,7 @@
       var trig = call(g, 'game_end_check');
       if (trig && trig.length) endInfo.triggered = { reason: s(trig[0]).replace(/_/g, ' '), timing: s(trig[1]).replace(/_/g, ' ').replace(/\bor\b/g, 'OR') };
     } catch (e) {}
-    if (info) info.ends = endInfo.conditions.map(function (c4) { return (c4.text || c4.reason) + ' (' + c4.timing + ')'; });
+    if (info) info.ends = endInfo.conditions.map(function (c4) { var t4 = String(c4.text || c4.reason || ''); return t4.charAt(0).toUpperCase() + t4.slice(1) + ' (' + c4.timing + ')'; });
     var orSnaps = snaps.filter(function (sn) { return /^OR /.test(sn.label) && sn.bank != null; });
     if (orSnaps.length >= 2 && endInfo.conditions.some(function (c) { return c.reason === 'bank'; })) {
       var k0 = Math.max(0, orSnaps.length - 3), span = orSnaps.length - 1 - k0;
@@ -994,7 +996,7 @@
       var np = players.length, sc = kget('STARTING_CASH'), cl = kget('CERT_LIMIT');
       primer = {
         designer: s(kget('GAME_DESIGNER') || ''), publisher: s(kget('GAME_PUBLISHER') || ''), location: s(kget('GAME_LOCATION') || ''),
-        bank: num(kget('BANK_CASH')), startCash: sc ? num(typeof sc === 'number' ? sc : hashAt(sc, np)) : null, certLimit: cl ? (typeof cl === 'number' ? cl : num(hashAt(cl, np))) : null,
+        bank: num(kget('BANK_CASH')), bankUnlimited: s(kget('BANK_CASH') || '') === 'unlimited', turnSellLimit: num(kget('TURN_SELL_LIMIT')) || null, startCash: sc ? num(typeof sc === 'number' ? sc : hashAt(sc, np)) : null, certLimit: cl ? (typeof cl === 'number' ? cl : num(hashAt(cl, np))) : null,
         capitalization: s(kget('CAPITALIZATION') || ''), sellAfter: s(kget('SELL_AFTER') || ''), sellBuyOrder: s(kget('SELL_BUY_ORDER') || ''), sellMovement: s(kget('SELL_MOVEMENT') || ''),
         poolLimit: num(kget('MARKET_SHARE_LIMIT')), mustBuyTrain: s(kget('MUST_BUY_TRAIN') || ''), homeToken: s(kget('HOME_TOKEN_TIMING') || ''),
         corps: g.$corporations().map(function (c) { return { name: s(c.$name()), full: s(call(c, 'full_name') || ''), color: s(call(c, 'color') || '') }; }),
@@ -2074,7 +2076,7 @@
   function saveRtb(d) {
     try { var o = {}, pre = d.id + '|'; Object.keys(ST.rtBest || {}).forEach(function (k) { var r = ST.rtBest[k]; if (k.indexOf(pre) === 0 && r.s === 'ok') o[k.slice(pre.length)] = { b: r.best, p: r.paths || [] }; }); localStorage.setItem('xxStats.rtb.' + d.id, JSON.stringify(o)); } catch (e) {}
   }
-  function runActual(c) { return c.trains.reduce(function (a, x) { return a + (parseFloat(String(x.rev).replace(/[^\d.]/g, '')) || 0); }, 0); }
+  function runActual(c) { return c.trains.reduce(function (a, x) { return a + numIn(x.rev); }, 0); }
   function rtSummary(d) {
     loadRtb(d);
     var o = { tot: 0, n: 0, gap: 0, short: 0 };
@@ -2270,6 +2272,23 @@
     '1862': ['Each train level comes in variants (Express, Freight, Local) chosen when you buy it; the coloured dot shows which.',
       'Parliamentary obligations: companies are chartered through obligations bought from the bank.',
       'The game ends when the bank breaks or the last train is bought (the current set of ORs is finished).'],
+    '1849: Kingdom of the Two Sicilies': ['An expansion of 1849 (Sicily) onto a larger map of southern Italy, with two more companies.',
+      'Companies become available in a fixed, random order: you can only start the next one in line.',
+      'Hex trains (4H, 6H, … 16H) count the hex edges they cross, not the stops; every town and city on the way pays. Narrow gauge edges count double; the R6H counts narrow gauge as 1 and broad gauge as 2.',
+      'A company moves right on the market only if its revenue is at least its share price; otherwise it moves left.',
+      'At the end of a stock round, a company with shares in the bank pool drops one step; one with none in the pool or treasury rises.',
+      'Each company\'s last certificate is a 20% share, bought after its 10% shares in the same place.',
+      'Station tokens are paid for when the company starts, so placing them later is free.',
+      'A company whose price falls into the closed box, or that loses its only station, is removed and goes to the back of the queue to start again.',
+      'Ports: a route may start or end at a port but not run through it.'],
+    'The Old Prince 1871': ['The PEIR (Prince Edward Island Railway) is a special company: it has no share price, always operates last, its shares cannot be sold, and it splits off into ordinary companies over the game as their PEIR shares float.',
+      'Two PEIR companies are drawn at setup: the Mainline starts floated, the Shortline needs one more 10% share before it operates.',
+      'The Union Bank is a private company its owner acts for: once per stock round they may buy a certificate or start a company with its money, topping it up themselves. At the end its cash and shares go to the owner.',
+      'H trains (2H–6H) count hexes: a 6H may cross six hex edges, stopping at every town and city on the way. + trains (2+, 3+, 4+) count cities or off-boards, with the towns between them free. The 7 runs to seven stops, the D has no limit.',
+      'New companies start from a tranche chart: the next tranche opens only when the current one is full and every company in it has operated or sold out. Starting prices fall as the trains advance.',
+      'A president with at least four shares of a floated company that has two stations may split off a branch company, sharing out cash, trains and shares.',
+      'Selling moves the price down once per sale, not per share, and you may sell at most 30% of one company in a turn.',
+      'Private companies close on the first 4+ (except the Union Bank). After the first D, the game finishes that set of ORs, then one last stock round and three more ORs. PEIR shares count $80 each at the end.'],
     '1817': ['Companies start small (2 shares) and can grow (5, then 10 shares).',
       'Companies take loans, paying interest every OR; too much debt and a low price can force liquidation.',
       'You may short shares: a short pays the dividend instead of receiving it, and must be closed later.',
@@ -2278,7 +2297,7 @@
   var STATION_NOTE = 'Stations: a company\'s routes must start from one of its own stations, and a city whose slots are all taken by other companies cannot be run through. Placing a station early in a busy city can block a rival.';
   function trainEconomics(d, me, m) {
     var cheapest = d.cheapest, mk = {}; (d.live && d.live.market || []).forEach(function (x) { mk[x.name] = x; });
-    var open = d.corps.filter(function (c) { return !c.closed && c.price != null; });
+    var open = d.corps.filter(function (c) { return !c.closed && c.price != null && c.floated !== false; });
     if (me) open.sort(function (a, b) { return (b.president === me ? 1 : 0) - (a.president === me ? 1 : 0); });
     return open.map(function (c) {
       var t = c.trains.map(function (x) { return x.name; }).join(', ') || 'no trains';
@@ -2356,7 +2375,7 @@
     h.push('<p>' + esc(d.title) + (P.designer ? ' by ' + esc(P.designer) : '') + (P.location ? ', set in ' + esc(P.location) : '') + '. ' + d.players.length + ' players in this game.' +
       (I.rulesUrl ? ' <a href="' + esc(I.rulesUrl) + '" target="_blank" rel="noopener">Official rules</a>' : '') + (I.wikiUrl ? ' · <a href="' + esc(I.wikiUrl) + '" target="_blank" rel="noopener">18xx.games wiki page</a>' : '') + '</p>');
     var facts = [];
-    if (P.bank) facts.push(['Bank', esc(m(P.bank))]);
+    if (P.bank) facts.push(['Bank', esc(m(P.bank))]); else if (P.bankUnlimited) facts.push(['Bank', 'unlimited (the bank never breaks; its balance can go below zero)']);
     if (P.startCash) facts.push(['Starting cash', esc(m(P.startCash)) + ' each']);
     if (P.certLimit || (d.players[0] && d.players[0].certLimit)) facts.push(['Certificate limit', String(P.certLimit || d.players[0].certLimit)]);
     facts.push(['Market', oneD ? 'single row' : 'grid (' + d.grid.cells.length + ' rows)']);
@@ -2364,7 +2383,7 @@
     facts.push(['Companies', (P.corps || []).length + (P.minors ? ' plus ' + P.minors + ' minors' : '') + (P.hasLoans ? ', with loans' : '')]);
     h.push('<div class="tw"><table class="tight"><tbody>' + facts.map(function (f) { return '<tr><td>' + f[0] + '</td><td style="text-align:left">' + f[1] + '</td></tr>'; }).join('') + '</tbody></table></div>');
     var mv = WORDS_MOVE[P.sellMovement]; if (mv && oneD) mv = mv.replace('down one row', 'left one step');
-    var rules = [WORDS_CAP[P.capitalization], WORDS_SELL_AFTER[P.sellAfter], WORDS_SBO[P.sellBuyOrder], mv, WORDS_MUSTBUY[P.mustBuyTrain], WORDS_HOME[P.homeToken]].filter(Boolean);
+    var rules = [WORDS_CAP[P.capitalization], WORDS_SELL_AFTER[P.sellAfter], WORDS_SBO[P.sellBuyOrder], mv, WORDS_MUSTBUY[P.mustBuyTrain], WORDS_HOME[P.homeToken], P.turnSellLimit ? 'You may sell at most ' + P.turnSellLimit + '% of one company in a stock turn.' : null].filter(Boolean);
     if (rules.length) h.push('<h3 class="rh">How shares and companies work here</h3><ul class="wo">' + rules.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('') + '</ul>');
     // trains
     var TG = d.trainGroups || [];
@@ -2430,6 +2449,8 @@
     if (P.minors) out.push('There are ' + P.minors + ' minor companies as well as the major ones.');
     if (P.hasLoans) out.push('Companies can take loans.');
     if (P.poolLimit && P.poolLimit !== 50) out.push('The bank pool may hold up to ' + P.poolLimit + '% of a company (50% in 1830).');
+    if (P.turnSellLimit) out.push('You may sell at most ' + P.turnSellLimit + '% of one company in a stock turn (no limit per turn in 1830).');
+    if (P.bankUnlimited) out.push('The bank has unlimited money, so it never breaks (in 1830 a broken bank ends the game).');
     (TITLE_NOTES[d.title] || []).forEach(function (n) { out.push(n); });
     return '<p class="sub">Compared with 1830, the classic most 18xx games build on. Read from this title\'s rules engine' + (TITLE_NOTES[d.title] ? ', plus hand-written notes' : '') + '.</p>' + (out.length ? '<ul class="wo">' + out.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '<p>No big differences found in the engine\'s settings.</p>');
   }
@@ -2437,6 +2458,8 @@
     general: ['Count the trains before yours rust (Trains, phases & Bank) and keep money for the next one.', 'Do not hold 20% or more of a company without train money unless you are ready to run it: it can be dumped on you.', 'Priority deal matters most in the stock round just before a big train purchase.', 'Selling shares drops the price; selling right after a payout keeps more of the dividend.', 'A company that withholds now to buy a train can be worth more than one that pays out and ends up trainless.'],
     '1846': ['East-West routes between the off-boards are usually the best earners; plan track toward them.', 'Issuing shares can fund a train in a hurry, at the cost of a lower share price.', 'The bank tends to break quickly once the late trains run; have your holdings where you want them before it does.', 'Private companies and the two minors are early income; their bonuses (mail, meat, steamboat) can swing routes.'],
     '1862': ['Pick the train variant that fits the routes your company can actually reach.', 'Watch which charters (parliamentary obligations) are still available; they decide which companies can start.'],
+    '1849: Kingdom of the Two Sicilies': ['With hex trains, a long route through many small towns can beat a short one between big cities: count edges, not stops.', 'Aim for revenue at least equal to your share price; falling short moves the price left even when you pay out.', 'Avoid leaving shares in the bank pool at the end of a stock round: the price drops a step.', 'Know which company starts next in the queue; buying into it early decides who runs it.'],
+    'The Old Prince 1871': ['PEIR shares cannot be sold and become 10% shares of the company they belong to when it floats: think of them as cheap entries into future companies.', 'H trains reward dense track with many towns; + trains reward links between cities. Plan your track for the trains you expect to run.', 'The Union Bank lets its owner start or buy into a company with outside money once per stock round; watch who holds it.', 'Splitting off a branch can give you a second presidency, but it halves the parent shareholding of everyone.'],
     '1817': ['Loans are cheap early, but interest grows and a low price with many loans can liquidate a company.', 'A short pays you if the price falls, but you pay its dividends while it is open.', 'Small 2-share companies are cheap to start and can grow into 5- and 10-share companies later.']
   };
   function thumbsHtml(d) {
@@ -2625,7 +2648,7 @@
       if (!skip && v != null) { sum += v; vals.push({ v: v, k: kind }); }
       rows.push('<tr><td>' + esc(id) + '</td><td style="text-align:left">' + esc(h && h.loc ? h.loc : '') + '</td><td>' + esc(kind) + '</td><td>' + (skip ? '<span style="color:var(--text-muted)">passed through, no revenue</span>' : v != null ? esc(m(v)) : '?') + '</td></tr>');
     });
-    var rev = parseFloat(String(revTxt).replace(/[^\d.-]/g, '')) || 0, diff = rev - sum, best = '';
+    var rev = numIn(revTxt), diff = rev - sum, best = '';
     var ns = (String(train).split(' ').pop().match(/\d+/g) || []).map(Number);
     if (diff < 0) ns.forEach(function (n) {
       if (best || vals.length <= n) return;
@@ -2656,7 +2679,7 @@
   }
   // ---------- New visualizations (tranche D1) ----------
   function shortRound(lbl) { return String(lbl || '').replace(/^Operating Round ([\d.]+).*/, 'OR $1').replace(/^Stock Round (\d+).*/, 'SR $1'); }
-  function moneyNum(t) { return parseFloat(String(t).replace(/[^\d.-]/g, '')) || 0; }
+  function moneyNum(t) { return numIn(t); }
   function corpCol(d) { var c = {}; d.corps.forEach(function (x) { c[x.name] = x.color; }); (d.ticker || []).forEach(function (x) { if (!c[x.name]) c[x.name] = x.color; }); (d.minors || []).forEach(function (x) { if (!c[x.name]) c[x.name] = x.color; }); return c; }
   // who was president of each company in each round, from the ownership history
   function presLine(d, cn) {
@@ -2970,14 +2993,14 @@
   }
   function gaugeCard(d) {
     var m = d.money, g = [], gc = function (v) { return v >= .85 ? '#d9534f' : v >= .6 ? '#e0a419' : '#2e9e5b'; };
-    var bank0 = d.primer && d.primer.bank; if (!bank0 && d.bank <= 0) g.push(gaugeSvg(1, 'Bank', 'broken', '#d9534f')); if (bank0) { var bv = 1 - Math.max(0, d.bank) / bank0; g.push(gaugeSvg(bv, 'Bank', d.bank <= 0 ? 'broken' : m(d.bank) + ' of ' + m(bank0) + ' left', gc(bv))); }
+    var bank0 = d.primer && d.primer.bank; if (!bank0 && d.bank <= 0 && !(d.primer && d.primer.bankUnlimited)) g.push(gaugeSvg(1, 'Bank', 'broken', '#d9534f')); if (bank0) { var bv = 1 - Math.max(0, d.bank) / bank0; g.push(gaugeSvg(bv, 'Bank', d.bank <= 0 ? 'broken' : m(d.bank) + ' of ' + m(bank0) + ' left', gc(bv))); }
     var TG = (d.trainGroups || []).filter(function (t) { return !t.unlimited && t.total; }), tot = 0, gone = 0; TG.forEach(function (t) { tot += t.total; gone += t.total - (t.available || 0); });
     var nx = TG.filter(function (t) { return t.available > 0; })[0];
     if (tot) g.push(gaugeSvg(gone / tot, 'Trains', nx ? nx.available + ' × ' + nx.sym + ' still to buy' : 'all limited trains sold', gc(gone / tot)));
     var cp = d.players.map(function (p) { return { n: p.name, v: p.certLimit ? p.certs / p.certLimit : 0, s: p.certs + ' / ' + p.certLimit }; }).sort(function (a, b) { return b.v - a.v; })[0];
     if (cp && cp.v) g.push(gaugeSvg(cp.v, 'Certificate limit', cp.n + ': ' + cp.s, gc(cp.v)));
     var ph = d.phases || [], pi = ph.map(function (p) { return p.status; }).indexOf('current');
-    if (ph.length > 1 && pi >= 0) { var pv = pi / (ph.length - 1); g.push(gaugeSvg(pv, 'Phases', 'phase ' + d.phase + ' of ' + ph.length, gc(pv))); }
+    if (ph.length > 1 && pi >= 0) { var pv = pi / (ph.length - 1); g.push(gaugeSvg(pv, 'Phases', 'phase ' + (pi + 1) + ' of ' + ph.length + (String(d.phase) !== String(pi + 1) ? ' (' + d.phase + ')' : ''), gc(pv))); }
     var trig = d.live && d.live.end && d.live.end.triggered;
     g.push(gaugeSvg(d.finished ? 1 : trig ? .9 : Math.max(pi >= 0 && ph.length > 1 ? pi / (ph.length - 1) : 0, bank0 ? 1 - Math.max(0, d.bank) / bank0 : 0) * .85, 'Game end', d.finished ? 'game over' : trig ? 'end triggered' : 'not triggered yet', d.finished || trig ? '#d9534f' : '#8a8a8a'));
     return g.length ? '<section class="card"><h2>Pressure gauge</h2><p class="sub">How close the game is to its limits: green is far off, yellow is getting close, red is at the limit.</p><div class="gauges">' + g.join('') + '</div></section>' : '';
@@ -3280,7 +3303,8 @@
         var cell = r.cells[mk.name]; if (!cell || r.name === mk.pres.name || cell.pct < presCert) return;
         // the president must end below this holder; the bank pool usually holds at most 50%
         var sell = mk.pres.pct - cell.pct + (mk.sharePct || 10), poolNow = (mk.pool || 0) * (mk.sharePct || 10);
-        if (sell > mk.pres.pct || poolNow + sell > 50) return;
+        var poolMax = (d.primer && d.primer.poolLimit) || 50, turnMax = d.primer && d.primer.turnSellLimit;
+        if (sell > mk.pres.pct || poolNow + sell > poolMax || (turnMax && sell > turnMax)) return;
         var bad = c.trainless || (c.buy && (c.buy.kind === 'stuck' || c.buy.kind === 'emergency'));
         out.push({ corp: mk.name, color: mk.color, pres: mk.pres.name, presPct: mk.pres.pct, to: r.name, pct: cell.pct, sell: sell, bad: bad, c: c });
       });
@@ -3392,7 +3416,7 @@
     var newer = ST.latest && cmpVer(ST.latest, VERSION) > 0;
     h.push('<header><div class="hr1"><h1>' + esc(d.title) + (privacyOn() ? ' <span class="pill" title="Privacy mode: players are shown as Player 1, 2… and game numbers are hidden" style="font-size:11px">🕶 private</span>' : ' <span style="color:var(--text-muted);font-weight:400">#' + esc(d.id) + '</span>') + '</h1>');
     h.push('<span class="kv">Round <b>' + esc(d.roundLabel) + '</b></span><span class="kv">Phase <b>' + esc(d.phase) + '</b></span>');
-    h.push('<span class="kv">Bank <b data-f="bank" class="' + (d.bank <= 0 ? 'st-crit' : '') + '">' + esc(m(d.bank)) + '</b>' + (d.bank < 0 ? ' <small class="st-crit">broken</small>' : '') + '</span>');
+    h.push('<span class="kv">Bank <b data-f="bank" class="' + (d.bank <= 0 && !(d.primer && d.primer.bankUnlimited) ? 'st-crit' : '') + '">' + esc(d.primer && d.primer.bankUnlimited ? 'unlimited' : m(d.bank)) + '</b>' + (d.bank < 0 && !(d.primer && d.primer.bankUnlimited) ? ' <small class="st-crit">broken</small>' : '') + '</span>');
     if (d.nextTrain) h.push('<span class="kv opt">Next train <b>' + esc(d.nextTrain.name) + '</b> ' + esc(m(d.nextTrain.price)) + '</span>');
     if (d.finished) h.push('<span class="pill" style="border-color:var(--crit);color:var(--crit)">Game over</span>');
     var aboutHtml = '<div class="ab"><a href="' + REPO_URL + '" target="_blank" rel="noopener" style="color:inherit">18xx-JNNstats v' + VERSION + ' by jimiste</a>' +
@@ -3468,7 +3492,7 @@
         var ru = L.rush;
         h.push('<div class="tile"><div class="l">Train rush · phase ' + esc(ru.phase) + '</div><div class="v ' + (ru.possible ? 'st-warn' : '') + '">' + (ru.possible ? '⚠ possible now' : 'not yet') + '</div>' +
           '<div class="d2">Phase ' + esc(ru.phase) + ' starts ' + buysTxt(ru.need) + ' (' + esc(m(ru.cost)) + ' of trains).</div>' +
-          '<div class="d2">The ' + esc(ru.scope) + ' hold ' + esc(m(ru.cash)) + ' and could buy <b>' + ru.bought + ' of ' + ru.need + '</b> from their treasuries' + (ru.who.length ? ' (' + esc(ru.who.join(', ')) + ')' : '') + '.</div>' +
+          '<div class="d2">' + esc(/^all /.test(ru.scope) ? ru.scope.charAt(0).toUpperCase() + ru.scope.slice(1) : 'The ' + ru.scope) + ' hold ' + esc(m(ru.cash)) + ' and could buy <b>' + ru.bought + ' of ' + ru.need + '</b> from their treasuries' + (ru.who.length ? ' (' + esc(ru.who.join(', ')) + ')' : '') + '.</div>' +
           (ru.rust.length ? '<div class="d2 st-crit">Rusts: ' + esc(ru.rust.join(', ')) + '</div>' : '') + (ru.obsolete.length ? '<div class="d2 st-warn">Becomes obsolete: ' + esc(ru.obsolete.join(', ')) + '</div>' : '') + '</div>');
       }
       // Game end
@@ -4037,7 +4061,7 @@
         var rr = d.trainGroups.filter(function (g) { return g.owned && (g.rustsOn || g.obsoleteOn); });
         if (rr.length) {
           var lastRun = {}; (d.routes || []).forEach(function (R) { R.corps.forEach(function (c) { if (c.trains.length) lastRun[c.corp] = c; }); });
-          var nn = function (x) { var q = parseFloat(String(x == null ? '' : x).replace(/[^\d.-]/g, '')); return isNaN(q) ? 0 : q; };
+          var nn = numIn;
           var ownTr = {}; d.corps.forEach(function (c) { ownTr[c.name] = c.trains.length; });
           var rrows = rr.slice().sort(function (a, b) { return (a.rustIn > 0 ? a.rustIn : 99) - (b.rustIn > 0 ? b.rustIn : 99); }).map(function (g) {
             var owners = Object.keys(g.owners || {}), eff = owners.map(function (o) {
