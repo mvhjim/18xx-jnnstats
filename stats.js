@@ -2610,19 +2610,26 @@
   // Why this route: stop by stop, using the values on the board now
   function routeWhy(d, stops, revTxt, train) {
     var byId = {}; (d.hexMap ? d.hexMap.hexes : []).forEach(function (h) { byId[h.id] = h; });
-    var parts = String(stops).split(' + '), path = parts[0], bonus = parts.slice(1), sum = 0, rows = [], m = d.money;
+    var parts = String(stops).split(' + '), path = parts[0], bonus = parts.slice(1), sum = 0, rows = [], m = d.money, vals = [];
     path.split('-').forEach(function (raw) {
       var skip = /^\(.*\)$/.test(raw), id = raw.replace(/[()[\]]/g, '').trim(), h = byId[id];
       var st = h && h.st ? h.st.filter(function (x) { return x.v != null; }) : [], v = st.length ? Math.max.apply(null, st.map(function (x) { return x.v; })) : null;
       var kind = st.length ? (st[0].k === 'off' ? 'off-board' : st[0].k) : 'stop';
-      if (!skip && v != null) sum += v;
+      if (!skip && v != null) { sum += v; vals.push({ v: v, k: kind }); }
       rows.push('<tr><td>' + esc(id) + '</td><td style="text-align:left">' + esc(h && h.loc ? h.loc : '') + '</td><td>' + esc(kind) + '</td><td>' + (skip ? '<span style="color:var(--text-muted)">passed through, no revenue</span>' : v != null ? esc(m(v)) : '?') + '</td></tr>');
     });
-    var rev = parseFloat(String(revTxt).replace(/[^\d.-]/g, '')) || 0, diff = rev - sum;
+    var rev = parseFloat(String(revTxt).replace(/[^\d.-]/g, '')) || 0, diff = rev - sum, best = '';
+    var nm = /(\d+)/.exec(String(train).split(' ').pop()), n = nm ? +nm[1] : 0;
+    if (diff < 0 && n && vals.length > n) {
+      var top = function (arr) { return arr.map(function (x) { return x.v; }).sort(function (a, b) { return b - a; }).slice(0, n).reduce(function (a, b) { return a + b; }, 0); };
+      var noTown = vals.filter(function (x) { return x.k !== 'town'; });
+      if (top(vals) === rev) best = 'This train counts only its ' + n + ' most valuable stops: those add up to exactly ' + m(rev) + '. ';
+      else if (top(noTown) === rev || (noTown.length <= n && noTown.reduce(function (a, x) { return a + x.v; }, 0) === rev)) best = 'This train ignores towns and counts only its ' + n + ' most valuable cities and off-boards: those add up to exactly ' + m(rev) + '. ';
+    }
     return '<b>Why ' + esc(train) + ' earned ' + esc(revTxt) + '</b><div class="tw"><table class="tight"><thead><tr><th>Hex</th><th style="text-align:left">Place</th><th>Kind</th><th>Value on the board now</th></tr></thead><tbody>' + rows.join('') +
       '<tr class="tot"><td colspan="3">Sum of the stops</td><td>' + esc(m(sum)) + '</td></tr>' + (bonus.length ? '<tr><td colspan="3">Bonuses: ' + esc(bonus.join(', ')) + '</td><td></td></tr>' : '') + '</tbody></table></div>' +
-      '<p>' + (diff === 0 ? 'The stops add up exactly to the revenue.' : diff > 0 ? 'The other ' + esc(m(diff)) + ' come from ' + (bonus.length ? 'the bonuses (' + esc(bonus.join(', ')) + ')' : 'bonuses') + ' or from values that changed since (off-boards often grow with the phase).' : 'The board values are higher now than when the train ran (tiles were upgraded or the phase moved on).') +
-      ' A stop in parentheses was passed through without counting. Each train may visit up to its number of stops, and two trains of one company may not share track.</p>';
+      '<p>' + (best ? esc(best) : diff === 0 ? 'The stops add up exactly to the revenue.' : diff > 0 ? 'The other ' + esc(m(diff)) + ' come from ' + (bonus.length ? 'the bonuses (' + esc(bonus.join(', ')) + ')' : 'bonuses') + ' or from values that changed since (off-boards often grow with the phase).' : 'The board values are higher now than when the train ran (tiles were upgraded or the phase moved on).') +
+      ' A stop in parentheses was passed through without counting; one in [brackets] is uncertain. Each train may visit up to its number of stops, and two trains of one company may not share track.</p>';
   }
   // Stations explained: for each company, where its stations are and which full cities block it
   function stationsCard(d) {
