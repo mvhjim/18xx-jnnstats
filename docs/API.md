@@ -46,7 +46,7 @@ Load `version.js` first (it sets `__xxSha` and `__xxApi`), check `__xxApi`, then
 | `teachMoments(d)` | the decisions and events that shaped the game |
 | `decisionScores(d)`, `styleVectors(d)` | decision score and style fingerprint per player |
 | `whatIf(raw, effectiveActions, index, change)` | Promise; replays the rest of the game on a copy with one decision changed |
-| `css()` | the JNN-stats stylesheet, for a matching look |
+| `css()` | the JNN-stats stylesheet as text, for a matching look |
 | `palette(dark)` | the player colours (respects the colour-blind setting) |
 | `render(window, d)` | draws the full JNN-stats dashboard into a window |
 | `shareImage(...)` | the share card canvas |

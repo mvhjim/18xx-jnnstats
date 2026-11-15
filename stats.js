@@ -4984,7 +4984,7 @@
       decisionScores: decisionScores, styleVectors: styleVectors,
       whatIf: sbRun,                        // (raw, effectiveActions, index, change) -> Promise<result>; runs on a copy
       // drawing
-      css: function () { return CSS.join(''); },
+      css: function () { return CSS; },
       palette: playerPal,                   // (dark) -> player colours
       render: render,                       // (window, d) -> draws the full JNN-stats dashboard into a window
       shareImage: shareImage,
