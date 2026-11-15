@@ -959,7 +959,8 @@
       if (!finished) {
         var ent = call(g, 'current_entity'), ast = call(r, 'active_step');
         var stepName = function (st) { return s(st.$class().$name()).split('::').pop(); };
-        var acts = ast && ent ? (call(ast, 'actions', ent) || []).map(s).filter(Boolean) : [];
+        var acts = ent ? (call(r, 'actions_for', ent) || (ast ? call(ast, 'actions', ent) : null) || []).map(s).filter(Boolean) : [];
+        acts = acts.filter(function (a, i) { return acts.indexOf(a) === i; });
         var desc = ast ? s(call(ast, 'description')) : '';
         var steps = (call(r, 'steps') || []).map(function (st) { return { name: stepName(st), desc: s(call(st, 'description')), blocks: bool(call(st, 'blocks?')), passed: bool(call(st, 'passed?')), acts: ent ? (call(st, 'actions', ent) || []).length : 0 }; });
         var entType = ent ? (corpObj[nameOf(ent)] ? 'corporation' : rt(ent, 'player?') && bool(ent['$player?']()) ? 'player' : 'other') : '';
@@ -2244,15 +2245,16 @@
     if (T && T.entity) {
       var mineNow = me && (T.entity === me || T.owner === me) && !d.tt;
       var who = T.entType === 'corporation' ? '<b>' + esc(T.entity) + '</b> (president ' + esc(T.owner) + ')' : '<b>' + esc(T.entity) + '</b>';
-      var acts = T.actions.filter(function (a) { return ACT_WORDS[a] !== null; });
+      var tc = T.entType === 'corporation' ? d.corps.filter(function (c) { return c.name === T.entity; })[0] : null;
+      var acts = T.actions.filter(function (a) { return ACT_WORDS[a] !== null && !/^program_/.test(a) && (a !== 'bankrupt' || (tc && tc.buy && tc.buy.kind === 'stuck')); });
       h.push('<p class="nowline" style="font-size:13px">' + (mineNow ? '<span class="pill yours">● Your turn</span> ' : '') + who + ' is to act' + (T.desc ? ': <i>' + esc(T.desc) + '</i>' : '') + '.</p>');
       if (acts.length) h.push('<h3 class="rh">What the rules allow right now</h3><ul class="wo">' + acts.map(function (a) { var w2 = ACT_WORDS[a] || [a.replace(/_/g, ' '), '']; return '<li><b>' + esc(w2[0]) + '</b>' + (w2[1] ? ' — ' + esc(w2[1]) : '') + '</li>'; }).join('') + '</ul><p class="sub" style="margin:4px 0 0">Make the move on the 18xx.games page; this window only explains.</p>');
       // operating turn steps
       if (L.isOR) {
         var SEQ = [['Track', 'Lay track'], ['Token', 'Station'], ['Route', 'Run trains'], ['Dividend', 'Pay or withhold'], ['Train', 'Buy trains']];
-        var curI = -1; SEQ.forEach(function (q, i) { if (curI < 0 && T.step.indexOf(q[0]) >= 0) curI = i; });
-        if (curI < 0 && /Track|Tile/i.test(T.step)) curI = 0;
-        h.push('<h3 class="rh">Steps of this company\'s turn</h3><div class="steps">' + SEQ.map(function (q, i) { return '<span class="stp' + (i < curI ? ' done' : i === curI ? ' cur' : '') + '">' + (i + 1) + ' ' + q[1] + '</span>'; }).join('<span class="sar">→</span>') + '</div>' + (curI < 0 && T.step ? '<p class="sub" style="margin:4px 0 0">Now in a special step: ' + esc(T.desc || T.step) + '.</p>' : ''));
+        var curI = -1, curJ = -1; SEQ.forEach(function (q, i) { if (T.step.indexOf(q[0]) >= 0) { if (curI < 0) curI = i; curJ = i; } });
+        if (curI < 0 && /Track|Tile/i.test(T.step)) curI = curJ = 0;
+        h.push('<h3 class="rh">Steps of this company\'s turn</h3><div class="steps">' + SEQ.map(function (q, i) { return '<span class="stp' + (i < curI ? ' done' : i >= curI && i <= curJ ? ' cur' : '') + '">' + (i + 1) + ' ' + q[1] + '</span>'; }).join('<span class="sar">→</span>') + '</div>' + (curI < 0 && T.step ? '<p class="sub" style="margin:4px 0 0">Now in a special step: ' + esc(T.desc || T.step) + '.</p>' : ''));
       }
     }
     // next train preview
