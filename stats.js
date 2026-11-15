@@ -3154,7 +3154,7 @@
     var M = whatIfModel(d, who); if (!M) return '';
     var m = d.money, last = function (arr) { for (var i = arr.length - 1; i >= 0; i--) if (arr[i] != null) return arr[i]; return null; }, a = last(M.actual), lines = [];
     if (M.keep) lines.push('had kept the ' + M.sales.reduce(function (s2, x) { return s2 + x.n; }, 0) + ' shares they sold: <b>' + esc(m(last(M.keep))) + '</b> (' + (last(M.keep) >= a ? '+' : '−') + esc(m(Math.abs(last(M.keep) - a))) + ')');
-    if (M.pay) lines.push('had received the dividends of the ' + M.wh.length + ' withholds they held shares in: <b>' + esc(m(last(M.pay))) + '</b> (+' + esc(m(last(M.pay) - a)) + ')');
+    if (M.pay) lines.push('had received the dividends of the ' + M.wh.length + ' withhold' + (M.wh.length === 1 ? '' : 's') + ' they held shares in: <b>' + esc(m(last(M.pay))) + '</b> (+' + esc(m(last(M.pay) - a)) + ')');
     ST.wiModel = M; ST.wiName = who;
     return '<section class="card wide"><h2>What-if lines</h2><p class="sub">Two simple what-ifs for one player, worked out from the log without replaying the game: the shares they sold kept at the market price, and the dividends lost to withholds paid out. They ignore knock-on effects (prices, train money, other players\' choices). <select id="wi-who">' + d.players.map(function (p) { return '<option' + (p.name === who ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') + '</select></p>' +
       (lines.length ? '<p class="sub">Actual ' + (d.finished ? 'final' : 'current') + ' value <b>' + esc(m(a)) + '</b>. If ' + esc(who) + ' ' + lines.join('; or if they ') + '.</p><div class="chart" id="c-whatif"></div>' : '<p class="sub">' + esc(who) + ' never sold shares and never lost dividends to a withhold, so there is nothing to draw.</p>') + '</section>';
@@ -3207,7 +3207,7 @@
           var k = idx + 1;
           for (; k < eff.length; k++) {
             var a = eff[k]; if (a.type === 'message') { res.steps++; continue; }
-            try { apply(a); res.steps++; } catch (eA) { res.stop = { id: a.id, type: a.type, entity: a.entity, msg: String(eA && eA.message || eA).replace(/^.*?Error:?\s*/, '').slice(0, 240) }; break; }
+            try { apply(a); res.steps++; } catch (eA) { res.stop = { id: a.id, type: a.type, entity: a.entity, msg: String(eA && eA.message || eA).replace(/^.*?Error:?\s*/, '').replace(/ at \d+$/, '').slice(0, 240) }; break; }
           }
           res.at = k; var ga = actual(Math.min(k, eff.length));
           var vals = function (gg) { var o = {}; gg.$players().forEach(function (p) { o[s(p.$name())] = num(call(gg, 'player_value', p)); }); return o; };
@@ -3221,7 +3221,7 @@
   }
   function sandboxCard(d, me) {
     var raw = ST.game && ST.game.raw; if (!raw || !raw.actions) return '';
-    var who = ST.sbWho && d.players.some(function (p) { return p.name === ST.sbWho; }) ? ST.sbWho : (me || d.players[0].name);
+    var who = ST.sbWho && d.players.some(function (p) { return p.name === ST.sbWho; }) ? ST.sbWho : (me || d.players.slice().sort(function (a, b) { return b.value - a.value; })[0].name);
     var D = sbDecisions(d, raw, who); ST.sbD = D;
     var sel = ST.sbSel != null && D.some(function (x) { return x.i === ST.sbSel; }) ? ST.sbSel : (D.length ? D[D.length - 1].i : null), cur = D.filter(function (x) { return x.i === sel; })[0];
     var opts = '';
@@ -3229,7 +3229,7 @@
       var ch = [];
       if (cur.type === 'dividend') { var kinds = ['payout', 'withhold']; if (d.title === '1846' || cur.a.kind === 'half') kinds.push('half'); kinds.filter(function (k) { return k !== cur.a.kind; }).forEach(function (k) { ch.push(['kind:' + k, k === 'half' ? 'pay half instead' : k === 'payout' ? 'pay out instead' : 'withhold instead']); }); }
       ch.push(['drop', 'do not make this move']);
-      opts = ch.map(function (c, i) { return '<label style="margin-right:12px"><input type="radio" name="sbc" value="' + c[0] + '"' + (i === 0 ? ' checked' : '') + '> ' + esc(c[1]) + '</label>'; }).join('');
+      opts = ch.map(function (c, i) { return '<label style="margin-right:12px"><input type="radio" name="sbc" value="' + c[0] + '"' + ((ST.sbPick && ch.some(function (q) { return q[0] === ST.sbPick; }) ? c[0] === ST.sbPick : i === 0) ? ' checked' : '') + '> ' + esc(c[1]) + '</label>'; }).join('');
     }
     var R = ST.sbRes && ST.sbRes.gid === d.id ? ST.sbRes : null, m = d.money, body = '';
     if (R && R.busy) body = '<p class="sub">Replaying the rest of the game with the change…</p>';
@@ -4218,7 +4218,7 @@
     var sbr = doc.getElementById('sb-run');
     if (sbr) sbr.onclick = function () {
       var raw = ST.game.raw, eff = effectiveActions(raw), cur = (ST.sbD || []).filter(function (x) { return x.i === (+(sbs && sbs.value)); })[0]; if (!cur) return;
-      var pick = (doc.querySelector('input[name="sbc"]:checked') || {}).value || 'drop', change = {}, label;
+      var pick = (doc.querySelector('input[name="sbc"]:checked') || {}).value || 'drop', change = {}, label; ST.sbPick = pick;
       if (pick === 'drop') { change.drop = true; label = 'not making the move “' + cur.text + '” (' + cur.round + ')'; }
       else { var na = JSON.parse(JSON.stringify(cur.a)); na.kind = pick.split(':')[1]; change.action = na; label = cur.a.entity + ' choosing “' + pick.split(':')[1] + '” instead of “' + cur.a.kind + '” (' + cur.round + ')'; }
       ST.sbSel = cur.i; ST.sbRes = { gid: d.id, busy: true }; rerender();
