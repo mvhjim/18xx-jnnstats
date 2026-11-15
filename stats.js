@@ -996,7 +996,7 @@
       var np = players.length, sc = kget('STARTING_CASH'), cl = kget('CERT_LIMIT');
       primer = {
         designer: s(kget('GAME_DESIGNER') || ''), publisher: s(kget('GAME_PUBLISHER') || ''), location: s(kget('GAME_LOCATION') || ''),
-        bank: num(kget('BANK_CASH')), startCash: sc ? num(typeof sc === 'number' ? sc : hashAt(sc, np)) : null, certLimit: cl ? (typeof cl === 'number' ? cl : num(hashAt(cl, np))) : null,
+        bank: num(kget('BANK_CASH')), bankUnlimited: s(kget('BANK_CASH') || '') === 'unlimited', turnSellLimit: num(kget('TURN_SELL_LIMIT')) || null, startCash: sc ? num(typeof sc === 'number' ? sc : hashAt(sc, np)) : null, certLimit: cl ? (typeof cl === 'number' ? cl : num(hashAt(cl, np))) : null,
         capitalization: s(kget('CAPITALIZATION') || ''), sellAfter: s(kget('SELL_AFTER') || ''), sellBuyOrder: s(kget('SELL_BUY_ORDER') || ''), sellMovement: s(kget('SELL_MOVEMENT') || ''),
         poolLimit: num(kget('MARKET_SHARE_LIMIT')), mustBuyTrain: s(kget('MUST_BUY_TRAIN') || ''), homeToken: s(kget('HOME_TOKEN_TIMING') || ''),
         corps: g.$corporations().map(function (c) { return { name: s(c.$name()), full: s(call(c, 'full_name') || ''), color: s(call(c, 'color') || '') }; }),
@@ -2375,7 +2375,7 @@
     h.push('<p>' + esc(d.title) + (P.designer ? ' by ' + esc(P.designer) : '') + (P.location ? ', set in ' + esc(P.location) : '') + '. ' + d.players.length + ' players in this game.' +
       (I.rulesUrl ? ' <a href="' + esc(I.rulesUrl) + '" target="_blank" rel="noopener">Official rules</a>' : '') + (I.wikiUrl ? ' · <a href="' + esc(I.wikiUrl) + '" target="_blank" rel="noopener">18xx.games wiki page</a>' : '') + '</p>');
     var facts = [];
-    if (P.bank) facts.push(['Bank', esc(m(P.bank))]);
+    if (P.bank) facts.push(['Bank', esc(m(P.bank))]); else if (P.bankUnlimited) facts.push(['Bank', 'unlimited (the bank never breaks; its balance can go below zero)']);
     if (P.startCash) facts.push(['Starting cash', esc(m(P.startCash)) + ' each']);
     if (P.certLimit || (d.players[0] && d.players[0].certLimit)) facts.push(['Certificate limit', String(P.certLimit || d.players[0].certLimit)]);
     facts.push(['Market', oneD ? 'single row' : 'grid (' + d.grid.cells.length + ' rows)']);
@@ -2383,7 +2383,7 @@
     facts.push(['Companies', (P.corps || []).length + (P.minors ? ' plus ' + P.minors + ' minors' : '') + (P.hasLoans ? ', with loans' : '')]);
     h.push('<div class="tw"><table class="tight"><tbody>' + facts.map(function (f) { return '<tr><td>' + f[0] + '</td><td style="text-align:left">' + f[1] + '</td></tr>'; }).join('') + '</tbody></table></div>');
     var mv = WORDS_MOVE[P.sellMovement]; if (mv && oneD) mv = mv.replace('down one row', 'left one step');
-    var rules = [WORDS_CAP[P.capitalization], WORDS_SELL_AFTER[P.sellAfter], WORDS_SBO[P.sellBuyOrder], mv, WORDS_MUSTBUY[P.mustBuyTrain], WORDS_HOME[P.homeToken]].filter(Boolean);
+    var rules = [WORDS_CAP[P.capitalization], WORDS_SELL_AFTER[P.sellAfter], WORDS_SBO[P.sellBuyOrder], mv, WORDS_MUSTBUY[P.mustBuyTrain], WORDS_HOME[P.homeToken], P.turnSellLimit ? 'You may sell at most ' + P.turnSellLimit + '% of one company in a stock turn.' : null].filter(Boolean);
     if (rules.length) h.push('<h3 class="rh">How shares and companies work here</h3><ul class="wo">' + rules.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('') + '</ul>');
     // trains
     var TG = d.trainGroups || [];
@@ -2449,6 +2449,8 @@
     if (P.minors) out.push('There are ' + P.minors + ' minor companies as well as the major ones.');
     if (P.hasLoans) out.push('Companies can take loans.');
     if (P.poolLimit && P.poolLimit !== 50) out.push('The bank pool may hold up to ' + P.poolLimit + '% of a company (50% in 1830).');
+    if (P.turnSellLimit) out.push('You may sell at most ' + P.turnSellLimit + '% of one company in a stock turn (no limit per turn in 1830).');
+    if (P.bankUnlimited) out.push('The bank has unlimited money, so it never breaks (in 1830 a broken bank ends the game).');
     (TITLE_NOTES[d.title] || []).forEach(function (n) { out.push(n); });
     return '<p class="sub">Compared with 1830, the classic most 18xx games build on. Read from this title\'s rules engine' + (TITLE_NOTES[d.title] ? ', plus hand-written notes' : '') + '.</p>' + (out.length ? '<ul class="wo">' + out.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '<p>No big differences found in the engine\'s settings.</p>');
   }
@@ -2991,7 +2993,7 @@
   }
   function gaugeCard(d) {
     var m = d.money, g = [], gc = function (v) { return v >= .85 ? '#d9534f' : v >= .6 ? '#e0a419' : '#2e9e5b'; };
-    var bank0 = d.primer && d.primer.bank; if (!bank0 && d.bank <= 0) g.push(gaugeSvg(1, 'Bank', 'broken', '#d9534f')); if (bank0) { var bv = 1 - Math.max(0, d.bank) / bank0; g.push(gaugeSvg(bv, 'Bank', d.bank <= 0 ? 'broken' : m(d.bank) + ' of ' + m(bank0) + ' left', gc(bv))); }
+    var bank0 = d.primer && d.primer.bank; if (!bank0 && d.bank <= 0 && !(d.primer && d.primer.bankUnlimited)) g.push(gaugeSvg(1, 'Bank', 'broken', '#d9534f')); if (bank0) { var bv = 1 - Math.max(0, d.bank) / bank0; g.push(gaugeSvg(bv, 'Bank', d.bank <= 0 ? 'broken' : m(d.bank) + ' of ' + m(bank0) + ' left', gc(bv))); }
     var TG = (d.trainGroups || []).filter(function (t) { return !t.unlimited && t.total; }), tot = 0, gone = 0; TG.forEach(function (t) { tot += t.total; gone += t.total - (t.available || 0); });
     var nx = TG.filter(function (t) { return t.available > 0; })[0];
     if (tot) g.push(gaugeSvg(gone / tot, 'Trains', nx ? nx.available + ' × ' + nx.sym + ' still to buy' : 'all limited trains sold', gc(gone / tot)));
@@ -3301,7 +3303,8 @@
         var cell = r.cells[mk.name]; if (!cell || r.name === mk.pres.name || cell.pct < presCert) return;
         // the president must end below this holder; the bank pool usually holds at most 50%
         var sell = mk.pres.pct - cell.pct + (mk.sharePct || 10), poolNow = (mk.pool || 0) * (mk.sharePct || 10);
-        if (sell > mk.pres.pct || poolNow + sell > 50) return;
+        var poolMax = (d.primer && d.primer.poolLimit) || 50, turnMax = d.primer && d.primer.turnSellLimit;
+        if (sell > mk.pres.pct || poolNow + sell > poolMax || (turnMax && sell > turnMax)) return;
         var bad = c.trainless || (c.buy && (c.buy.kind === 'stuck' || c.buy.kind === 'emergency'));
         out.push({ corp: mk.name, color: mk.color, pres: mk.pres.name, presPct: mk.pres.pct, to: r.name, pct: cell.pct, sell: sell, bad: bad, c: c });
       });
@@ -3413,7 +3416,7 @@
     var newer = ST.latest && cmpVer(ST.latest, VERSION) > 0;
     h.push('<header><div class="hr1"><h1>' + esc(d.title) + (privacyOn() ? ' <span class="pill" title="Privacy mode: players are shown as Player 1, 2… and game numbers are hidden" style="font-size:11px">🕶 private</span>' : ' <span style="color:var(--text-muted);font-weight:400">#' + esc(d.id) + '</span>') + '</h1>');
     h.push('<span class="kv">Round <b>' + esc(d.roundLabel) + '</b></span><span class="kv">Phase <b>' + esc(d.phase) + '</b></span>');
-    h.push('<span class="kv">Bank <b data-f="bank" class="' + (d.bank <= 0 ? 'st-crit' : '') + '">' + esc(m(d.bank)) + '</b>' + (d.bank < 0 ? ' <small class="st-crit">broken</small>' : '') + '</span>');
+    h.push('<span class="kv">Bank <b data-f="bank" class="' + (d.bank <= 0 && !(d.primer && d.primer.bankUnlimited) ? 'st-crit' : '') + '">' + esc(d.primer && d.primer.bankUnlimited ? 'unlimited' : m(d.bank)) + '</b>' + (d.bank < 0 && !(d.primer && d.primer.bankUnlimited) ? ' <small class="st-crit">broken</small>' : '') + '</span>');
     if (d.nextTrain) h.push('<span class="kv opt">Next train <b>' + esc(d.nextTrain.name) + '</b> ' + esc(m(d.nextTrain.price)) + '</span>');
     if (d.finished) h.push('<span class="pill" style="border-color:var(--crit);color:var(--crit)">Game over</span>');
     var aboutHtml = '<div class="ab"><a href="' + REPO_URL + '" target="_blank" rel="noopener" style="color:inherit">18xx-JNNstats v' + VERSION + ' by jimiste</a>' +
