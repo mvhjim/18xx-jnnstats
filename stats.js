@@ -3095,10 +3095,10 @@
     if (!d.finished || !d.analysis) return;
     try {
       var C = careerLoad(); C.games = C.games || {};
-      if (C.games[d.id] && C.games[d.id].v === 1) return;
+      if (C.games[d.id] && C.games[d.id].v === 2) return;
       var D = decisionScores(d), S = styleVectors(d), ranked = d.players.slice().sort(function (a, b) { return b.value - a.value; }), pl = {};
       d.players.forEach(function (p, i) { if (!p.uid) return; pl[p.uid] = { place: ranked.indexOf(p) + 1, value: p.value, dec: D[i].score, sty: S[i].v }; });
-      C.games[d.id] = { v: 1, t: d.title, at: Date.now(), n: d.players.length, pl: pl };
+      C.games[d.id] = { v: 2, t: d.title, at: Date.now(), n: d.players.length, pl: pl };
       var ids = Object.keys(C.games).sort(function (a, b) { return C.games[b].at - C.games[a].at; }); ids.slice(200).forEach(function (k) { delete C.games[k]; });
       lsSet('xxStats.career', JSON.stringify(C));
     } catch (e) {}
