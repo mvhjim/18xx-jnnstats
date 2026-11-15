@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.37.1';
+  var VERSION = '0.37.2';
   // JNN-API: the version of the programming interface other tools (JNN-Engine) build on.
   // Minor = additions only; a new major means a change that can break them. See docs/API.md.
   var API_VERSION = '1.1';
@@ -3239,7 +3239,15 @@
       yAxis: { type: 'value', axisLabel: { color: C.mut, formatter: function (v) { return (v > 0 ? '+' : v < 0 ? '−' : '') + m(Math.abs(v)); } }, splitLine: { lineStyle: { color: C.grid } } }, series: ser });
   }
   // 5 What-if sandbox: change one decision and let the rules engine replay the rest of the game
+  // The moves that count after undo and redo, worked out by the rules engine itself (the same way the site loads a game)
   function effectiveActions(raw) {
+    try {
+      var fr = Opal.Engine.Game.Base.$filtered_actions(Opal.JSON.$parse(JSON.stringify(raw.actions || []))), keep = {};
+      (fr[0] || []).forEach(function (a) { if (a != null && a !== Opal.nil) keep[Number(a['$[]']('id'))] = 1; });
+      return (raw.actions || []).filter(function (a) { return keep[a.id]; });
+    } catch (eF) { return effectiveActionsSimple(raw); }
+  }
+  function effectiveActionsSimple(raw) {
     var st = [], redo = [];
     (raw.actions || []).forEach(function (a) {
       if (a.type === 'undo') { if (a.action_id != null) { while (st.length && st[st.length - 1].id > a.action_id) redo.push(st.pop()); } else if (st.length) redo.push(st.pop()); }

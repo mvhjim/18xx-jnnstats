@@ -2,6 +2,11 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.37.2] - 2026-11-15
+
+### Fixed
+- **What-if sandbox in games with undo and redo:** the list of moves that count was worked out with a simplified rule that could drop moves after a redo, so the replay could go off track. It now uses the rules engine's own undo handling, the same one the site uses when it loads a game. (`effectiveActions` in JNN-API works the same way.)
+
 ## [0.37.1] - 2026-11-15
 
 ### Added
