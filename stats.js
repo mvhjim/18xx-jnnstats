@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.29.0';
+  var VERSION = '0.30.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -561,7 +561,8 @@
     var phase = g.$phase();
     var phases = (call(phase, 'phases') || []).map(function (p) {
       var on = p['$[]']('on'); on = nil(on) ? [] : (Array.isArray(on) ? on.map(s) : [s(on)]);
-      return { name: s(p['$[]']('name')), on: on.filter(Boolean), trainLimit: s(p['$[]']('train_limit')), ors: s(p['$[]']('operating_rounds')) };
+      var tl = p['$[]']('tiles'); tl = nil(tl) ? [] : (Array.isArray(tl) ? tl.map(s) : [s(tl)]);
+      return { name: s(p['$[]']('name')), on: on.filter(Boolean), trainLimit: s(p['$[]']('train_limit')), ors: s(p['$[]']('operating_rounds')), tiles: tl.filter(Boolean) };
     });
     var curPhase = s(phase.$name());
     // purchases until each later train type/phase trigger
@@ -972,6 +973,23 @@
     var live = { turn: turn, isOR: isOR, isSR: isSR, acting: acting, current: curEnt, order: order, orNum: isOR ? num(call(r, 'round_num')) : null, orsInSet: orsInSet,
       priority: nameOf(call(g, 'priority_deal_player')), market: market, rush: rush, end: endInfo, hasPreview: !!divStep };
 
+    // Title primer: a few of the title's own constants, asked from the engine (each one may be missing in a title)
+    var primer = null;
+    try {
+      var K = g.$class(), kget = function (n) { try { var v = K.$const_get(n); return nil(v) ? null : v; } catch (eK) { return null; } };
+      var hashAt = function (h, k) { try { var v = h['$[]'](k); return nil(v) ? null : v; } catch (eH) { return null; } };
+      var np = players.length, sc = kget('STARTING_CASH'), cl = kget('CERT_LIMIT');
+      primer = {
+        designer: s(kget('GAME_DESIGNER') || ''), publisher: s(kget('GAME_PUBLISHER') || ''), location: s(kget('GAME_LOCATION') || ''),
+        bank: num(kget('BANK_CASH')), startCash: sc ? num(typeof sc === 'number' ? sc : hashAt(sc, np)) : null, certLimit: cl ? (typeof cl === 'number' ? cl : num(hashAt(cl, np))) : null,
+        capitalization: s(kget('CAPITALIZATION') || ''), sellAfter: s(kget('SELL_AFTER') || ''), sellBuyOrder: s(kget('SELL_BUY_ORDER') || ''), sellMovement: s(kget('SELL_MOVEMENT') || ''),
+        poolLimit: num(kget('MARKET_SHARE_LIMIT')), mustBuyTrain: s(kget('MUST_BUY_TRAIN') || ''), homeToken: s(kget('HOME_TOKEN_TIMING') || ''),
+        corps: g.$corporations().map(function (c) { return { name: s(c.$name()), full: s(call(c, 'full_name') || ''), color: s(call(c, 'color') || '') }; }),
+        companies: (call(g, 'companies') || []).map(function (c) { return { sym: s(call(c, 'sym') || c.$name()), name: s(c.$name()), value: num(call(c, 'value')), revenue: num(call(c, 'revenue')), desc: s(call(c, 'desc') || '') }; }),
+        minors: (call(g, 'minors') || []).length, hasLoans: corps.some(function (c) { return c.maxLoans > 0; })
+      };
+    } catch (eP0) { primer = null; }
+
     // Turn pacing: time between moves, from the timestamps the site stores with each action
     var pacing = null;
     try {
@@ -1010,7 +1028,7 @@
       trainGroups: groups, phases: phases, risk: risk,
       ticker: ticker, portfolio: portfolio, holdings: holdings, minors: minorList, companies: companyList, snapErr: SNAP && SNAP.err,
       nextTrain: nextTrain ? { name: s(nextTrain.$name()), sym: s(call(nextTrain, 'sym')), price: num(nextTrain.$price()) } : null,
-      upcomingCount: upcoming.length, notes: notes, pacing: pacing, updated: new Date(), live: live, feed: feed, certNote: certNote, loanInfo: loanInfo, cheapest: cheapest,
+      upcomingCount: upcoming.length, notes: notes, pacing: pacing, primer: primer, updated: new Date(), live: live, feed: feed, certNote: certNote, loanInfo: loanInfo, cheapest: cheapest,
       events: events, info: info, replay: replay, grid: grid, gridHist: gridHist, bank2: bankInfo, tiles: tileInfo, recap: recap, gameLog: gameLog, routes: routeTable, analysis: analysis, hexMap: hexMap, pin: (raw.settings && raw.settings.pin) ? String(raw.settings.pin) : ''
     };
   }
@@ -1031,6 +1049,8 @@
     '.rbanner{margin:0 0 12px;padding:8px 12px;border:1px solid color-mix(in srgb,var(--accent) 55%,var(--border));background:color-mix(in srgb,var(--accent) 9%,var(--surface-1));border-radius:10px;font-size:13px;line-height:1.5}',
     '.steps{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:2px 0}.stp{border:1px solid var(--border);border-radius:99px;padding:1px 9px;font-size:12px;color:var(--text-muted)}.stp.done{opacity:.55;text-decoration:line-through}.stp.cur{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--text-primary);font-weight:650}.sar{color:var(--text-muted);font-size:11px}',
     '.redflag,.redflag td{outline:2px solid var(--crit);outline-offset:-2px;background:color-mix(in srgb,var(--crit) 10%,transparent)!important}',
+    '#learn{position:fixed;inset:0;z-index:55;background:rgba(0,0,0,.55);display:flex;align-items:flex-start;justify-content:center;padding:24px 10px}#learn>div{background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:14px 16px;width:min(720px,100%);max-height:calc(100vh - 48px);display:flex;flex-direction:column}#learn .gh2{display:flex;justify-content:space-between;align-items:center}#learn .lb{overflow:auto;font-size:12.5px;line-height:1.45}#learn a{color:var(--accent)}#learn .lb p{margin:4px 0 8px}',
+    '.ccards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}.ccard{border:1px solid var(--grid);border-radius:10px;padding:9px 11px}.ccard.hl{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}.ccard p{color:var(--text-secondary);margin:6px 0 0!important}.csvg{display:block;width:100%;max-width:320px;height:auto;margin-top:6px}',
     '.foltag{font-size:10.5px;font-weight:600;color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 50%,transparent);border-radius:99px;padding:0 6px;margin-left:6px;vertical-align:middle}',
     '*{box-sizing:border-box}body{margin:0;background:var(--surface-0);color:var(--text-primary);font:13px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}',
     '.hr3{display:flex;align-items:center;gap:8px;margin-top:6px;padding:4px 8px;border-radius:8px;font-size:12px;color:var(--text-secondary);border:1px solid var(--grid)}.hr3 input{flex:1;min-width:80px}.hr3.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--text)}.hr3 b{white-space:nowrap}.tt-note{color:var(--text-muted)}',
@@ -1157,7 +1177,7 @@
   }
   function followOn() { return lsGet('xxStats.follow') !== '0'; }
   var KEYS = [['?', 'show or hide this list'], ['1 – 9', 'jump to a section'], ['H', 'History on / off'], ['← →', 'previous / next round in History'], ['Esc', 'close, or leave History'],
-    ['R', 'refresh now'], ['M', 'open the ⋯ menu'], ['D', 'dark / light'], ['P', 'privacy mode'], ['C', 'colour-blind colours'], ['F', 'follow the round'], ['G', 'glossary'], ['T', 'back to the top']];
+    ['R', 'refresh now'], ['M', 'open the ⋯ menu'], ['D', 'dark / light'], ['P', 'privacy mode'], ['C', 'colour-blind colours'], ['F', 'follow the round'], ['G', 'glossary'], ['L', 'learn this title'], ['T', 'back to the top']];
   function showKeys(w) {
     var doc = w.document, old = doc.getElementById('keys'); if (old) { old.remove(); return; }
     var o = doc.createElement('div'); o.id = 'keys';
@@ -1173,7 +1193,7 @@
       var k = e.key, click = function (id) { var el = doc.getElementById(id); if (el) el.click(); }, mn = doc.getElementById('mn');
       if (k === '?') { showKeys(w); }
       else if (k === 'Escape') {
-        var ov = doc.getElementById('keys') || doc.getElementById('gloss') || doc.getElementById('xpop');
+        var ov = doc.getElementById('keys') || doc.getElementById('gloss') || doc.getElementById('learn') || doc.getElementById('xpop');
         if (ov) ov.remove(); else if (mn && mn.open) { mn.open = false; ST.menuOpen = false; } else if (ST.tt) ttExit(); else if (ST.ttOpen) { ST.ttOpen = false; rerender(); } else return;
       }
       else if (/^[1-9]$/.test(k)) { var jb = doc.querySelectorAll('#jump .jg button')[+k - 1]; if (jb) jb.click(); else return; }
@@ -1190,6 +1210,7 @@
       else if (k === 'f' || k === 'F') click('fol');
       else if (k === 't' || k === 'T') w.scrollTo(0, 0);
       else if (k === 'g' || k === 'G') showGlossary(w, d);
+      else if (k === 'l' || k === 'L') showLearn(w, d);
       else return;
       e.preventDefault();
     };
@@ -2144,7 +2165,7 @@
     var doc = w.document, G = glossary(d), t = G[k]; if (!t) return;
     var old = doc.getElementById('xpop'); if (old) old.remove();
     var pop = doc.createElement('div'); pop.id = 'xpop';
-    pop.innerHTML = '<b>' + esc(t.t) + '</b><p>' + esc(t.x) + '</p><div class="xb"><button class="lnk" data-x="got">got it, hide this ⓘ</button> <button class="lnk" data-x="gl">open the glossary</button> <button class="lnk" data-x="close">close</button></div>';
+    pop.innerHTML = '<b>' + esc(t.t) + '</b><p>' + esc(t.x) + '</p><div class="xb"><button class="lnk" data-x="got">got it, hide this ⓘ</button> <button class="lnk" data-x="gl">open the glossary</button> <button class="lnk" data-x="cc">concept cards</button> <button class="lnk" data-x="close">close</button></div>';
     doc.body.appendChild(pop);
     var r = anchor.getBoundingClientRect(), pw = Math.min(360, w.innerWidth - 16);
     pop.style.width = pw + 'px'; pop.style.left = Math.max(8, Math.min(r.left, w.innerWidth - pw - 8)) + 'px';
@@ -2154,6 +2175,7 @@
       pop.remove();
       if (x === 'got') { setKnown(k, true); Array.prototype.forEach.call(doc.querySelectorAll('.xi[data-t="' + k + '"]'), function (b) { b.remove(); }); }
       if (x === 'gl') showGlossary(w, d, k);
+      if (x === 'cc') { showLearn(w, d, 'concepts'); var cc = doc.querySelector('#learn .ccard[data-k="' + k + '"]'); if (cc) { cc.classList.add('hl'); cc.scrollIntoView({ block: 'center' }); } }
     };
   }
   function showGlossary(w, d, focus) {
@@ -2186,7 +2208,7 @@
     else txt = '<b>' + esc(d.roundLabel) + '.</b> A special round of this title, often an auction of private companies or minors: players bid or buy in turn.';
     if (lvl === 'intermediate' && !L.isSR && !L.isOR) return '';
     var tip = '';
-    if (lvl === 'beginner' && cur) tip = '<br><span style="color:var(--text-muted)">Phase ' + esc(cur.name) + (cur.trainLimit ? ' · train limit ' + esc(cur.trainLimit) : '') + (cur.ors ? ' · ' + esc(cur.ors) + ' ORs per set' : '') + (d.nextTrain ? ' · next train ' + esc(d.nextTrain.name) + ' ' + esc(d.money(d.nextTrain.price)) : '') + '. Press ⓘ next to a word for what it means, or open the 📖 Glossary in the ⋯ menu.</span>';
+    if (lvl === 'beginner' && cur) tip = '<br><span style="color:var(--text-muted)">Phase ' + esc(cur.name) + (cur.trainLimit ? ' · train limit ' + esc(cur.trainLimit) : '') + (cur.ors ? ' · ' + esc(cur.ors) + ' ORs per set' : '') + (d.nextTrain ? ' · next train ' + esc(d.nextTrain.name) + ' ' + esc(d.money(d.nextTrain.price)) : '') + '. Press ⓘ next to a word for what it means, or open the 📖 Glossary (key G) or 📘 Learn this title (key L) in the ⋯ menu.</span>';
     return '<div id="rbanner" class="rbanner">🎓 ' + txt + tip + '</div>';
   }
   // Beginner layout: only the essentials open, Now first; your own layout is kept so you can go back
@@ -2287,6 +2309,124 @@
     Object.keys(bad).forEach(function (cn) { Array.prototype.forEach.call(doc.querySelectorAll('[data-crow="' + cn.replace(/"/g, '') + '"]'), function (el) { el.classList.add('redflag'); el.title = '⚠ ' + cn + ': ' + bad[cn]; }); });
     var meP = d.players.filter(function (p) { return p.name === me; })[0];
     if (meP && meP.certLimit && meP.certs > meP.certLimit) Array.prototype.forEach.call(doc.querySelectorAll('[data-prow="' + me.replace(/"/g, '') + '"]'), function (el) { el.classList.add('redflag'); el.title = '⚠ over the certificate limit'; });
+  }
+
+  // ---------- Learning mode: title primer, concept cards, how this title differs, rules of thumb ------------
+  var WORDS_CAP = { full: 'Full capitalization: a company receives 10 times its par price when it floats.', incremental: 'Incremental capitalization: a company receives the money for each share as it is bought from it.' };
+  var WORDS_SELL_AFTER = { first: 'Shares can be sold from the second stock round on.', operate: 'A company\'s shares can be sold once it has operated.', any_time: 'Shares can be sold at any time.', p_any_operate: 'Shares can be sold once the company has operated (the president may sell earlier).' };
+  var WORDS_SBO = { sell_buy_or_buy_sell: 'In a stock turn you may sell and then buy, or buy and then sell.', sell_buy: 'In a stock turn you sell first, then buy.', sell_buy_sell: 'In a stock turn you may sell, buy, and sell again.' };
+  var WORDS_MOVE = { down_share: 'Each share sold moves the price down one row.', down_block: 'Each sale (any number of shares at once) moves the price down one row.', left_share: 'Each share sold moves the price left one step.', left_block: 'Each sale moves the price left one step.', none: 'Selling shares does not move the price.' };
+  var WORDS_MUSTBUY = { route: 'A company with a route must own a train.', always: 'A company must always own a train.', never: 'A company is never forced to own a train.' };
+  var WORDS_HOME = { operate: 'A company places its home station when it first operates.', float: 'A company places its home station when it floats.', par: 'A company places its home station when it is started.' };
+  function primerHtml(d) {
+    var P = d.primer || {}, m = d.money, I = d.info || {}, h = [];
+    var oneD = d.grid && d.grid.cells.length === 1;
+    h.push('<p>' + esc(d.title) + (P.designer ? ' by ' + esc(P.designer) : '') + (P.location ? ', set in ' + esc(P.location) : '') + '. ' + d.players.length + ' players in this game.' +
+      (I.rulesUrl ? ' <a href="' + esc(I.rulesUrl) + '" target="_blank" rel="noopener">Official rules</a>' : '') + (I.wikiUrl ? ' · <a href="' + esc(I.wikiUrl) + '" target="_blank" rel="noopener">18xx.games wiki page</a>' : '') + '</p>');
+    var facts = [];
+    if (P.bank) facts.push(['Bank', esc(m(P.bank))]);
+    if (P.startCash) facts.push(['Starting cash', esc(m(P.startCash)) + ' each']);
+    if (P.certLimit || (d.players[0] && d.players[0].certLimit)) facts.push(['Certificate limit', String(P.certLimit || d.players[0].certLimit)]);
+    facts.push(['Market', oneD ? 'single row' : 'grid (' + d.grid.cells.length + ' rows)']);
+    if (P.poolLimit) facts.push(['Bank pool limit', P.poolLimit + '% of a company']);
+    facts.push(['Companies', (P.corps || []).length + (P.minors ? ' plus ' + P.minors + ' minors' : '') + (P.hasLoans ? ', with loans' : '')]);
+    h.push('<div class="tw"><table class="tight"><tbody>' + facts.map(function (f) { return '<tr><td>' + f[0] + '</td><td style="text-align:left">' + f[1] + '</td></tr>'; }).join('') + '</tbody></table></div>');
+    var rules = [WORDS_CAP[P.capitalization], WORDS_SELL_AFTER[P.sellAfter], WORDS_SBO[P.sellBuyOrder], WORDS_MOVE[P.sellMovement], WORDS_MUSTBUY[P.mustBuyTrain], WORDS_HOME[P.homeToken]].filter(Boolean);
+    if (rules.length) h.push('<h3 class="rh">How shares and companies work here</h3><ul class="wo">' + rules.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('') + '</ul>');
+    // trains
+    var TG = d.trainGroups || [];
+    if (TG.length) h.push('<h3 class="rh">Trains, in the order they are bought</h3><div class="tw"><table class="tight"><thead><tr><th>Train</th><th>Variants</th><th>Price</th><th>How many</th><th>Rusts when</th><th>Obsolete when</th></tr></thead><tbody>' +
+      TG.map(function (g) { return '<tr><td><b>' + esc(g.sym) + '</b></td><td>' + esc(g.names.filter(function (n) { return n !== g.sym; }).join(', ') || '—') + '</td><td>' + esc(m(g.price)) + '</td><td>' + (g.unlimited ? '∞' : g.total) + '</td><td>' + (g.rustsOn ? 'first ' + esc(g.rustsOn) + ' is bought' : '—') + '</td><td>' + (g.obsoleteOn ? 'first ' + esc(g.obsoleteOn) : '—') + '</td></tr>'; }).join('') + '</tbody></table></div>');
+    // phases
+    var PH = d.phases || [];
+    if (PH.length) h.push('<h3 class="rh">Phases</h3><div class="tw"><table class="tight"><thead><tr><th>Phase</th><th>Starts with</th><th>Tiles</th><th>Train limit</th><th>ORs per set</th></tr></thead><tbody>' +
+      PH.map(function (p) { return '<tr' + (p.status === 'current' ? ' class="merow"' : '') + '><td><b>' + esc(p.name) + '</b>' + (p.status === 'current' ? ' <small>now</small>' : '') + '</td><td>' + esc(p.on.join(', ') || 'start') + '</td><td style="text-align:left">' + (p.tiles || []).map(function (c) { return '<i class="sw" style="background:' + (TILE_FILL[c] || '#888') + '"></i>'; }).join('') + esc((p.tiles || []).join(', ')) + '</td><td>' + esc(p.trainLimit) + '</td><td>' + esc(p.ors) + '</td></tr>'; }).join('') + '</tbody></table></div>');
+    if (I.ends && I.ends.length) h.push('<h3 class="rh">The game ends when</h3><ul class="wo">' + I.ends.map(function (e) { return '<li>' + esc(e) + '</li>'; }).join('') + '</ul>');
+    var CO = (P.companies || []).filter(function (c) { return c.desc; });
+    if (CO.length) h.push('<h3 class="rh">Private companies and their powers</h3><div class="tw"><table class="tight"><thead><tr><th>Company</th><th>Cost</th><th>Income</th><th style="text-align:left">What it does</th></tr></thead><tbody>' +
+      CO.map(function (c) { return '<tr><td><b>' + esc(c.sym) + '</b><br><small>' + esc(c.name) + '</small></td><td>' + (c.value ? esc(m(c.value)) : '—') + '</td><td>' + (c.revenue ? esc(m(c.revenue)) : '—') + '</td><td style="text-align:left;white-space:normal;font-weight:400">' + esc(c.desc) + '</td></tr>'; }).join('') + '</tbody></table></div>');
+    return h.join('');
+  }
+  // Small diagrams for the concept cards (plain SVG, colours from the theme)
+  function svgBox(w, h, inner) { return '<svg viewBox="0 0 ' + w + ' ' + h + '" class="csvg" role="img">' + inner + '</svg>'; }
+  function svgBar(x, y, wd, label, col, txt) { return '<rect x="' + x + '" y="' + y + '" width="' + wd + '" height="18" rx="4" fill="' + col + '"/>' + (label ? '<text x="' + (x + 6) + '" y="' + (y + 13) + '" font-size="11" fill="' + (txt || '#fff') + '">' + label + '</text>' : ''); }
+  function conceptsHtml(d) {
+    var m = d.money, cards = [], TG = d.trainGroups || [], A = 'var(--accent)', MU = 'var(--text-muted)', TX = 'var(--text-primary)', CR = 'var(--crit)', GD = 'var(--good)';
+    var t = function (x, y, str, col, sz, anchor) { return '<text x="' + x + '" y="' + y + '" font-size="' + (sz || 11) + '" fill="' + (col || TX) + '"' + (anchor ? ' text-anchor="' + anchor + '"' : '') + '>' + esc(str) + '</text>'; };
+    // presidency
+    cards.push(['president', 'Presidency', 'The player with the most shares runs the company. If someone else gets more, the presidency (and the 20% president\'s certificate) passes to them.',
+      svgBox(300, 70, t(0, 14, 'Before', MU) + svgBar(60, 2, 120, 'Anna 30% ★', A) + svgBar(184, 2, 80, 'Ben 20%', '#888') + t(0, 50, 'Ben buys 2', MU) + svgBar(60, 38, 120, 'Anna 30%', '#888') + svgBar(184, 38, 110, 'Ben 40% ★', A))]);
+    // dump
+    cards.push(['dump', 'Dumping a company', 'A president can sell until another player holds more, and that player becomes president, with the company\'s debts and missing trains. Holding 20% or more of a weak company is a risk.',
+      svgBox(300, 70, t(0, 14, 'Before', MU) + svgBar(60, 2, 150, 'Anna 50% ★', A) + svgBar(214, 2, 60, 'You 20%', '#888') + t(0, 50, 'Anna sells 40%', MU) + svgBar(60, 38, 40, '10%', '#888') + svgBar(104, 38, 80, 'You 20% ★', CR))]);
+    // rust (with this title's first rust)
+    var r1 = TG.filter(function (g) { return g.rustsOn; })[0];
+    if (r1) cards.push(['rust', 'Rusting', 'Buying the first train of a new type can remove older trains from the game at once. A company left with no train must buy one.',
+      svgBox(300, 60, svgBar(0, 8, 70, 'train ' + r1.sym, '#888') + t(80, 21, '←  removed when the first', MU) + svgBar(210, 8, 80, 'train ' + r1.rustsOn, A) + t(0, 52, 'In ' + d.title + ': the ' + r1.sym + ' rusts when the first ' + r1.rustsOn + ' is bought.', TX))]);
+    // pay or withhold, with real prices from a par square
+    var sq = null; if (d.grid) d.grid.cells.forEach(function (row) { row.forEach(function (c) { if (!sq && c && c.mv && c.mv.right && c.mv.left && c.t.indexOf('par') >= 0) sq = c; }); });
+    if (sq) cards.push(['withhold', 'Pay out or withhold', 'Paying out gives the revenue to the shareholders and usually moves the price up; withholding keeps it for the company (often for a train) and usually moves it down.',
+      svgBox(300, 60, svgBar(110, 8, 80, m(sq.p), '#666') + svgBar(220, 8, 70, m(sq.mv.right), GD) + svgBar(10, 8, 70, m(sq.mv.left), CR) + t(200, 46, 'pay out →', GD, 11, 'middle') + t(100, 46, '← withhold', CR, 11, 'middle'))]);
+    // certificate limit
+    var cl = (d.players[0] || {}).certLimit;
+    if (cl) { var dots = ''; for (var i = 0; i < Math.min(cl, 20); i++) dots += '<rect x="' + (i * 14) + '" y="6" width="11" height="16" rx="2" fill="' + (i < cl - 2 ? A : '#555') + '"/>';
+      cards.push(['cert-limit', 'Certificate limit', 'Every share and private company is a certificate. You may hold at most ' + cl + ' in this game; at the limit you cannot buy, and over it you must sell.', svgBox(300, 40, dots + t(0, 36, (cl - 2) + ' of ' + cl + ' used', MU))]); }
+    // emergency train buy
+    if (d.cheapest) { var pr = d.cheapest.price;
+      cards.push(['trainless', 'Emergency train buy', 'A company that must own a train but has none, and too little cash, gets the rest from its president\'s own money. If even that is not enough, the president may have to sell shares.',
+        svgBox(300, 60, svgBar(0, 8, 90, 'treasury', '#666') + svgBar(94, 8, 130, 'president pays', CR) + t(232, 21, '= ' + m(pr), TX) + t(0, 50, 'The cheapest train now: ' + d.cheapest.name + ' for ' + m(pr) + '.', MU))]); }
+    // stations
+    cards.push(['token', 'Stations block', 'A city has a fixed number of station slots. When they are all taken, only the companies with a station there can run through it.',
+      svgBox(300, 60, '<circle cx="40" cy="30" r="22" fill="none" stroke="#888"/><circle cx="30" cy="30" r="8" fill="' + A + '"/><circle cx="50" cy="30" r="8" fill="' + GD + '"/>' + t(80, 26, 'full city: blue and green may run through,', MU) + t(80, 42, 'every other company is blocked here', MU))]);
+    if (/^1817|^18USA/.test(d.title)) cards.push(['short', 'Short selling', 'Selling a share you do not own. You pay the dividend instead of receiving it, and gain if the price falls before you buy it back.', svgBox(300, 40, t(0, 24, 'sell short at ' + m(100) + ' → price falls to ' + m(60) + ' → buy back: +' + m(40) + ' (minus dividends paid)', MU))]);
+    if (CONFIG[d.title] && CONFIG[d.title].trainClass) { var tc = CONFIG[d.title].trainClass; cards.push(['train', 'Train variants', 'In ' + d.title + ' each train level comes in variants, chosen when it is bought: ' + Object.keys(tc).map(function (k) { return tc[k][0] + ' ' + tc[k][1] + ' (' + k + ')'; }).join(', ') + '.', '']); }
+    return '<div class="ccards">' + cards.map(function (c) { return '<div class="ccard" data-k="' + c[0] + '"><b>' + esc(c[1]) + '</b>' + c[3] + '<p>' + esc(c[2]) + '</p></div>'; }).join('') + '</div>';
+  }
+  // How this title differs from a classic 1830-style game: read from the engine, plus the hand-written notes
+  function differsHtml(d) {
+    var P = d.primer || {}, out = [], TG = d.trainGroups || [], oneD = d.grid && d.grid.cells.length === 1;
+    if (d.title === '1830') return '<p>1830 is the classic the comparison uses, so there is nothing to compare here. See the primer for its numbers.</p>';
+    if (P.capitalization === 'incremental') out.push('Companies are paid per share as shares are bought from them (incremental), not 10× par when they float as in 1830.');
+    if (oneD) out.push('The stock market is a single row: payouts move right, withholds and sales move left. 1830 uses a grid where sales move down.');
+    if (P.sellAfter && P.sellAfter !== 'first') out.push(WORDS_SELL_AFTER[P.sellAfter] || ('Selling: ' + P.sellAfter));
+    if (P.sellBuyOrder && P.sellBuyOrder !== 'sell_buy_or_buy_sell') out.push(WORDS_SBO[P.sellBuyOrder] || ('Turn order: ' + P.sellBuyOrder));
+    if (TG.some(function (g) { return g.obsoleteOn; })) out.push('Some trains become obsolete instead of rusting at once (1830 only rusts).');
+    if (TG.some(function (g) { return g.names.length > 1; })) out.push('Trains come in variants (for example ' + TG.filter(function (g) { return g.names.length > 1; })[0].names.join(' / ') + ').');
+    if (TG.some(function (g) { return g.unlimited; })) out.push('The last train type is unlimited.');
+    if (P.minors) out.push('There are ' + P.minors + ' minor companies as well as the major ones.');
+    if (P.hasLoans) out.push('Companies can take loans.');
+    if (P.poolLimit && P.poolLimit !== 50) out.push('The bank pool may hold up to ' + P.poolLimit + '% of a company (50% in 1830).');
+    (TITLE_NOTES[d.title] || []).forEach(function (n) { out.push(n); });
+    return '<p class="sub">Compared with 1830, the classic most 18xx games build on. Read from this title\'s rules engine' + (TITLE_NOTES[d.title] ? ', plus hand-written notes' : '') + '.</p>' + (out.length ? '<ul class="wo">' + out.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '<p>No big differences found in the engine\'s settings.</p>');
+  }
+  var THUMBS = {
+    general: ['Count the trains before yours rust (Trains, phases & Bank) and keep money for the next one.', 'Do not hold 20% or more of a company without train money unless you are ready to run it: it can be dumped on you.', 'Priority deal matters most in the stock round just before a big train purchase.', 'Selling shares drops the price; selling right after a payout keeps more of the dividend.', 'A company that withholds now to buy a train can be worth more than one that pays out and ends up trainless.'],
+    '1846': ['East-West routes between the off-boards are usually the best earners; plan track toward them.', 'Issuing shares can fund a train in a hurry, at the cost of a lower share price.', 'The bank tends to break quickly once the late trains run; have your holdings where you want them before it does.', 'Private companies and the two minors are early income; their bonuses (mail, meat, steamboat) can swing routes.'],
+    '1862': ['Pick the train variant that fits the routes your company can actually reach.', 'Watch which charters (parliamentary obligations) are still available; they decide which companies can start.'],
+    '1817': ['Loans are cheap early, but interest grows and a low price with many loans can liquidate a company.', 'A short pays you if the price falls, but you pay its dividends while it is open.', 'Small 2-share companies are cheap to start and can grow into 5- and 10-share companies later.']
+  };
+  function thumbsHtml(d) {
+    var t = (THUMBS[d.title] || []);
+    return '<p class="sub">Tips, not rules: experienced players disagree on all of them, and the right move depends on the table.</p>' +
+      (t.length ? '<h3 class="rh">For ' + esc(d.title) + '</h3><ul class="wo">' + t.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '<p>No title-specific tips yet for ' + esc(d.title) + '. Suggestions are welcome on GitHub.</p>') +
+      '<h3 class="rh">For most 18xx games</h3><ul class="wo">' + THUMBS.general.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
+  }
+  function showLearn(w, d, tab) {
+    var doc = w.document, old = doc.getElementById('learn'); if (old) { old.remove(); if (!tab) return; }
+    var TABS = [['primer', 'Primer'], ['concepts', 'Concepts'], ['differs', 'How it differs'], ['thumbs', 'Rules of thumb']];
+    tab = tab || ST.learnTab || 'primer';
+    var body = function (k) { return k === 'primer' ? primerHtml(d) : k === 'concepts' ? conceptsHtml(d) : k === 'differs' ? differsHtml(d) : thumbsHtml(d); };
+    var o = doc.createElement('div'); o.id = 'learn';
+    o.innerHTML = '<div role="dialog" aria-label="Learn this title"><div class="gh2"><b style="font-size:14px">📘 Learn ' + esc(d.title) + '</b><span><button class="lnk" data-x="gl">📖 glossary</button> <button class="lnk" data-x="close">close</button></span></div><div class="tabs mtabs" style="margin:8px 0">' +
+      TABS.map(function (t2) { return '<button class="pill mtb' + (t2[0] === tab ? ' cur' : '') + '" data-tab="' + t2[0] + '">' + t2[1] + '</button>'; }).join('') + '</div><div class="lb">' + body(tab) + '</div></div>';
+    o.onclick = function (ev) {
+      if (ev.target === o) { o.remove(); return; }
+      var x = ev.target.getAttribute && ev.target.getAttribute('data-x'), tb = ev.target.getAttribute && ev.target.getAttribute('data-tab');
+      if (x === 'close') o.remove();
+      if (x === 'gl') { o.remove(); showGlossary(w, d); }
+      if (tb) { ST.learnTab = tb; o.querySelector('.lb').innerHTML = body(tb); Array.prototype.forEach.call(o.querySelectorAll('[data-tab]'), function (b) { b.classList.toggle('cur', b === ev.target); }); o.querySelector('.lb').scrollTop = 0; }
+    };
+    doc.body.appendChild(o);
   }
   // ---------- Live play: watch-outs, threat radar, turn pacing -------------------------------
   function sqw(col) { return '<i class="sw" style="background:' + displayColor(col || '#9a9a9a', ST.dark !== false) + '"></i>'; }
@@ -2459,7 +2599,7 @@
         '<button class="ib" id="kb" title="Keyboard shortcuts (key ?)">⌨ Keys</button>' +
       '</span>' +
       '<span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">🎓 Learning <select id="lrn" title="Explanations for new players: ⓘ next to words, a banner about the round, and the glossary. Beginner explains everything; Intermediate only the less obvious terms."><option value=""' + (learnLevel() ? '' : ' selected') + '>off</option><option value="beginner"' + (learnLevel() === 'beginner' ? ' selected' : '') + '>beginner</option><option value="intermediate"' + (learnLevel() === 'intermediate' ? ' selected' : '') + '>intermediate</option></select>' +
-        '<button class="ib" id="gls" title="All terms explained, with this game\'s own numbers (key G)">📖 Glossary</button></span>' +
+        '<button class="ib" id="gls" title="All terms explained, with this game\'s own numbers (key G)">📖 Glossary</button><button class="ib" id="lrt" title="Primer, concept cards, how this title differs from a classic game, and rules of thumb (key L)">📘 Learn this title</button></span>' +
       '<span style="display:flex;gap:6px;flex-wrap:wrap"><button class="ib" id="bgl" title="A simpler live layout: the essential cards first, the rest folded away, and Learning set to beginner. Your own layout is kept.">' + (lsGet('xxStats.layoutBackup') ? '↩ My own layout' : '🌱 Beginner layout') + '</button></span>' +
         '<button id="lr" title="Restore the default order and expand all sections">Reset <span id="lm">layout</span></button>' +
         '<span style="display:flex;gap:6px;align-items:center">Text size <button id="zo" title="Smaller text">A−</button><button id="zi" title="Larger text">A+</button></span> <button id="sh-v" class="ib" title="Copy a link that opens this game with your card layout (no names or other data are in it)">🔗</button> ' +
@@ -3412,6 +3552,7 @@
     doc.getElementById('kb').onclick = function () { ST.menuOpen = false; showKeys(w); };
     keyHandler(w, d, setPrivacy);
     doc.getElementById('lrn').onchange = function () { lsSet('xxStats.learn', this.value); rerender(); };
+    doc.getElementById('lrt').onclick = function () { ST.menuOpen = false; var mn3 = doc.getElementById('mn'); if (mn3) mn3.open = false; showLearn(w, d); };
     doc.getElementById('gls').onclick = function () { ST.menuOpen = false; var mn2 = doc.getElementById('mn'); if (mn2) mn2.open = false; showGlossary(w, d); };
     doc.getElementById('bgl').onclick = function () {
       var bk = lsGet('xxStats.layoutBackup');
