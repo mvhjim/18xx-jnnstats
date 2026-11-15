@@ -2,6 +2,15 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.30.0] - 2026-11-15
+
+### Added
+- **📘 Learn this title** (⋯ menu or key L), four tabs:
+  - **Primer:** the title's designer and setting, starting cash, certificate limit, market type, bank pool limit, how shares and companies work (capitalization, when you may sell, sell/buy order, how sales move the price, train obligation, home station), every train with its variants, price, count and what rusts it, every phase with its tile colours, train limit and ORs per set, how the game ends, and each private company's powers. All read from the rules engine, with links to the official rules and the 18xx.games wiki page.
+  - **Concepts:** small illustrated cards for presidency, dumping, rusting (with this title's first rust), pay out or withhold (with real prices from this title's market), the certificate limit, emergency train buys, stations blocking cities, and shorts or train variants where the title has them. An ⓘ explanation links to its card.
+  - **How it differs:** what this title does differently from 1830, read from the engine (capitalization, market type, selling rules, obsolete trains, variants, minors, loans, pool limit), plus hand-written notes.
+  - **Rules of thumb:** tips for 1846, 1862 and 1817 and for most 18xx games, clearly marked as tips, not rules.
+
 ## [0.29.0] - 2026-11-15
 
 ### Added
