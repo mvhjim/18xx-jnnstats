@@ -3157,16 +3157,17 @@
     if (M.pay) lines.push('had received the dividends of the ' + M.wh.length + ' withhold' + (M.wh.length === 1 ? '' : 's') + ' they held shares in: <b>' + esc(m(last(M.pay))) + '</b> (+' + esc(m(last(M.pay) - a)) + ')');
     ST.wiModel = M; ST.wiName = who;
     return '<section class="card wide"><h2>What-if lines</h2><p class="sub">Two simple what-ifs for one player, worked out from the log without replaying the game: the shares they sold kept at the market price, and the dividends lost to withholds paid out. They ignore knock-on effects (prices, train money, other players\' choices). <select id="wi-who">' + d.players.map(function (p) { return '<option' + (p.name === who ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') + '</select></p>' +
-      (lines.length ? '<p class="sub">Actual ' + (d.finished ? 'final' : 'current') + ' value <b>' + esc(m(a)) + '</b>. If ' + esc(who) + ' ' + lines.join('; or if they ') + '.</p><div class="chart" id="c-whatif"></div>' : '<p class="sub">' + esc(who) + ' never sold shares and never lost dividends to a withhold, so there is nothing to draw.</p>') + '</section>';
+      (lines.length ? '<p class="sub">Actual ' + (d.finished ? 'final' : 'current') + ' value <b>' + esc(m(a)) + '</b>. If ' + esc(who) + ' ' + lines.join('; or if they ') + '. The chart shows how far above (or below) the real value each what-if would have been, round by round.</p><div class="chart" id="c-whatif"></div>' : '<p class="sub">' + esc(who) + ' never sold shares and never lost dividends to a withhold, so there is nothing to draw.</p>') + '</section>';
   }
   function ecWhatIf(w, el, d, pal, dark, m) {
-    var M = ST.wiModel, C = ecInk(dark), p = d.players.filter(function (x) { return x.name === ST.wiName; })[0], col = pal[p.idx % pal.length], ch = ecInit(w, el, 280), ser = [{ name: 'Actual', type: 'line', data: M.actual, symbol: 'none', lineStyle: { width: 3, color: col }, itemStyle: { color: col } }];
-    if (M.keep) ser.push({ name: 'Kept the shares sold', type: 'line', data: M.keep, symbol: 'none', lineStyle: { width: 2.2, type: 'dashed', color: '#2e9e5b' }, itemStyle: { color: '#2e9e5b' } });
-    if (M.pay) ser.push({ name: 'Withholds paid out', type: 'line', data: M.pay, symbol: 'none', lineStyle: { width: 2.2, type: 'dotted', color: '#e0a419' }, itemStyle: { color: '#e0a419' } });
+    var M = ST.wiModel, C = ecInk(dark), ch = ecInit(w, el, 260), dif = function (arr) { return arr.map(function (v, i) { return v == null || M.actual[i] == null ? null : v - M.actual[i]; }); };
+    var ser = [{ name: 'Real game', type: 'line', data: M.actual.map(function (v) { return v == null ? null : 0; }), symbol: 'none', lineStyle: { width: 2, color: C.mut }, itemStyle: { color: C.mut } }];
+    if (M.keep) ser.push({ name: 'Kept the shares sold', type: 'line', data: dif(M.keep), symbol: 'circle', symbolSize: 5, lineStyle: { width: 2.6, color: '#2e9e5b' }, itemStyle: { color: '#2e9e5b' }, areaStyle: { color: 'rgba(46,158,91,.12)' } });
+    if (M.pay) ser.push({ name: 'Withholds paid out', type: 'line', data: dif(M.pay), symbol: 'circle', symbolSize: 5, lineStyle: { width: 2.6, type: 'dashed', color: '#a463d6' }, itemStyle: { color: '#a463d6' } });
     ch.setOption({ animationDuration: 400, textStyle: { fontFamily: 'inherit' }, legend: { top: 0, textStyle: { color: C.ink, fontSize: 11.5 } }, grid: { left: 60, right: 16, top: 30, bottom: 28 },
-      tooltip: { trigger: 'axis', backgroundColor: C.surf, borderColor: C.grid, textStyle: { color: C.ink, fontSize: 12 }, valueFormatter: function (v) { return v == null ? '' : m(v); } },
+      tooltip: { trigger: 'axis', backgroundColor: C.surf, borderColor: C.grid, textStyle: { color: C.ink, fontSize: 12 }, valueFormatter: function (v) { return v == null ? '' : (v > 0 ? '+' : v < 0 ? '−' : '') + m(Math.abs(v)); } },
       xAxis: { type: 'category', data: M.labels, boundaryGap: false, axisLabel: { color: C.mut, fontSize: 10.5, hideOverlap: true }, axisLine: { lineStyle: { color: C.grid } } },
-      yAxis: { type: 'value', axisLabel: { color: C.mut, formatter: function (v) { return m(v); } }, splitLine: { lineStyle: { color: C.grid } } }, series: ser });
+      yAxis: { type: 'value', axisLabel: { color: C.mut, formatter: function (v) { return (v > 0 ? '+' : v < 0 ? '−' : '') + m(Math.abs(v)); } }, splitLine: { lineStyle: { color: C.grid } } }, series: ser });
   }
   // 5 What-if sandbox: change one decision and let the rules engine replay the rest of the game
   function effectiveActions(raw) {
