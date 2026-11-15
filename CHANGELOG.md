@@ -2,6 +2,17 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.34.0] - 2026-11-15
+
+### Added
+- **Score race** (Players & history, Result): player value round by round as an animated bar race at 1×, 2× or 4×. *Save as video* plays it once and saves a WebM file made by the browser itself; nothing is sent anywhere.
+- **Game poster** (Result, Players & history): one picture of the game with the winner, the standings, the value lines, the best train run, the biggest climb and the trains bought. Copy it or save it as a PNG.
+- **Train graveyard** (Trains & board): a tombstone for every time trains rusted or were removed, with the companies that lost them and the list price, and who was hit hardest. Handles titles like 1846 where obsolete trains rust after a company's last run.
+- **Money map** (Trains & board): where on the board the run revenue was earned (each run's revenue shared over its stops by their value), with the top five places.
+- **Company report cards** (Companies): a grade from A to E for each company from its share price growth, revenue per run and how often it paid out, plus its trains and presidents.
+- **Pressure gauge** (Now in live games, Analysis in finished ones): bank, trains, certificate limit, phases and game end as gauges from green to red.
+- **Ownership streamgraph** (Companies): the market value of player-held shares round by round, split by player or by company.
+
 ## [0.33.0] - 2026-11-15
 
 ### Added
