@@ -2,6 +2,13 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.35.0] - 2026-11-15
+
+### Added
+- **Decision score** (Analysis): a rough 0–100 score per player with six parts: share-sale timing, the share price growth of the companies they ran, how often those paid out, trains bought as president that were not lost to rust, dividends per money spent on shares, and their value against the leader. Shows each player's strongest and weakest part. It measures outcomes, not skill.
+- **Style fingerprint** (Analysis): a radar chart of how each player played on seven axes (presidencies, shares bought, shares sold, concentration, paying out, cash held, trains bought), with a nickname for the strongest trait (Tycoon, Collector, Trader, Specialist, Dividend lover, Banker, Railway builder).
+- **Career** (Analysis): one player across games. From their public 18xx.games profile (on request, not in privacy mode): finished games, wins, a placing score, the last 30 places and a table per title. From this browser: every finished game opened with 18xx-JNNstats is remembered locally (place, decision score, style), with a decision-score trend and their usual style. Nothing is sent anywhere.
+
 ## [0.34.0] - 2026-11-15
 
 ### Added

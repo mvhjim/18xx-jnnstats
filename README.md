@@ -131,8 +131,8 @@ Limits: 1822 and some newer titles were only tested on early-game positions. **A
 You are asked to run code from the internet on a page where you are logged in, so here is exactly what it does and how to keep control of it.
 
 - **It reads, it never acts.** It replays the game with the site's own engine and draws numbers. It cannot make a move, change a setting or sign you in.
-- **It only talks to 18xx.games.** The only network requests in the code are to the site's own game data (`/api/game/<number>`, the same data the page shows) and the site's own rules files. Nothing is sent to anyone else, there is no analytics, and no cookies or passwords are read.
-- **Your settings stay in your browser.** Only a few small preferences are stored locally (your name selection, the sound switch, light/dark choice, colour and contrast choices, privacy mode, window position and the section layout).
+- **It only talks to 18xx.games.** The only network requests in the code are to the site's own game data (`/api/game/<number>`, the same data the page shows), the site's own rules files and, only when you press *Load* in Friends over time or Career, the public profile pages of the players (`/profile/<id>`). Nothing is sent to anyone else, there is no analytics, and no cookies or passwords are read.
+- **Your settings stay in your browser.** Only a few small preferences are stored locally (your name selection, the sound switch, light/dark choice, colour and contrast choices, privacy mode, window position and the section layout), plus a short history of the finished games you open (title, place, decision score and style per player, up to 200 games) for the Career card. It never leaves your browser; clearing the site's data removes it.
 - **Privacy mode** only changes what the stats window shows. The game page itself, and the game on 18xx.games, are not touched.
 - **The "I am" auto-pick** only reads the display name in the page's header and compares it with the players of the game. It never touches passwords, cookies or tokens.
 - **Update note:** once every six hours the window loads a one-line script, `version.js`, from this repository (through jsDelivr) to see if a newer version exists, and shows a link if so. It sends nothing about you or your game.
@@ -386,6 +386,18 @@ Every card and tab in the window, one picture each. They were taken from two fin
 **Route mistakes.** Runs that earned less than the best route the site's auto-router finds. It fills in after *check the whole game* in Routes & revenue.
 
 ![Route mistakes](docs/views/1846-decisions-routes.jpg)
+
+**Decision score.** A rough 0–100 score per player from share-sale timing, how the companies they ran did, how often they paid out, trains lost to rust, dividends per money invested and the result. It measures outcomes, not skill.
+
+![Decision score](docs/views/1846-decision-score.jpg)
+
+**Style fingerprint.** How each player played, on seven axes (presidencies, buying, selling, concentration, paying out, cash held, trains bought), with a nickname for their strongest trait.
+
+![Style fingerprint](docs/views/1846-style-fingerprint.jpg)
+
+**Career.** One player across games. *Load* reads their 18xx.games profile for finished games, wins, placing score, the last 30 places and a table per title (not in privacy mode). Every finished game you open is also remembered in your own browser, with its decision score and style, to show the trend and the usual style.
+
+![Career](docs/views/1862-career.jpg)
 
 </details>
 
