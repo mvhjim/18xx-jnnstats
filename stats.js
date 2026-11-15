@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.31.0';
+  var VERSION = '0.32.0';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -791,11 +791,24 @@
     var hexMap = null;
     try {
       var hxs = g.$hexes(), hl = [], lay = 'flat';
+      var curTiles = []; try { var cph = (call(g.$phase(), 'tiles') || []); curTiles = (Array.isArray(cph) ? cph : [cph]).map(s); } catch (eC) {}
       for (var hi = 0; hi < hxs.length; hi++) {
         var hx = hxs[hi], tl = hx.$tile(), cities = 0, towns = 0, offb = 0, tcolor = 'white', tname = '';
         try { cities = tl.$cities().length; towns = tl.$towns().length; offb = tl.$offboards().length; tcolor = s(tl.$color()); tname = s(tl.$name()); } catch (e5) {}
         lay = s(hx.$layout());
-        hl.push({ id: s(hx.$id()), x: num(hx.$x()), y: num(hx.$y()), c: tcolor, t: tname, k: hexTokens(tl), city: cities, town: towns, off: offb, loc: s(call(hx, 'location_name') || '') });
+        // stops on this hex: kind, value now, station slots and who holds them (for the route and station explanations)
+        var st = [];
+        try {
+          var revOf = function (pt) {
+            var rv = call(pt, 'revenue'); if (rv == null) return null;
+            if (typeof rv === 'number') return rv;
+            try { var ks = rv.$keys().map(s), want = (curTiles || []).slice().reverse().filter(function (c) { return ks.indexOf(c) >= 0; })[0] || ks[ks.length - 1]; return num(rv['$[]'](Opal.Symbol ? want : want)) || num(rv['$[]'](want)); } catch (eR) { return null; }
+          };
+          tl.$cities().forEach(function (ct) { st.push({ k: 'city', v: revOf(ct), slots: num(call(ct, 'normal_slots') || call(ct, 'slots')), tk: (ct.$tokens() || []).map(function (t) { var cp = t && !nil(t) ? call(t, 'corporation') : null; return cp ? s(cp.$name()) : ''; }).filter(Boolean) }); });
+          tl.$towns().forEach(function (tw) { st.push({ k: 'town', v: revOf(tw) }); });
+          tl.$offboards().forEach(function (ob) { st.push({ k: 'off', v: revOf(ob) }); });
+        } catch (eS) {}
+        hl.push({ id: s(hx.$id()), x: num(hx.$x()), y: num(hx.$y()), c: tcolor, t: tname, k: hexTokens(tl), city: cities, town: towns, off: offb, loc: s(call(hx, 'location_name') || ''), st: st });
       }
       if (hl.length) hexMap = { layout: lay, hexes: hl };
     } catch (e) { hexMap = null; }
@@ -1053,6 +1066,7 @@
     '.ccards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}.ccard{border:1px solid var(--grid);border-radius:10px;padding:9px 11px}.ccard.hl{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}.ccard p{color:var(--text-secondary);margin:6px 0 0!important}.csvg{display:block;width:100%;max-width:320px;height:auto;margin-top:6px}',
     '.rpcap{margin:0 0 8px;padding:7px 10px;border:1px solid color-mix(in srgb,var(--accent) 55%,var(--border));background:color-mix(in srgb,var(--accent) 9%,var(--surface-1));border-radius:8px;font-size:12.5px;line-height:1.45}.rpcap .rcb{float:right;margin-left:8px}.rpcap button[disabled]{opacity:.4;cursor:default}',
     '.tourhl{outline:3px solid var(--accent)!important;outline-offset:2px;border-radius:10px}#tour{position:fixed;left:0;right:0;bottom:12px;z-index:65;display:flex;justify-content:center;pointer-events:none}#tour>div{pointer-events:auto;background:var(--surface-1);border:1px solid var(--accent);border-radius:12px;padding:10px 14px;width:min(460px,94%);box-shadow:0 8px 28px rgba(0,0,0,.45);font-size:13px}#tour p{margin:6px 0 8px;color:var(--text-secondary);line-height:1.45}#tour .grow{flex:1}',
+    '#xpop table{margin:6px 0}#xpop .tot td{font-weight:650}ul.feed li{cursor:default}:root[data-learn] ul.feed li:not(.head){cursor:help}:root[data-learn] ul.feed li:not(.head):hover{background:color-mix(in srgb,var(--accent) 8%,transparent)}',
     '.foltag{font-size:10.5px;font-weight:600;color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 50%,transparent);border-radius:99px;padding:0 6px;margin-left:6px;vertical-align:middle}',
     '*{box-sizing:border-box}body{margin:0;background:var(--surface-0);color:var(--text-primary);font:13px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}',
     '.hr3{display:flex;align-items:center;gap:8px;margin-top:6px;padding:4px 8px;border-radius:8px;font-size:12px;color:var(--text-secondary);border:1px solid var(--grid)}.hr3 input{flex:1;min-width:80px}.hr3.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--text)}.hr3 b{white-space:nowrap}.tt-note{color:var(--text-muted)}',
@@ -2080,7 +2094,7 @@
       var sw = col[c.corp] ? '<i class="sw" style="background:' + col[c.corp] + '"></i>' : '';
       if (!c.trains.length) { rows += '<tr class="tot"><td>' + sw + esc(c.corp) + '</td><td colspan="3">' + esc(c.kind || 'did not run') + '</td></tr>'; return; }
       c.trains.forEach(function (t, i) {
-        rows += '<tr><td>' + (i === 0 ? sw + '<b>' + esc(c.corp) + '</b>' : '') + '</td><td>' + trainGlyph(d.title, t.train) + esc(t.train) + '</td><td class="n">' + esc(t.rev) + '</td><td class="stp">' + esc(t.stops) + (t.same ? ' <small class="st-same" title="The same train ran the same stops as in this company\'s previous run">= same</small>' : '') + '</td></tr>';
+        rows += '<tr><td>' + (i === 0 ? sw + '<b>' + esc(c.corp) + '</b>' : '') + '</td><td>' + trainGlyph(d.title, t.train) + esc(t.train) + '</td><td class="n">' + esc(t.rev) + '</td><td class="stp">' + esc(t.stops) + (learnLevel() ? ' <button class="lnk rwhy" data-s="' + esc(t.stops) + '" data-r="' + esc(t.rev) + '" data-t="' + esc(c.corp + ' ' + t.train) + '">why?</button>' : '') + (t.same ? ' <small class="st-same" title="The same train ran the same stops as in this company\'s previous run">= same</small>' : '') + '</td></tr>';
       });
       rows += '<tr class="tot"><td></td><td>total' + (c.extra.length ? ' (+ ' + esc(c.extra.join(', ')) + ' extra)' : '') + '</td><td class="n">' + esc(c.total || '') + (c.delta ? ' <small class="' + (c.delta < 0 ? 'st-warn' : 'st-good') + '" title="Compared with this company\'s previous run">' + (c.delta < 0 ? '▼ ' : '▲ ') + esc(String(Math.abs(c.delta))) + '</small>' : '') + '</td><td>' + esc(c.kind || '') + bestCell(d, c) + '</td></tr>';
     });
@@ -2162,6 +2176,15 @@
         seen[k] = 1; return;
       }
     });
+  }
+  function showPop(w, anchor, html, width) {
+    var doc = w.document, old = doc.getElementById('xpop'); if (old) old.remove();
+    var pop = doc.createElement('div'); pop.id = 'xpop'; pop.innerHTML = html + '<div class="xb"><button class="lnk" data-x="close">close</button></div>';
+    doc.body.appendChild(pop);
+    var r = anchor.getBoundingClientRect(), pw = Math.min(width || 360, w.innerWidth - 16);
+    pop.style.width = pw + 'px'; pop.style.left = Math.max(8, Math.min(r.left, w.innerWidth - pw - 8)) + 'px';
+    pop.style.top = (r.bottom + 6 + pop.offsetHeight > w.innerHeight ? Math.max(8, r.top - pop.offsetHeight - 6) : r.bottom + 6) + 'px';
+    pop.onclick = function (ev) { if (ev.target.getAttribute && ev.target.getAttribute('data-x') === 'close') pop.remove(); };
   }
   function showTerm(w, d, k, anchor) {
     var doc = w.document, G = glossary(d), t = G[k]; if (!t) return;
@@ -2548,6 +2571,82 @@
     o.onclick = function (ev) { var t = ev.target.getAttribute && ev.target.getAttribute('data-t'); if (t === 'end') runTour(w, -1); if (t === 'back') runTour(w, step - 1); if (t === 'next') runTour(w, step + 1); };
     doc.body.appendChild(o);
   }
+
+  // ---------- Learning mode: why did that happen, why this route, stations explained ----------------------
+  // Explains one log line in plain words; null when there is nothing useful to add
+  function whyLine(d, msg) {
+    var m = d.money, oneD = d.grid && d.grid.cells.length === 1, x;
+    msg = String(msg).replace(/\s*↗\s*$/, '').trim().replace(/^(Start|Auction|Draft|Stock Round \d+|Operating Round [\d.]+(?: \(of \d+\))?|Merger Round [\d.]+|(SR|OR) [\d.]+)\s+/, '');
+    if ((x = /share price moves (right|left|up|down) from (\S+) to (\S+)(?: \((\d+) steps?\))?/.exec(msg))) {
+      var dir = x[1], why = { right: 'it paid out (a bigger payout can move it more than one step)', left: oneD ? 'it withheld, or shares were sold' : 'it withheld (or paid out too little)', down: 'shares were sold into the bank pool: each sale pushes the price down', up: 'all its shares were held by players at the end of the stock round (sold out), which pushes the price up' }[dir];
+      return 'The share price moved ' + dir + (x[4] ? ' ' + x[4] + ' steps' : '') + ' because ' + why + '. The exact moves are this title\'s rules; tap a square in the Stock market card to see them.';
+    }
+    if ((x = /^(.+?) pays out (\S+) = (\S+) per share/.exec(msg))) return x[1] + ' gave its run revenue (' + x[2] + ') to the shareholders: ' + x[3] + ' for each share they hold. Shares in the bank pool pay the bank' + (d.primer && d.primer.capitalization === 'incremental' ? ', and in this title shares the company still owns pay the company' : '') + '. Paying out usually moves the price up.';
+    if ((x = /^(.+?) withholds (\S+)/.exec(msg))) return x[1] + ' kept its revenue (' + x[2] + ') in its own treasury, usually to save for a train. The shareholders get nothing this round and the price usually drops.';
+    if ((x = /^(.+?) runs an? (\S+) train for (\S+): (.+)$/.exec(msg))) return 'The ' + x[2] + ' train visited ' + x[4].split('-').length + ' places and earned ' + x[3] + ': the sum of the stops\' values, plus any bonuses. In Routes & revenue, press “why?” next to a run for the stop-by-stop sum.';
+    if ((x = /^(.+?) buys an? (\S+) train for (\S+) from (.+)$/.exec(msg))) {
+      var tg = (d.trainGroups || []).filter(function (g) { return g.rustsOn === x[2] || g.obsoleteOn === x[2]; });
+      return x[1] + ' bought a ' + x[2] + ' train' + (/depot|bank/i.test(x[4]) ? ' from the bank' : ' from ' + x[4]) + ' for ' + x[3] + '.' + (tg.length ? ' The first ' + x[2] + ' of the game ' + tg.map(function (g) { return g.rustsOn === x[2] ? 'rusts the ' + g.sym + ' trains' : 'makes the ' + g.sym + ' trains obsolete'; }).join(' and ') + '.' : '') + ' Buying the first train of a new type can also start a new phase.';
+    }
+    if ((x = /^(.+?) sells (?:an? )?(\d+%? )?shares?(?: of)? (\S+) and receives (\S+)/.exec(msg))) return x[1] + ' sold ' + (x[2] || '').trim() + ' of ' + x[3] + ' into the bank pool for ' + x[4] + '. The money comes from the bank, not the company, and the price usually drops. Selling can also pass the presidency to another player.';
+    if ((x = /^(.+?) buys an? (\d+)% share of (\S+) from the (\S+) for (\S+)/.exec(msg))) return x[1] + ' bought ' + x[2] + '% of ' + x[3] + ' from the ' + x[4] + ' for ' + x[5] + '. ' + (/market|pool/i.test(x[4]) ? 'Money for bank-pool shares goes to the bank.' : 'Money for shares bought from the company ' + (d.primer && d.primer.capitalization === 'incremental' ? 'goes to the company now (incremental capitalization).' : 'is paid to the company when it floats, depending on the title.'));
+    if ((x = /^(.+?) pars (\S+) at (\S+)/.exec(msg))) return x[1] + ' started ' + x[2] + ' at a par price of ' + x[3] + ', buying the president\'s certificate. The par price sets where the share price starts.';
+    if ((x = /^(.+?) becomes the president of (\S+)/.exec(msg))) return x[1] + ' now holds the most shares of ' + x[2] + ' and takes over the president\'s certificate: from now on they make its decisions.';
+    if ((x = /^(\S+) floats/.exec(msg))) return x[1] + ' has sold enough shares to float: it gets its money' + (d.primer && d.primer.capitalization === 'full' ? ' (10 times its par price)' : '') + ' and will operate in the next operating round.';
+    if ((x = /places a token on (\S+)/.exec(msg))) return 'A station on ' + x[1] + '. Routes must start from one of the company\'s own stations, and a city whose slots are all taken blocks the companies without one there.';
+    if ((x = /lays tile #(\S+) with rotation \d+ on (\S+)/.exec(msg))) return 'Tile ' + x[1] + ' was laid on ' + x[2] + '. New track extends where routes can go; an upgrade (to green, brown, grey) usually raises the value of the cities on it.';
+    if (/ collects \S+ from /.test(msg)) return 'Income from a private company, paid by the bank every operating round until the private closes.';
+    if (/^-- Phase (\S+)/.test(msg) || /Phase (\S+) begins/i.test(msg)) return 'A new phase began because the first train of a new type was bought. It can allow new tile colours, change the train limit and the number of operating rounds, and close private companies.';
+    if (/rust/i.test(msg)) return 'Trains rust when the first train of a later type is bought: they are removed at once. A company left without a train must buy one.';
+    if (/obsolete/i.test(msg)) return 'Obsolete trains are on their way out: under this title\'s rules they run one last time (or until a later point) and are then removed.';
+    if (/has priority deal/.test(msg)) return 'Priority deal: this player acts first in the stock round. It usually goes to the player after the last one who acted in the previous stock round.';
+    if (/ passes\b/.test(msg)) return 'Passing ends this player\'s turn. In a stock round, when everyone passes in a row, the round ends.';
+    if (/closes/i.test(msg)) return 'A private company closes when the phase or its own rules say so (or when its power is used); a company closes when its price falls into the closing zone or by a title rule.';
+    if (/^-- (Operating|Stock) Round/.test(msg)) return /Operating/.test(msg) ? 'An operating round begins: companies take their turns, highest share price first in most titles.' : 'A stock round begins: players buy and sell shares, starting with the priority deal.';
+    if ((x = /^(.+?) operates (\S+)/.exec(msg))) return x[2] + '\'s turn in this operating round, run by its president ' + x[1] + ': lay track, place a station, run trains, pay out or withhold, buy trains.';
+    if (/skips /.test(msg)) return 'This step was skipped: the company had nothing it could, or wanted to, do here.';
+    return null;
+  }
+  // Why this route: stop by stop, using the values on the board now
+  function routeWhy(d, stops, revTxt, train) {
+    var byId = {}; (d.hexMap ? d.hexMap.hexes : []).forEach(function (h) { byId[h.id] = h; });
+    var parts = String(stops).split(' + '), path = parts[0], bonus = parts.slice(1), sum = 0, rows = [], m = d.money, vals = [];
+    path.split('-').forEach(function (raw) {
+      var skip = /^\(.*\)$/.test(raw), id = raw.replace(/[()[\]]/g, '').trim(), h = byId[id];
+      var st = h && h.st ? h.st.filter(function (x) { return x.v != null; }) : [], v = st.length ? Math.max.apply(null, st.map(function (x) { return x.v; })) : null;
+      var kind = st.length ? (st[0].k === 'off' ? 'off-board' : st[0].k) : 'stop';
+      if (!skip && v != null) { sum += v; vals.push({ v: v, k: kind }); }
+      rows.push('<tr><td>' + esc(id) + '</td><td style="text-align:left">' + esc(h && h.loc ? h.loc : '') + '</td><td>' + esc(kind) + '</td><td>' + (skip ? '<span style="color:var(--text-muted)">passed through, no revenue</span>' : v != null ? esc(m(v)) : '?') + '</td></tr>');
+    });
+    var rev = parseFloat(String(revTxt).replace(/[^\d.-]/g, '')) || 0, diff = rev - sum, best = '';
+    var ns = (String(train).split(' ').pop().match(/\d+/g) || []).map(Number);
+    if (diff < 0) ns.forEach(function (n) {
+      if (best || vals.length <= n) return;
+      var top = function (arr) { return arr.map(function (x) { return x.v; }).sort(function (a, b) { return b - a; }).slice(0, n).reduce(function (a, b) { return a + b; }, 0); };
+      var noTown = vals.filter(function (x) { return x.k !== 'town'; });
+      if (top(vals) === rev) best = 'This train counts only its ' + n + ' most valuable stops: those add up to exactly ' + m(rev) + '. ';
+      else if (top(noTown) === rev) best = 'This train ignores towns and counts only its ' + n + ' most valuable cities and off-boards: those add up to exactly ' + m(rev) + '. ';
+    });
+    return '<b>Why ' + esc(train) + ' earned ' + esc(revTxt) + '</b><div class="tw"><table class="tight"><thead><tr><th>Hex</th><th style="text-align:left">Place</th><th>Kind</th><th>Value on the board now</th></tr></thead><tbody>' + rows.join('') +
+      '<tr class="tot"><td colspan="3">Sum of the stops</td><td>' + esc(m(sum)) + '</td></tr>' + (bonus.length ? '<tr><td colspan="3">Bonuses: ' + esc(bonus.join(', ')) + '</td><td></td></tr>' : '') + '</tbody></table></div>' +
+      '<p>' + (best ? esc(best) : diff === 0 ? 'The stops add up exactly to the revenue.' : diff > 0 ? 'The other ' + esc(m(diff)) + ' come from ' + (bonus.length ? 'the bonuses (' + esc(bonus.join(', ')) + ')' : 'bonuses') + ' or from values that changed since (off-boards often grow with the phase).' : 'The stops add up to more than the revenue. Either this train type counts only some of its stops (express, freight and similar trains have their own counting rules in this title), or board values have risen since it ran.') +
+      ' A stop in parentheses was passed through without counting; one in [brackets] is uncertain. Each train may visit up to its number of stops, and two trains of one company may not share track.</p>';
+  }
+  // Stations explained: for each company, where its stations are and which full cities block it
+  function stationsCard(d) {
+    if (!learnLevel() || !d.hexMap) return '';
+    var H = d.hexMap.hexes, open = d.corps.filter(function (c) { return !c.closed && c.price != null; });
+    var full = [], freeN = 0;
+    H.forEach(function (h) { var all = []; (h.st || []).forEach(function (ct) { if (ct.k === 'city') all = all.concat(ct.tk); }); (h.st || []).forEach(function (ct) { if (ct.k !== 'city' || !ct.slots) return; if (ct.tk.length >= ct.slots) full.push({ id: h.id, loc: h.loc, tk: ct.tk, hexTk: all }); else freeN++; }); });
+    var col = {}; d.corps.forEach(function (c) { col[c.name] = c.color; });
+    var rows = open.map(function (c) {
+      var mine = []; H.forEach(function (h) { (h.st || []).forEach(function (ct) { if (ct.k === 'city' && ct.tk.indexOf(c.name) >= 0) mine.push(h.loc ? h.loc + ' (' + h.id + ')' : h.id); }); });
+      var seen = {}, blocks = full.filter(function (f) { if (f.hexTk.indexOf(c.name) >= 0 || seen[f.id]) return false; seen[f.id] = 1; return true; });
+      return '<li>' + sqw(col[c.name]) + '<b>' + esc(c.name) + '</b>: ' + (mine.length ? 'stations in ' + esc(mine.join(', ')) : 'no stations yet') + (c.tokensTotal ? ' · ' + c.tokensLeft + ' of ' + c.tokensTotal + ' still to place' : '') +
+        (blocks.length ? '<br><span style="color:var(--text-secondary)">Cannot run through (full of other companies\' stations): ' + blocks.map(function (f) { return esc((f.loc || f.id) + ' (' + f.tk.join(', ') + ')'); }).join('; ') + '</span>' : '') + '</li>';
+    });
+    return '<section class="card wide"><h2>Stations explained</h2><p class="sub">Routes must start from a company\'s own station, and a city whose slots are all taken can only be run through by the companies holding them (in most titles a route may still end there). ' + full.length + ' cities are full; ' + freeN + ' city spaces still have room.</p><ul class="wo">' + rows.join('') + '</ul></section>';
+  }
   // ---------- Live play: watch-outs, threat radar, turn pacing -------------------------------
   function sqw(col) { return '<i class="sw" style="background:' + displayColor(col || '#9a9a9a', ST.dark !== false) + '"></i>'; }
   function dur(ms) {
@@ -2679,6 +2778,7 @@
     var soundOn = lsGet('xxStats.sound') === '1', armed = !!w.__xxAudio;
     doc.title = (myTurn ? '● Your turn · ' : '') + d.roundLabel + ' · ' + d.title + (privacyOn() ? '' : ' · ' + d.id) + ' · 18xx-JNNstats';
     doc.documentElement.setAttribute('data-theme', themePref() || 'dark');
+    if (learnLevel()) doc.documentElement.setAttribute('data-learn', '1'); else doc.documentElement.removeAttribute('data-learn');
     if (lsGet('xxStats.hc') === '1') doc.documentElement.setAttribute('data-contrast', 'high'); else doc.documentElement.removeAttribute('data-contrast');
     try { var nst = doc.getElementById('xxn'); if (nst) { var szp = sizePref(), want = szp === 'third' ? NARROW.replace('@media (max-width:720px)', '@media all') : NARROW; if (nst.textContent !== want) nst.textContent = want; nst.disabled = szp === 'half'; } } catch (eN) {}
     if (ST.lookGame !== d.id && !d.tt) { ST.lookGame = d.id; ST.lookId = d.feed.length ? d.feed[0].id : 0; }
@@ -2791,7 +2891,7 @@
       var fTab = ST.feedTab || (myTurn && rc ? 'since' : 'latest'); if (fTab === 'since' && !rc) fTab = 'latest';
       h.push('<section class="card"><h2>What just happened</h2>' +
         (rc ? '<div class="tabs" id="fd-tabs"><button data-t="latest"' + (fTab === 'latest' ? ' class="on"' : '') + '>Latest moves</button><button data-t="since"' + (fTab === 'since' ? ' class="on"' : '') + '>Since your last turn (' + rc.total + (rc.total >= 120 ? '+' : '') + ')</button></div>' : '') +
-        '<div id="fd-latest"' + (fTab === 'latest' ? '' : ' hidden') + '><p class="sub">Latest moves, newest first. <span class="newdot"></span> = since you last looked here <button id="seen" class="lnk">mark all as seen</button></p><ul class="feed">' +
+        '<div id="fd-latest"' + (fTab === 'latest' ? '' : ' hidden') + '><p class="sub">' + (learnLevel() ? '🎓 Tap a line to see why it happened. ' : '') + 'Latest moves, newest first. <span class="newdot"></span> = since you last looked here <button id="seen" class="lnk">mark all as seen</button></p><ul class="feed">' +
         d.feed.map(function (f) { return '<li class="' + (f.head ? 'head' : '') + (ST.lookId != null && f.id > ST.lookId ? ' new' : '') + '">' + esc(f.msg) + '</li>'; }).join('') + '</ul></div>' +
         (rc ? '<div id="fd-since"' + (fTab === 'since' ? '' : ' hidden') + '><p class="sub">Everything logged after your own last move, newest first.</p><ul class="feed">' + rc.lines.map(function (f) { return '<li class="' + (f.head ? 'head' : '') + '">' + esc(f.msg) + '</li>'; }).join('') + '</ul></div>' : '') +
         '</section>');
@@ -2826,7 +2926,7 @@
     if (d.gameLog && d.gameLog.rounds.length) {
       var glCol = {}; d.players.forEach(function (p) { glCol[p.name] = pal[p.idx % pal.length]; });
       var GL = d.gameLog, glLast = GL.rounds.length - 1, glIdx = ST.glIdx != null && ST.glGame === d.id && ST.glIdx <= glLast ? ST.glIdx : glLast;
-      h.push('<section class="card wide"><h2>Game log</h2><p class="sub">Drag the slider (or use ◀ ▶ and the arrow keys) to read the game round by round. Search looks through the whole game.</p>' +
+      h.push('<section class="card wide"><h2>Game log</h2><p class="sub">' + (learnLevel() ? '🎓 Tap a line to see why it happened. ' : '') + 'Drag the slider (or use ◀ ▶ and the arrow keys) to read the game round by round. Search looks through the whole game.</p>' +
         '<div class="gslide"><span>Round</span><button id="gl-p" title="Previous round">◀</button><input type="range" id="gl-i" min="0" max="' + glLast + '" value="' + glIdx + '"><button id="gl-n" title="Next round">▶</button><b id="gl-l">' + esc(GL.rounds[glIdx].label) + '</b></div>' +
         '<div class="gltools"><input type="search" id="gl-q" placeholder="Search the whole log…" value="' + esc(ST.glQ || '') + '">' + (me && GL.meRound >= 0 ? ' <button id="gl-me" class="lnk">jump to my last move</button>' : '') + '</div>' +
         '<div class="tabs" id="gl-k">' + Object.keys(GL_NAMES).map(function (k) { return '<button class="pill' + (ST.glGame === d.id && ST.glKind === k ? ' cur' : '') + '" data-k="' + k + '">' + GL_NAMES[k] + '</button>'; }).join(' ') +
@@ -3426,6 +3526,7 @@
     ST.tm = learnLevel() ? teachMoments(d) : [];
     h.push(teachCard(d, ST.tm));
     h.push(reportCard(d, me));
+    h.push(stationsCard(d));
     h.push('</main>');
 
     var scrollY = w.scrollY || 0;
@@ -3706,7 +3807,14 @@
     };
     addXi(w, d);
     redFlags(w, d, me);
-    doc.body.onclick = function (ev) { var xb = ev.target.closest && ev.target.closest('.xi'); if (xb) { ev.stopPropagation(); showTerm(w, d, xb.getAttribute('data-t'), xb); } };
+    doc.body.onclick = function (ev) {
+      var xb = ev.target.closest && ev.target.closest('.xi'); if (xb) { ev.stopPropagation(); showTerm(w, d, xb.getAttribute('data-t'), xb); return; }
+      var rw = ev.target.closest && ev.target.closest('.rwhy'); if (rw) { ev.stopPropagation(); showPop(w, rw, routeWhy(d, rw.getAttribute('data-s'), rw.getAttribute('data-r'), rw.getAttribute('data-t')), 460); return; }
+      if (!learnLevel() || (ev.target.closest && ev.target.closest('a,button,input,select'))) return;
+      var li = ev.target.closest && ev.target.closest('ul.feed li'); if (!li || li.classList.contains('head')) return;
+      var gm = li.querySelector('.gm'), txt = (gm || li).textContent, why = whyLine(d, txt.replace(/^\s*(SR|OR) [\d.]+\s*/, ''));
+      showPop(w, li, '<b>Why did that happen?</b><p style="color:var(--text-primary)">' + esc(txt.replace(/\s*↗\s*$/, '')) + '</p><p>' + esc(why || 'No explanation for this kind of line yet. The 📖 Glossary (key G) may help.') + '</p>', 380);
+    };
     var de = doc.documentElement;
     de.__xxD = d;
     if (!de.__mkDeleg) {
@@ -3831,7 +3939,7 @@
     live: [
       { id: 'now', title: 'Now', keys: ['now', 'your-turn-explained', 'watch-outs', 'what-just-happened', 'standings', 'stock-round-helper', 'threat-radar', 'game-end-clock'] },
       { id: 'companies', title: 'Companies', keys: ['stock-ticker', 'stock-market', 'corporations', 'share-price', 'company-revenue-per-operating-round', 'ownership-over-time', 'who-holds-what', 'valuation', 'minors-private-companies'] },
-      { id: 'trains', title: 'Trains & board', keys: ['trains-phases-bank', 'routes-revenue', 'train-history', 'tile-manifest'] },
+      { id: 'trains', title: 'Trains & board', keys: ['trains-phases-bank', 'routes-revenue', 'stations-explained', 'train-history', 'tile-manifest'] },
       { id: 'money', title: 'Money', keys: ['company-profit-and-loss', 'cash-flow-per-player', 'where-the-money-came-from', 'portfolios'] },
       { id: 'history', title: 'Players & history', keys: ['player-value-over-time', 'key-moments', 'board-and-replay', 'game-log', 'president-changes', 'priority-deal-tracker', 'turn-pacing'] },
       { id: 'analysis', title: 'Analysis', keys: ['decisions-review', 'teaching-moments', 'learning-report', 'game-info'] }
@@ -3842,7 +3950,7 @@
       { id: 'analysis', title: 'Analysis', keys: ['decisions-review'] },
       { id: 'money', title: 'Money', keys: ['company-profit-and-loss', 'cash-flow-per-player', 'where-the-money-came-from', 'portfolios', 'valuation'] },
       { id: 'companies', title: 'Companies', keys: ['stock-ticker', 'stock-market', 'corporations', 'share-price', 'company-revenue-per-operating-round', 'ownership-over-time', 'who-holds-what', 'minors-private-companies'] },
-      { id: 'trains', title: 'Trains & board', keys: ['trains-phases-bank', 'routes-revenue', 'train-history', 'tile-manifest', 'game-info'] }
+      { id: 'trains', title: 'Trains & board', keys: ['trains-phases-bank', 'routes-revenue', 'stations-explained', 'train-history', 'tile-manifest', 'game-info'] }
     ]
   };
   var DEFAULT_GC = { live: ['money', 'history', 'analysis'], review: ['money', 'companies', 'trains'] };

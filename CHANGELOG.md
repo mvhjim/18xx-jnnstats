@@ -2,6 +2,13 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.32.0] - 2026-11-15
+
+### Added
+- Learning mode: tap a game-log line to see *why it happened* (price moves, payouts, withholds, train buys and rusting, sales, pars, presidency, floats, stations, tiles, private income, priority, rounds).
+- Learning mode: *why?* next to each run in Routes & revenue, with each stop's value on the board, the sum, bonuses, and trains that count only their best stops.
+- Learning mode: *Stations explained* card (Trains & board) with each company's stations, stations still to place and the full cities it cannot run through.
+
 ## [0.31.0] - 2026-11-15
 
 ### Added

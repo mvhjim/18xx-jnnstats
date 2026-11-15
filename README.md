@@ -231,6 +231,18 @@ Every card and tab in the window, one picture each. They were taken from two fin
 
 ![Learning report](docs/views/1846-learn-report.jpg)
 
+**Why did that happen?** In Learning mode, tap any line in the game log for a plain explanation: why a price moved, what a payout or withhold means, what a train purchase rusts, where the money from a share sale goes.
+
+![Why did that happen](docs/views/1846-learn-why-log.jpg)
+
+**Why this route?** Press *why?* next to a run in Routes & revenue: each stop with its value on the board, the sum, and what explains any difference (bonuses, or trains that count only their best stops).
+
+![Why this route](docs/views/1862-learn-route-why.jpg)
+
+**Stations explained.** For each company: where its stations are, how many it still has to place, and which full cities it cannot run through.
+
+![Stations explained](docs/views/1862-learn-stations.jpg)
+
 **Glossary** (⋯ menu or key G). Every term, searchable, with links to the title's official rules and its 18xx.games wiki page.
 
 ![Glossary](docs/views/1846-learn-glossary.jpg)
