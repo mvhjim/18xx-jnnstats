@@ -3492,7 +3492,7 @@
         var ru = L.rush;
         h.push('<div class="tile"><div class="l">Train rush · phase ' + esc(ru.phase) + '</div><div class="v ' + (ru.possible ? 'st-warn' : '') + '">' + (ru.possible ? '⚠ possible now' : 'not yet') + '</div>' +
           '<div class="d2">Phase ' + esc(ru.phase) + ' starts ' + buysTxt(ru.need) + ' (' + esc(m(ru.cost)) + ' of trains).</div>' +
-          '<div class="d2">The ' + esc(ru.scope) + ' hold ' + esc(m(ru.cash)) + ' and could buy <b>' + ru.bought + ' of ' + ru.need + '</b> from their treasuries' + (ru.who.length ? ' (' + esc(ru.who.join(', ')) + ')' : '') + '.</div>' +
+          '<div class="d2">' + esc(/^all /.test(ru.scope) ? ru.scope.charAt(0).toUpperCase() + ru.scope.slice(1) : 'The ' + ru.scope) + ' hold ' + esc(m(ru.cash)) + ' and could buy <b>' + ru.bought + ' of ' + ru.need + '</b> from their treasuries' + (ru.who.length ? ' (' + esc(ru.who.join(', ')) + ')' : '') + '.</div>' +
           (ru.rust.length ? '<div class="d2 st-crit">Rusts: ' + esc(ru.rust.join(', ')) + '</div>' : '') + (ru.obsolete.length ? '<div class="d2 st-warn">Becomes obsolete: ' + esc(ru.obsolete.join(', ')) + '</div>' : '') + '</div>');
       }
       // Game end
