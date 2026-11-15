@@ -2114,6 +2114,7 @@
       var label = (el.childNodes[0] && el.childNodes[0].nodeType === 3 ? el.childNodes[0].nodeValue : el.textContent).trim();
       for (var i = 0; i < XI_MAP.length; i++) {
         if (!XI_MAP[i][0].test(label)) continue;
+        if (XI_MAP[i][1] === 'operating-round' && !el.closest('header')) return;
         var k = XI_MAP[i][1]; if (k === 'operating-round' && d.live && d.live.isSR) k = 'stock-round'; if (!ok(k)) return;
         var b = doc.createElement('button'); b.className = 'xi'; b.setAttribute('data-t', k); b.title = G[k].t + ': what is this?'; b.textContent = 'ⓘ';
         if (el.tagName === 'SPAN' && el.classList.contains('kv')) { var bb = el.querySelector('b'); el.insertBefore(b, bb); } else el.appendChild(b);
