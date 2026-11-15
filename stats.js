@@ -3000,7 +3000,7 @@
     var cp = d.players.map(function (p) { return { n: p.name, v: p.certLimit ? p.certs / p.certLimit : 0, s: p.certs + ' / ' + p.certLimit }; }).sort(function (a, b) { return b.v - a.v; })[0];
     if (cp && cp.v) g.push(gaugeSvg(cp.v, 'Certificate limit', cp.n + ': ' + cp.s, gc(cp.v)));
     var ph = d.phases || [], pi = ph.map(function (p) { return p.status; }).indexOf('current');
-    if (ph.length > 1 && pi >= 0) { var pv = pi / (ph.length - 1); g.push(gaugeSvg(pv, 'Phases', 'phase ' + d.phase + ' of ' + ph.length, gc(pv))); }
+    if (ph.length > 1 && pi >= 0) { var pv = pi / (ph.length - 1); g.push(gaugeSvg(pv, 'Phases', 'phase ' + (pi + 1) + ' of ' + ph.length + (String(d.phase) !== String(pi + 1) ? ' (' + d.phase + ')' : ''), gc(pv))); }
     var trig = d.live && d.live.end && d.live.end.triggered;
     g.push(gaugeSvg(d.finished ? 1 : trig ? .9 : Math.max(pi >= 0 && ph.length > 1 ? pi / (ph.length - 1) : 0, bank0 ? 1 - Math.max(0, d.bank) / bank0 : 0) * .85, 'Game end', d.finished ? 'game over' : trig ? 'end triggered' : 'not triggered yet', d.finished || trig ? '#d9534f' : '#8a8a8a'));
     return g.length ? '<section class="card"><h2>Pressure gauge</h2><p class="sub">How close the game is to its limits: green is far off, yellow is getting close, red is at the limit.</p><div class="gauges">' + g.join('') + '</div></section>' : '';
