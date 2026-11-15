@@ -2,6 +2,11 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.37.1] - 2026-11-15
+
+### Added
+- **JNN-API 1.1** (additions only): the board, route lines, stock market grid, round banner and *Your turn, explained* are available to other tools, so JNN-Engine draws them with the same code as JNN-stats.
+
 ## [0.37.0] - 2026-11-15
 
 ### Added

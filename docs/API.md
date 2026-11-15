@@ -2,7 +2,7 @@
 
 18xx-JNNstats exposes its game reading and analysis as a small, versioned programming interface, so that other tools (first of all **JNN-Engine**) can build on the released code instead of keeping a copy of it. Everything in the API is **read only**: nothing in it makes a move or sends data anywhere.
 
-Current version: **1.0**
+Current version: **1.1**
 
 ## Versioning
 
@@ -51,5 +51,11 @@ Load `version.js` first (it sets `__xxSha` and `__xxApi`), check `__xxApi`, then
 | `render(window, d)` | draws the full JNN-stats dashboard into a window |
 | `shareImage(...)` | the share card canvas |
 | `privacyOn()`, `learnLevel()`, `myName(names)` | the user's JNN-stats settings, stored in the browser |
+| `boardSvg(d, hx, paths, maxWidth)` *(1.1)* | the board as SVG: tiles, cities, stations, optional route lines |
+| `routePaths(d, round, corp, positions)` *(1.1)* | route lines of one operating round for `boardSvg` |
+| `hexPositions(d, unit)` *(1.1)* | hex centres on the board |
+| `marketHtml(d, dark, me, roundIndex, money)` *(1.1)* | the stock market grid |
+| `roundBanner(d, me)`, `yourTurnHtml(d, me, money)` *(1.1)* | Learning-mode explanations of the round and of what the rules allow now |
+| `isDark(window)`, `setDark(bool)`, `esc(text)` *(1.1)* | the theme setting (read it, and tell the library which theme you draw in), and HTML escaping |
 
 The data model returned by `extract` is the same one the dashboard uses. Fields may be added in minor versions; fields are only removed or renamed in a new major version.

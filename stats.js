@@ -17,10 +17,10 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.37.0';
+  var VERSION = '0.37.1';
   // JNN-API: the version of the programming interface other tools (JNN-Engine) build on.
   // Minor = additions only; a new major means a change that can break them. See docs/API.md.
-  var API_VERSION = '1.0';
+  var API_VERSION = '1.1';
   var LIBRARY = !!window.__jnnLibrary; // loaded by another tool: expose the API only, open no window
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
@@ -4987,6 +4987,14 @@
       css: function () { return CSS; },
       palette: playerPal,                   // (dark) -> player colours
       render: render,                       // (window, d) -> draws the full JNN-stats dashboard into a window
+      // 1.1: building blocks for other windows
+      boardSvg: boardSvg,                   // (d, hx|null, paths, maxWidth, heat?, tint?) -> svg html of the board
+      routePaths: rtPaths,                  // (d, routeRound, corp|'*', positions) -> route lines for boardSvg
+      hexPositions: hexPos,                 // (d, unit) -> hex centres on the board
+      marketHtml: gridBody,                 // (d, dark, me, roundIndex, money) -> html of the stock market grid
+      roundBanner: roundBanner,             // (d, me) -> html: what kind of round it is (Learning mode)
+      yourTurnHtml: yourTurnCard,           // (d, me, money) -> html: what the rules allow now (Learning mode)
+      isDark: isDark, esc: esc, setDark: function (v) { ST.dark = !!v; }, // setDark: theme for colour swatches in library mode
       shareImage: shareImage,
       // settings shared with JNN-stats (stored in the browser)
       privacyOn: privacyOn, learnLevel: learnLevel, myName: myName
