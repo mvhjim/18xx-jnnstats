@@ -2874,8 +2874,19 @@
   function graveyardCard(d) {
     var GL = d.gameLog; if (!GL) return '';
     var price = {}; (d.trainGroups || []).forEach(function (g) { (g.names || [g.sym]).forEach(function (n) { price[n] = g.price; }); });
-    var graves = [], lost = {};
-    GL.rounds.forEach(function (r) { r.lines.forEach(function (ln) {
+    var graves = [], lost = {}, obs = [], byKey = {};
+    GL.rounds.forEach(function (r) { r.lines.forEach(function (ln, li) {
+      var ob = /Event:\s*(.+?) trains? (?:are|become) obsolete/i.exec(ln.msg); if (ob) { obs = ob[1].split(/,\s*/); return; }
+      if (/Event:\s*Obsolete trains rust/i.test(ln.msg)) {
+        // titles like 1846: a company's obsolete trains rust right after it runs them
+        var co = null, k2 = 0;
+        for (var j = li - 1; j >= 0; j--) { var y2 = /^(\S+) runs an? (\S+) train/.exec(r.lines[j].msg); if (!y2) break; co = y2[1]; if (obs.indexOf(y2[2]) >= 0) k2++; }
+        if (!co || !k2) return;
+        var gk = r.label + '|' + obs.join(','), gr = byKey[gk];
+        if (!gr) { gr = byKey[gk] = { types: obs.slice(), how: 'rusted', when: shortRound(r.label), who: [], n: 0, v: 0 }; graves.push(gr); }
+        var pr2 = price[obs[0]] || 0; gr.who.push({ c: co, n: k2 }); gr.n += k2; gr.v += k2 * pr2;
+        lost[co] = lost[co] || { n: 0, v: 0 }; lost[co].n += k2; lost[co].v += k2 * pr2; return;
+      }
       var x = /Event:\s*(.+?) trains? (rust|are removed|become obsolete|are obsolete|obsolete)[^(]*(?:\(\s*(.*?)\s*\))?/i.exec(ln.msg); if (!x) return;
       var who = (x[3] || '').split(/,\s*/).map(function (s2) { var y = /^(\S+)\s*x(\d+)/.exec(s2.trim()); return y ? { c: y[1], n: +y[2] } : null; }).filter(Boolean);
       var types = x[1].split(/,\s*/), val = 0, cnt = 0;
@@ -2886,7 +2897,7 @@
     var col = corpCol(d), m = d.money;
     var tomb = function (g) { return '<div class="tomb"><div class="tt">R.I.P.</div><div class="tn">' + esc(g.types.join(', ')) + '</div><div class="tw2">' + esc(g.how) + ' in ' + esc(g.when) + '</div><div class="tc">' + (g.n ? g.n + ' train' + (g.n === 1 ? '' : 's') + (g.v ? ' · ' + esc(m(g.v)) : '') : 'none in play') + '</div><div class="tl2">' + g.who.map(function (q) { return sqw(col[q.c]) + esc(q.c) + ' ×' + q.n; }).join('<br>') + '</div></div>'; };
     var lr = Object.keys(lost).sort(function (a, b) { return lost[b].v - lost[a].v || lost[b].n - lost[a].n; });
-    return '<section class="card wide"><h2>Train graveyard</h2><p class="sub">Every time trains rusted or were removed, and which companies lost them. Value is the list price paid for them.</p><div class="tombs">' + graves.map(tomb).join('') + '</div>' +
+    return '<section class="card wide"><h2>Train graveyard</h2><p class="sub">Every time trains rusted or were removed, and which companies lost them. In titles where obsolete trains rust after their last run, each company\'s loss is counted when it happens. Value is the list price paid for them.</p><div class="tombs">' + graves.map(tomb).join('') + '</div>' +
       (lr.length ? '<p class="sub" style="margin-top:8px">Hardest hit: ' + lr.map(function (c) { return sqw(col[c]) + '<b>' + esc(c) + '</b> ' + lost[c].n + (lost[c].v ? ' (' + esc(m(lost[c].v)) + ')' : ''); }).join(' · ') + '</p>' : '') + '</section>';
   }
   // 33 Money map: where on the board the revenue was earned
@@ -2945,7 +2956,7 @@
   }
   function gaugeCard(d) {
     var m = d.money, g = [], gc = function (v) { return v >= .85 ? '#d9534f' : v >= .6 ? '#e0a419' : '#2e9e5b'; };
-    var bank0 = d.primer && d.primer.bank; if (bank0) { var bv = 1 - Math.max(0, d.bank) / bank0; g.push(gaugeSvg(bv, 'Bank', d.bank <= 0 ? 'broken' : m(d.bank) + ' of ' + m(bank0) + ' left', gc(bv))); }
+    var bank0 = d.primer && d.primer.bank; if (!bank0 && d.bank <= 0) g.push(gaugeSvg(1, 'Bank', 'broken', '#d9534f')); if (bank0) { var bv = 1 - Math.max(0, d.bank) / bank0; g.push(gaugeSvg(bv, 'Bank', d.bank <= 0 ? 'broken' : m(d.bank) + ' of ' + m(bank0) + ' left', gc(bv))); }
     var TG = (d.trainGroups || []).filter(function (t) { return !t.unlimited && t.total; }), tot = 0, gone = 0; TG.forEach(function (t) { tot += t.total; gone += t.total - (t.available || 0); });
     var nx = TG.filter(function (t) { return t.available > 0; })[0];
     if (tot) g.push(gaugeSvg(gone / tot, 'Trains', nx ? nx.available + ' × ' + nx.sym + ' left before the next type' : 'all limited trains sold', gc(gone / tot)));
