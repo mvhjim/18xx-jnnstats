@@ -3951,7 +3951,7 @@
       if (ST.hlCorp) hlSet(ST.hlCorp);
     };
     Array.prototype.forEach.call(doc.querySelectorAll('.stb'), function (b) { b.onclick = function () { ST.streamBy = b.getAttribute('data-b'); rerender(); }; });
-    if (ST.raceRaf) { w.cancelAnimationFrame(ST.raceRaf); ST.raceRaf = null; }
+    if (ST.raceRaf) { w.clearTimeout(ST.raceRaf); ST.raceRaf = null; }
     var rcv = doc.getElementById('race-cv');
     if (rcv) {
       var rn = d.valueHistory.labels.length, rW = Math.max(480, Math.min(900, rcv.clientWidth || 700));
@@ -3962,16 +3962,16 @@
       var rplay = doc.getElementById('race-play'), rspeed = ST.raceSpeed || 1;
       Array.prototype.forEach.call(doc.querySelectorAll('.rsp'), function (b) { b.classList.toggle('on', +b.getAttribute('data-s') === rspeed); b.onclick = function () { ST.raceSpeed = rspeed = +b.getAttribute('data-s'); Array.prototype.forEach.call(doc.querySelectorAll('.rsp'), function (x) { x.classList.toggle('on', x === b); }); }; });
       var rrun = function (onEnd) {
-        var t0 = null, p0 = ST.racePos >= rn - 1 ? 0 : ST.racePos;
-        var step = function (ts) { if (t0 == null) t0 = ts; var pos = p0 + (ts - t0) / 900 * rspeed; ST.racePos = Math.min(pos, rn - 1); rdraw(ST.racePos);
-          if (pos < rn - 1) ST.raceRaf = w.requestAnimationFrame(step); else { ST.raceRaf = null; rplay.textContent = '▶ play'; if (onEnd) onEnd(); } };
-        ST.raceRaf = w.requestAnimationFrame(step); rplay.textContent = '⏸ pause';
+        var t0 = Date.now(), p0 = ST.racePos >= rn - 1 ? 0 : ST.racePos;
+        var step = function () { var ts = Date.now(); var pos = p0 + (ts - t0) / 900 * rspeed; ST.racePos = Math.min(pos, rn - 1); rdraw(ST.racePos);
+          if (pos < rn - 1) ST.raceRaf = w.setTimeout(step, 33); else { ST.raceRaf = null; rplay.textContent = '▶ play'; if (onEnd) onEnd(); } };
+        ST.raceRaf = w.setTimeout(step, 33); rplay.textContent = '⏸ pause';
       };
-      rplay.onclick = function () { if (ST.raceRaf) { w.cancelAnimationFrame(ST.raceRaf); ST.raceRaf = null; rplay.textContent = '▶ play'; } else rrun(); };
+      rplay.onclick = function () { if (ST.raceRaf) { w.clearTimeout(ST.raceRaf); ST.raceRaf = null; rplay.textContent = '▶ play'; } else rrun(); };
       var rrec = doc.getElementById('race-rec');
       if (rrec) rrec.onclick = function () {
         try {
-          if (ST.raceRaf) { w.cancelAnimationFrame(ST.raceRaf); ST.raceRaf = null; }
+          if (ST.raceRaf) { w.clearTimeout(ST.raceRaf); ST.raceRaf = null; }
           var mt = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].filter(function (t) { return w.MediaRecorder.isTypeSupported(t); })[0];
           var rec = new w.MediaRecorder(rcv.captureStream(30), mt ? { mimeType: mt, videoBitsPerSecond: 4e6 } : undefined), chunks = [];
           rec.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
