@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.25.1';
+  var VERSION = '0.25.2';
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -332,7 +332,9 @@
         bankrupt: bool(call(p, 'bankrupt')), hist: hist
       };
     });
-    (raw.players || []).forEach(function (rp) { players.forEach(function (pp) { if (pp.name === rp.name) pp.uid = rp.id; }); });
+    // Colours follow the fixed seat order of the game data, not the engine's current order
+    // (some titles reorder players during the game, which used to swap colours between rounds).
+    (raw.players || []).forEach(function (rp, ri) { players.forEach(function (pp) { if (pp.name === rp.name) { pp.uid = rp.id; pp.idx = ri; } }); });
 
     // Some titles have a non-human "player" such as a bank (The Old Prince 1871): keep it out of the standings
     var humanNames = {}, botPlayers = [];
@@ -1252,7 +1254,7 @@
       legend: { top: 0, textStyle: { color: C.ink, fontSize: 12 }, itemWidth: 10, itemHeight: 10, data: ['Trains', 'Tiles', 'Tokens', 'Revenue'] },
       grid: { left: 78, right: 40, top: 30, bottom: 22 },
       tooltip: { trigger: 'item', backgroundColor: C.surf, borderColor: C.grid, textStyle: { color: C.ink, fontSize: 12 }, confine: true, formatter: function (p) { var v = Array.isArray(p.value) ? p.value[0] : p.value; return esc(p.name || p.value[1]) + ' · ' + esc(p.seriesName) + ': <b>' + esc(m(v)) + '</b>'; } },
-      yAxis: { type: 'category', data: names, inverse: true, axisTick: { show: false }, axisLine: { show: false }, axisLabel: { color: C.ink, fontSize: 12, formatter: function (v, i) { return '{c' + i + '|●} ' + v; }, rich: (function () { var r = {}; names.forEach(function (n, i) { r['c' + i] = { color: (o.cols && o.cols[n]) || '#999', fontSize: 13 }; }); return r; })() } },
+      yAxis: { type: 'category', data: names, inverse: true, axisTick: { show: false }, axisLine: { show: false }, axisLabel: { color: C.ink, fontSize: 12, formatter: function (v, i) { return '{c' + i + '|●}{n|' + v + '}'; }, rich: (function () { var r = { n: { color: C.ink, fontSize: 12, padding: [0, 0, 0, 5] } }; names.forEach(function (n, i) { r['c' + i] = { color: (o.cols && o.cols[n]) || '#999', fontSize: 12, width: 10, align: 'center' }; }); return r; })() } },
       xAxis: { type: 'value', splitLine: { lineStyle: { color: C.grid } }, axisLabel: { color: C.mut, fontSize: 11.5, formatter: function (v) { return m(v); } } },
       series: kinds.map(function (k, i) { return { name: k[0], type: 'bar', stack: 's', barWidth: 18, color: kc[i], data: rows.map(function (r) { return r[k[1]]; }), itemStyle: { borderColor: C.surf, borderWidth: 2, borderRadius: i === 2 ? [0, 4, 4, 0] : 0 }, emphasis: { focus: 'series' } }; })
         .concat([{ name: 'Revenue', type: 'scatter', symbol: 'diamond', symbolSize: 13, color: dark ? '#d55181' : '#d6336c', itemStyle: { borderColor: C.surf, borderWidth: 2 }, z: 5, label: { show: true, position: 'top', distance: 6, color: C.ink, fontSize: 11, fontWeight: 600, formatter: function (p) { return m(p.value[0]); } }, data: rows.map(function (r) { return { value: [r.rev, r.corp], name: r.corp }; }) }])
@@ -2148,7 +2150,7 @@
         (p.status === 'future' && p.inPurchases > 0 ? '<div class="d">' + (p.inPurchases === 1 ? 'next buy' : 'in ' + p.inPurchases + ' buys') + '</div>' : p.status === 'current' ? '<div class="d">now</div>' : '') + '</div>';
     }).join('') + '</div>');
 
-    h.push('<div class="tw"><table><thead><tr><th>Train</th><th>Variants</th><th>Price</th><th>In bank</th><th>Pool</th><th>Running</th><th>Rusted / gone</th><th style="width:22%">Supply</th><th title="Rusted trains are removed">Rusts when</th><th title="Obsolete is not rusted: the train is on its way out under the rules of this title">Obsolete when</th><th>Held by</th></tr></thead><tbody>');
+    h.push('<div class="tw"><table><thead><tr><th>Train</th><th>Variants</th><th>Price</th><th>In bank</th><th>Pool</th><th>Running</th><th>Rusted / gone</th><th style="width:9%">Supply</th><th title="Rusted trains are removed">Rusts when</th><th title="Obsolete is not rusted: the train is on its way out under the rules of this title">Obsolete when</th><th style="text-align:left;min-width:110px">Held by</th></tr></thead><tbody>');
     d.trainGroups.forEach(function (g) {
       var tot = g.total || 1;
       var isNext = d.nextTrain && d.nextTrain.sym === g.sym;
@@ -2159,13 +2161,13 @@
         (g.pool ? '<i style="width:' + (g.pool / tot * 100) + '%;background:var(--warn)"></i>' : '') +
         (g.owned ? '<i style="width:' + (g.owned / tot * 100) + '%;background:var(--good)"></i>' : '') +
         ((g.rusted + g.removed) ? '<i style="width:' + ((g.rusted + g.removed) / tot * 100) + '%;background:var(--text-muted);opacity:.45"></i>' : '') + '</div></td>');
-      h.push('<td>' + (g.rustsOn ? esc(g.rustsOn) + (g.owned && g.rustIn > 0 ? ' <small class="st-crit">' + buysTxt(g.rustIn) + '</small>' : '') : '—') + '</td><td>' + (g.obsoleteOn ? esc(g.obsoleteOn) + (g.owned && g.obsIn > 0 ? ' <small class="st-warn">' + buysTxt(g.obsIn) + '</small>' : '') : '—') + '</td><td>' + Object.keys(g.owners).map(function (o) { var cc = d.corps.filter(function (x) { return x.name === o; })[0]; return (cc && cc.color ? '<i class="sw" style="background:' + displayColor(cc.color, dark) + '"></i>' : '') + esc(o + (g.owners[o] > 1 ? '×' + g.owners[o] : '')); }).join(', ') + '</td></tr>');
+      h.push('<td>' + (g.rustsOn ? esc(g.rustsOn) + (g.owned && g.rustIn > 0 ? ' <small class="st-crit">' + buysTxt(g.rustIn) + '</small>' : '') : '—') + '</td><td>' + (g.obsoleteOn ? esc(g.obsoleteOn) + (g.owned && g.obsIn > 0 ? ' <small class="st-warn">' + buysTxt(g.obsIn) + '</small>' : '') : '—') + '</td><td style="white-space:normal;text-align:left;min-width:110px">' + Object.keys(g.owners).map(function (o) { var cc = d.corps.filter(function (x) { return x.name === o; })[0]; return (cc && cc.color ? '<i class="sw" style="background:' + displayColor(cc.color, dark) + '"></i>' : '') + esc(o + (g.owners[o] > 1 ? '×' + g.owners[o] : '')); }).join(', ') + '</td></tr>');
     });
     h.push('</tbody></table></div><p class="sub" style="margin-top:6px"><i class="sw" style="background:var(--accent)"></i>in bank <i class="sw" style="background:var(--warn);margin-left:10px"></i>bank pool <i class="sw" style="background:var(--good);margin-left:10px"></i>running <i class="sw" style="background:var(--text-muted);opacity:.45;margin-left:10px"></i>rusted / removed</p></section>');
 
     // Corporations
     var anyLoans = d.corps.some(function (c) { return c.loans > 0; });
-    h.push('<section class="card wide"><h2>Corporations</h2><p class="sub">Treasury vs next train, train health, recent results</p><div class="tw"><table><thead><tr><th>Corp</th><th>President</th><th>Price</th><th>Treasury</th><th>' + (d.cheapest ? 'Buy cheapest train (' + esc(d.cheapest.name) + (d.cheapest.pool ? ', bank pool' : '') + ' ' + esc(m(d.cheapest.price)) + ')' : 'Buy a train') + '</th><th>Trains</th><th>Train status</th><th title="Station tokens not yet placed / total">Tokens left</th>' + (anyLoans ? '<th>Loans</th><th title="Interest this company owes at its next operating turn">Interest due</th>' : '') + '<th>Last revenue</th><th>Avg last 3</th></tr></thead><tbody>');
+    h.push('<section class="card wide"><h2>Corporations</h2><p class="sub">Treasury vs next train, train health, recent results</p><div class="tw"><table><thead><tr><th>Corp</th><th>President</th><th>Price</th><th>Treasury</th><th>' + (d.cheapest ? 'Cheapest train (' + esc(d.cheapest.name) + (d.cheapest.pool ? ', bank pool' : '') + ' ' + esc(m(d.cheapest.price)) + ')' : 'Buy a train') + '</th><th>Trains</th><th>Train status</th><th title="Station tokens not yet placed / total">Tokens left</th>' + (anyLoans ? '<th>Loans</th><th title="Interest this company owes at its next operating turn">Interest due</th>' : '') + '<th>Last revenue</th><th>Avg last 3</th></tr></thead><tbody>');
     d.corps.forEach(function (c) {
       var ohs = c.oh.slice().sort(function (a, b) { return (a.t * 100 + a.r) - (b.t * 100 + b.r); });
       var last = ohs[ohs.length - 1];
@@ -2185,7 +2187,7 @@
         : '<span class="st-good">✓ safe</span>';
       if (obsSoon.length) status += ' <span class="st-warn" title="Obsolete is not rusted: the train is on its way out under this title\'s rules">◔ ' + obsSoon.length + ' obsolete ' + buysTxt(Math.min.apply(null, obsSoon)) + '</span>';
       h.push('<tr data-corp="' + esc(c.name) + '" data-crow="' + esc(c.name) + '"' + (!d.finished && L && L.current === c.name && L.isOR ? ' class="actrow"' : '') + '><td>' + (!d.finished && L && L.current === c.name && L.isOR ? '<span class="act" title="operating now">▶</span> ' : '') + '<i class="sw" style="background:' + displayColor(c.color, dark) + '"></i><b>' + esc(c.name) + '</b></td><td>' + esc(c.president) + '</td><td>' + (c.price != null ? esc(m(c.price)) : '—') + '</td><td data-f="ct:' + esc(c.name) + '">' + esc(m(c.cash)) + '</td><td>' + can + '</td>');
-      h.push('<td>' + (c.trains.map(function (t) { return trainGlyph(d.title, t.name) + esc(t.name); }).join(', ') || '—') + '</td><td>' + status + '</td><td>' + (c.tokensTotal ? c.tokensLeft + '/' + c.tokensTotal : '—') + '</td>' + (anyLoans ? '<td>' + (c.loans ? c.loans + (c.maxLoans ? '/' + c.maxLoans : '') : '') + '</td><td>' + (c.interestOwed ? esc(m(c.interestOwed)) : '') + '</td>' : ''));
+      h.push('<td style="white-space:normal;min-width:70px">' + (c.trains.map(function (t) { return '<span style="white-space:nowrap">' + trainGlyph(d.title, t.name) + esc(t.name) + '</span>'; }).join(', ') || '—') + '</td><td>' + status + '</td><td>' + (c.tokensTotal ? c.tokensLeft + '/' + c.tokensTotal : '—') + '</td>' + (anyLoans ? '<td>' + (c.loans ? c.loans + (c.maxLoans ? '/' + c.maxLoans : '') : '') + '</td><td>' + (c.interestOwed ? esc(m(c.interestOwed)) : '') + '</td>' : ''));
       h.push('<td>' + (last ? esc(m(last.revenue)) + (last.kind && last.kind !== 'payout' ? ' <small style="color:var(--text-muted)">' + esc(last.kind) + '</small>' : '') : '—') + '</td><td>' + (avg != null ? esc(m(avg)) : '—') + '</td></tr>');
     });
     h.push('</tbody></table></div>');
