@@ -2844,7 +2844,7 @@
     var links = {}, add = function (a, b, v) { if (!v) return; var k = a + '\u0001' + b; links[k] = (links[k] || 0) + v; }, tot = 0;
     GL.rounds.forEach(function (r) { r.lines.forEach(function (ln) {
       var msg = ln.msg, x;
-      if ((x = /^(.+?) (?:pays out|pays) .*?\(([^()]*\bto\b[^()]*)\)\s*$/.exec(msg))) x[2].split(', ').forEach(function (part) { var y = /^(.+?) to (.+)$/.exec(part); if (y && pn[y[2]]) { var v = moneyNum(y[1]) * (/^[^\d]*-/.test(y[1]) ? -1 : 1); if (v >= 0) add(x[1] + ' dividends', y[2], v); else add(y[2], 'Dividends paid on shorts', -v); tot += v; } });
+      if ((x = /^(.+?) (?:pays out|pays) .*?\(([^()]*\bto\b[^()]*)\)\s*$/.exec(msg))) x[2].split(', ').forEach(function (part) { var y = /^(.+?) to (.+)$/.exec(part); if (y && pn[y[2]]) { var v = Math.abs(moneyNum(y[1])) * (/^[^\d]*-/.test(y[1]) ? -1 : 1); if (v >= 0) add(x[1] + ' dividends', y[2], v); else add(y[2], 'Dividends paid on shorts', -v); tot += v; } });
       else if ((x = /^(.+?) collects (\S+) from (.+)$/.exec(msg)) && pn[x[1]]) { var v2 = moneyNum(x[2]); add('Private companies', x[1], v2); tot += v2; }
       else if ((x = /^(.+?) (?:sells|shorts) .*? (?:and receives|for) (\S+)\s*$/.exec(msg)) && pn[x[1]]) { var v3 = moneyNum(x[2]); add('Share sales and shorts', x[1], v3); tot += v3; }
     }); });
