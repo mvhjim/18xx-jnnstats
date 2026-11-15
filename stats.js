@@ -2053,12 +2053,14 @@
   }
   // What the next train purchase does: phase change, which trains rust, who ends up trainless
   function nextBuyEffects(d) {
-    var out = { phase: null, rust: [] };
+    var out = { phase: null, rust: [], obs: [] };
     (d.phases || []).forEach(function (p) { if (p.status === 'future' && p.inPurchases === 1 && !out.phase) out.phase = p; });
     d.corps.forEach(function (c) {
       if (c.closed || !c.rustIn) return;
       var lost = c.rustIn.filter(function (x) { return x === 1; }).length;
       if (lost) out.rust.push({ c: c, lost: lost, left: c.trains.length - lost });
+      var obs = (c.obsIn || []).filter(function (x) { return x === 1; }).length;
+      if (obs) out.obs.push({ c: c, n: obs });
     });
     return out;
   }
@@ -2085,11 +2087,12 @@
     var items = [], add = function (lvl, html) { items.push({ lvl: lvl, html: html }); };
     var nb = nextBuyEffects(d), nt = d.nextTrain;
     var mine = function (c) { return me && c.president === me; };
-    if (nt && (nb.phase || nb.rust.length)) {
-      var mineHit = nb.rust.filter(function (x) { return mine(x.c); });
+    if (nt && (nb.phase || nb.rust.length || nb.obs.length)) {
+      var mineHit = nb.rust.filter(function (x) { return mine(x.c); }), mineObs = nb.obs.filter(function (x) { return mine(x.c); });
       var txt = 'The next train bought (<b>' + esc(nt.name) + '</b>, ' + esc(m(nt.price)) + ')' + (nb.phase ? ' starts phase <b>' + esc(nb.phase.name) + '</b>' : '') +
-        (nb.rust.length ? (nb.phase ? ' and' : '') + ' rusts trains of ' + nb.rust.map(function (x) { return sqw(x.c.color) + '<b>' + esc(x.c.name) + '</b>' + (x.left === 0 ? ' <span class="st-crit">(left without trains)</span>' : ''); }).join(', ') : '') + '.';
-      add(mineHit.some(function (x) { return x.left === 0; }) ? 3 : mineHit.length ? 2 : 1, txt);
+        (nb.rust.length ? (nb.phase ? ' and' : '') + ' rusts trains of ' + nb.rust.map(function (x) { return sqw(x.c.color) + '<b>' + esc(x.c.name) + '</b>' + (x.left === 0 ? ' <span class="st-crit">(left without trains)</span>' : ''); }).join(', ') : '') +
+        (nb.obs.length ? ((nb.phase || nb.rust.length) ? '; it also makes trains obsolete (they leave at a later point under this title\'s rules) for ' : ' makes trains obsolete for ') + nb.obs.map(function (x) { return sqw(x.c.color) + '<b>' + esc(x.c.name) + '</b> (' + x.n + ')'; }).join(', ') : '') + '.';
+      add(mineHit.some(function (x) { return x.left === 0; }) ? 3 : (mineHit.length || mineObs.length) ? 2 : 1, txt);
     }
     d.corps.forEach(function (c) {
       if (c.closed || !c.buy) return;
@@ -2123,7 +2126,8 @@
     if (nt) {
       var can = open.filter(function (c) { return c.cash >= nt.price; }).sort(function (a, b) { return b.cash - a.cash; });
       h.push('<h3 class="rh">Next train: ' + esc(nt.name) + ' · ' + esc(m(nt.price)) + '</h3><p>' + (can.length ? 'Can buy it from the treasury now: ' + can.map(function (c) { return sqw(c.color) + '<b>' + esc(c.name) + '</b> ' + esc(m(c.cash)) + ' (' + who(c.president) + ')'; }).join(', ') : 'No company has the cash for it in its treasury right now.') + '</p>');
-      if (nb.phase || nb.rust.length) h.push('<p>Buying it ' + (nb.phase ? 'starts phase <b>' + esc(nb.phase.name) + '</b>' : '') + (nb.rust.length ? (nb.phase ? ' and ' : '') + 'rusts: ' + nb.rust.map(function (x) { return sqw(x.c.color) + '<b>' + esc(x.c.name) + '</b> loses ' + x.lost + ' of ' + x.c.trains.length + (x.left === 0 ? ' <span class="st-crit">→ no trains</span>' : ''); }).join(', ') : '') + '.</p>');
+      if (nb.phase || nb.rust.length || nb.obs.length) h.push('<p>Buying it ' + (nb.phase ? 'starts phase <b>' + esc(nb.phase.name) + '</b>' : '') + (nb.rust.length ? (nb.phase ? ' and ' : '') + 'rusts: ' + nb.rust.map(function (x) { return sqw(x.c.color) + '<b>' + esc(x.c.name) + '</b> loses ' + x.lost + ' of ' + x.c.trains.length + (x.left === 0 ? ' <span class="st-crit">→ no trains</span>' : ''); }).join(', ') : '') +
+        (nb.obs.length ? ((nb.phase || nb.rust.length) ? '; ' : '') + 'makes obsolete: ' + nb.obs.map(function (x) { return sqw(x.c.color) + '<b>' + esc(x.c.name) + '</b> ' + x.n; }).join(', ') : '') + '.</p>');
     }
     // rust ahead, by number of purchases
     var by = {}; (d.risk || []).forEach(function (r) { (by[r.inPurchases] = by[r.inPurchases] || []).push(r); });
@@ -2468,7 +2472,7 @@
         : '<span class="st-good">✓ safe</span>';
       if (obsSoon.length) status += ' <span class="st-warn" title="Obsolete is not rusted: the train is on its way out under this title\'s rules">◔ ' + obsSoon.length + ' obsolete ' + buysTxt(Math.min.apply(null, obsSoon)) + '</span>';
       h.push('<tr data-corp="' + esc(c.name) + '" data-crow="' + esc(c.name) + '"' + (!d.finished && L && L.current === c.name && L.isOR ? ' class="actrow"' : '') + '><td>' + (!d.finished && L && L.current === c.name && L.isOR ? '<span class="act" title="operating now">▶</span> ' : '') + '<i class="sw" style="background:' + displayColor(c.color, dark) + '"></i><b>' + esc(c.name) + '</b></td><td>' + esc(c.president) + '</td><td>' + (c.price != null ? esc(m(c.price)) : '—') + '</td><td data-f="ct:' + esc(c.name) + '">' + esc(m(c.cash)) + '</td><td>' + can + '</td>');
-      h.push('<td style="white-space:normal;min-width:70px">' + (c.trains.map(function (t) { return '<span style="white-space:nowrap">' + trainGlyph(d.title, t.name) + esc(t.name) + '</span>'; }).join(', ') || '—') + '</td><td>' + status + '</td><td>' + (c.tokensTotal ? c.tokensLeft + '/' + c.tokensTotal : '—') + '</td>' + (anyLoans ? '<td>' + (c.loans ? c.loans + (c.maxLoans ? '/' + c.maxLoans : '') : '') + '</td><td>' + (c.interestOwed ? esc(m(c.interestOwed)) : '') + '</td>' : ''));
+      h.push('<td style="white-space:normal;min-width:70px">' + (c.trains.map(function (t) { return '<span style="white-space:nowrap">' + trainGlyph(d.title, t.name) + esc(t.name) + '</span>'; }).join(', ') || '—') + '</td><td style="white-space:normal;min-width:90px">' + status + '</td><td>' + (c.tokensTotal ? c.tokensLeft + '/' + c.tokensTotal : '—') + '</td>' + (anyLoans ? '<td>' + (c.loans ? c.loans + (c.maxLoans ? '/' + c.maxLoans : '') : '') + '</td><td>' + (c.interestOwed ? esc(m(c.interestOwed)) : '') + '</td>' : ''));
       h.push('<td>' + (last ? esc(m(last.revenue)) + (last.kind && last.kind !== 'payout' ? ' <small style="color:var(--text-muted)">' + esc(last.kind) + '</small>' : '') : '—') + '</td><td>' + (avg != null ? esc(m(avg)) : '—') + '</td></tr>');
     });
     h.push('</tbody></table></div>');
@@ -3301,7 +3305,7 @@
   function loadLayout(mode) {
     try {
       var v = JSON.parse(localStorage.getItem('xxStats.layout2.' + mode) || 'null');
-      if (v && v.order) { layoutKeys(mode).forEach(function (k) { if (v.order.indexOf(k) < 0) v.order.push(k); }); v.collapsed = v.collapsed || []; v.gc = v.gc || []; v.dock = Array.isArray(v.dock) ? v.dock.filter(function (k) { return layoutKeys(mode).indexOf(k) >= 0; }).slice(0, 3) : []; return v; }
+      if (v && v.order) { var dk = layoutKeys(mode); dk.forEach(function (k, i) { if (v.order.indexOf(k) >= 0) return; var at = -1; for (var j = i - 1; j >= 0 && at < 0; j--) at = v.order.indexOf(dk[j]); v.order.splice(at + 1, 0, k); }); v.collapsed = v.collapsed || []; v.gc = v.gc || []; v.dock = Array.isArray(v.dock) ? v.dock.filter(function (k) { return layoutKeys(mode).indexOf(k) >= 0; }).slice(0, 3) : []; return v; }
     } catch (e) {}
     return { order: layoutKeys(mode), collapsed: ['minors-private-companies', 'tile-manifest', 'game-info'], gc: DEFAULT_GC[mode].slice(), dock: [] };
   }
