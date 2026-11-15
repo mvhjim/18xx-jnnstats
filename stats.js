@@ -17,7 +17,11 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.36.2';
+  var VERSION = '0.37.0';
+  // JNN-API: the version of the programming interface other tools (JNN-Engine) build on.
+  // Minor = additions only; a new major means a change that can break them. See docs/API.md.
+  var API_VERSION = '1.0';
+  var LIBRARY = !!window.__jnnLibrary; // loaded by another tool: expose the API only, open no window
   var REFRESH_MS = 10000;
   var REPO_URL = 'https://github.com/mvhjim/18xx-jnnstats';
 
@@ -4956,12 +4960,53 @@
     w.document.getElementById('gf').onsubmit = function (ev) { ev.preventDefault(); var mm = String(w.document.getElementById('gi').value).match(/(\d{3,})/); if (mm) { ST.gameId = mm[1]; refresh(true); } };
   }
 
+  // ---------- JNN-API 1 (read only) -----------------------------------------------------------
+  // Everything another tool needs to show a game the way JNN-stats does, without a second copy of
+  // the code. Nothing here makes a move or sends data anywhere.
+  function makeApi() {
+    return {
+      apiVersion: API_VERSION, version: VERSION, repo: REPO_URL,
+      // loading and replaying a game with the site's own rules engine
+      fetchGameText: gameText,              // (id) -> Promise<text>; names anonymised in privacy mode
+      ensureTitle: ensureTitle,             // (title) -> Promise; loads the title's rules code if needed
+      loadGame: loadGame,                   // (text) -> engine game
+      applyActions: applyActions,           // (game, actions) -> true, or false when a full reload is needed
+      effectiveActions: effectiveActions,   // (raw) -> actions after undo/redo
+      extract: extract,                     // (game, raw) -> the data model every card is drawn from
+      // explanations and analyses
+      whyLine: whyLine,                     // (d, logLine) -> plain-words explanation or null
+      routeWhy: routeWhy,                   // (d, stops, revenue, train) -> html
+      explainSquare: explainSquare,         // (d, row, col) -> html
+      glossary: glossary,                   // (d) -> terms
+      nextBuyEffects: nextBuyEffects,       // (d) -> what the next train purchase changes
+      dumpRisks: dumpRisks,                 // (d) -> presidencies that can be passed by selling
+      teachMoments: teachMoments,           // (d) -> key decisions of the game
+      decisionScores: decisionScores, styleVectors: styleVectors,
+      whatIf: sbRun,                        // (raw, effectiveActions, index, change) -> Promise<result>; runs on a copy
+      // drawing
+      css: function () { return CSS; },
+      palette: playerPal,                   // (dark) -> player colours
+      render: render,                       // (window, d) -> draws the full JNN-stats dashboard into a window
+      shareImage: shareImage,
+      // settings shared with JNN-stats (stored in the browser)
+      privacyOn: privacyOn, learnLevel: learnLevel, myName: myName
+    };
+  }
+  if (LIBRARY) {
+    // Library mode: a private state object, so a JNN-stats window running on the same page is not touched
+    var ST = { token: 'lib-' + Date.now(), version: VERSION, origin: window.location.origin, library: true };
+    window.JNNStats = makeApi();
+    try { window.dispatchEvent(new CustomEvent('jnnstats:ready', { detail: window.JNNStats })); } catch (eEv) {}
+    return;
+  }
+
   // ---------- Window + update loop ------------------------------------------------------------
   // A second click on the bookmark (or a newer version of this script) replaces the running one.
   var OLD = window.__xxStats;
   if (OLD) { try { clearInterval(OLD.timer); clearInterval(OLD.bTimer); } catch (e) {} try { if (OLD.unsub) OLD.unsub(); } catch (e) {} }
   var ST = window.__xxStats = { token: Date.now() + '-' + Math.random(), win: OLD && OLD.win, version: VERSION, origin: window.location.origin };
   ST.api = { extract: extract, loadGame: loadGame, applyActions: applyActions, ensureTitle: ensureTitle, render: render, shareImage: shareImage };
+  window.JNNStats = makeApi();
 
   // Runs inside the stats window itself, so it keeps working when the game page is reloaded or
   // closed: it then shows that updates have stopped instead of silently showing old numbers.

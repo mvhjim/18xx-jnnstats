@@ -2,6 +2,15 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.37.0] - 2026-11-15
+
+### Added
+- **JNN-API 1.0:** the game reading and analysis are available to other tools as a small, versioned, read-only interface (`window.JNNStats`), described in [docs/API.md](docs/API.md). It is the base for JNN-Engine, so that tool uses the released JNN-stats code instead of a copy, and follows along when JNN-stats is updated.
+- **Library mode:** with `window.__jnnLibrary` set before loading, the script only exposes the API (no window, no timers) and keeps its own state, so a JNN-stats window running from the same page is not affected.
+- `version.js` now also carries the API version (`window.__xxApi`).
+
+Nothing changes in the stats window itself.
+
 ## [0.36.2] - 2026-11-15
 
 From a code review and a test batch across 17 titles (1817, 1822, 1830, 1846, 1848, 1849: Kingdom of the Two Sicilies, 1856, 1860, 1862, 1867, 1882, 1889, 18Chesapeake, 18CO, 18Ireland, 18MEX, The Old Prince 1871).
