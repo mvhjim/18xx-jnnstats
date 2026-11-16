@@ -2345,7 +2345,9 @@
       var tc = T.entType === 'corporation' ? d.corps.filter(function (c) { return c.name === T.entity; })[0] : null;
       var acts = T.actions.filter(function (a) { return ACT_WORDS[a] !== null && !/^program_/.test(a) && (a !== 'bankrupt' || (tc && tc.buy && tc.buy.kind === 'stuck')); });
       h.push('<p class="nowline" style="font-size:13px">' + (mineNow ? '<span class="pill yours">● Your turn</span> ' : '') + who + ' is to act' + (T.desc ? ': <i>' + esc(T.desc) + '</i>' : '') + '.</p>');
-      if (acts.length) h.push('<h3 class="rh">What the rules allow right now</h3><ul class="wo">' + acts.map(function (a) { var w2 = ACT_WORDS[a] || [a.replace(/_/g, ' '), ''];
+      // with JNN-Engine open, the choices (each explained) are listed there, not twice
+      if (acts.length && engineOpen()) h.push('<p class="sub" style="margin:4px 0 0">Make the move in the JNN-Engine window, where each of your choices is listed and explained.</p>');
+      else if (acts.length) h.push('<h3 class="rh">What the rules allow right now</h3><ul class="wo">' + acts.map(function (a) { var w2 = ACT_WORDS[a] || [a.replace(/_/g, ' '), ''];
          if (T.entType === 'corporation' && a === 'sell_shares') w2 = ['Issue shares', 'the company sells some of its own shares to the bank pool for cash; the price usually drops'];
         if (T.entType === 'corporation' && a === 'buy_shares') w2 = ['Redeem shares', 'the company buys its own shares back from the bank pool']; return '<li><b>' + esc(w2[0]) + '</b>' + (w2[1] ? ' — ' + esc(w2[1]) : '') + '</li>'; }).join('') + '</ul><p class="sub" style="margin:4px 0 0">' + (engineOpen() ? 'Make the move in the JNN-Engine window; this window only explains.' : 'Make the move on the 18xx.games page; this window only explains.') + '</p>');
       // operating turn steps
@@ -5055,6 +5057,8 @@
         if (!ST.win || ST.win.closed) { clearInterval(ST.bTimer); return; }
         var ww = ST.win, bb = { x: ww.screenX, y: ww.screenY, w: ww.outerWidth, h: ww.outerHeight }, key = JSON.stringify(bb);
         if (key !== lastB && bb.w > 300 && bb.h > 300) { lastB = key; lsSet('xxStats.bounds', key); }
+        // JNN-Engine opened or closed: redraw, so the choices are shown in one window only
+        var eo = engineOpen(); if (ST.eo !== undefined && eo !== ST.eo) rerender(); ST.eo = eo;
       } catch (e) {}
     }, 2500);
     return w;
