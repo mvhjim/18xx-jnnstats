@@ -2,6 +2,14 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.37.3] - 2026-11-16
+
+### Added
+- **Company profit and loss shows loan interest** in titles with loans (the 1817 family): a purple *Interest* part in the chart and an *Interest* column in the table, counted in *Kept after spending*.
+
+### Tested
+- 1817 on 4 more finished games: final scores exact, market, routes, replay and the cards all correct.
+
 ## [0.37.2] - 2026-11-15
 
 ### Fixed

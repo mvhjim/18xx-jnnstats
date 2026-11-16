@@ -106,7 +106,7 @@ Always:
 
 ## Tested titles
 
-Tested on **82 games across 20 titles**. For all **67 finished games** with a recorded result, the replayed final scores match the site's official result exactly, including The Old Prince 1871, 1877: Stockholm Tramways and 1849: Kingdom of the Two Sicilies (12 games each).
+Tested on **82 games across 20 titles**. For all **67 finished games** with a recorded result, the replayed final scores match the site's official result exactly, including The Old Prince 1871, 1877: Stockholm Tramways and 1849: Kingdom of the Two Sicilies (12 games each). 1817 was checked again on 4 more finished games (loans, shorts, mergers and acquisitions): scores exact, market and routes correct.
 
 The stock market grid was additionally checked on live and finished games of these titles: every company with a share price stands on the square with that price.
 
