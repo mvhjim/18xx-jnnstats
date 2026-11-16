@@ -17,7 +17,7 @@
  */
 (function () {
   'use strict';
-  var VERSION = '0.37.3';
+  var VERSION = '0.37.4';
   // JNN-API: the version of the programming interface other tools (JNN-Engine) build on.
   // Minor = additions only; a new major means a change that can break them. See docs/API.md.
   var API_VERSION = '1.1';

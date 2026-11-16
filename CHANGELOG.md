@@ -2,6 +2,11 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [0.37.4] - 2026-11-16
+
+### Changed
+- **Beside JNN-Engine:** while the JNN-Engine window is open, *Your turn, explained* no longer lists the possible moves (JNN-Engine lists them, each explained, next to its buttons) and says to make the move there. It switches by itself when JNN-Engine is opened or closed.
+
 ## [0.37.3] - 2026-11-16
 
 ### Added
