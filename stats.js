@@ -2347,7 +2347,7 @@
       h.push('<p class="nowline" style="font-size:13px">' + (mineNow ? '<span class="pill yours">● Your turn</span> ' : '') + who + ' is to act' + (T.desc ? ': <i>' + esc(T.desc) + '</i>' : '') + '.</p>');
       if (acts.length) h.push('<h3 class="rh">What the rules allow right now</h3><ul class="wo">' + acts.map(function (a) { var w2 = ACT_WORDS[a] || [a.replace(/_/g, ' '), ''];
          if (T.entType === 'corporation' && a === 'sell_shares') w2 = ['Issue shares', 'the company sells some of its own shares to the bank pool for cash; the price usually drops'];
-        if (T.entType === 'corporation' && a === 'buy_shares') w2 = ['Redeem shares', 'the company buys its own shares back from the bank pool']; return '<li><b>' + esc(w2[0]) + '</b>' + (w2[1] ? ' — ' + esc(w2[1]) : '') + '</li>'; }).join('') + '</ul><p class="sub" style="margin:4px 0 0">Make the move on the 18xx.games page; this window only explains.</p>');
+        if (T.entType === 'corporation' && a === 'buy_shares') w2 = ['Redeem shares', 'the company buys its own shares back from the bank pool']; return '<li><b>' + esc(w2[0]) + '</b>' + (w2[1] ? ' — ' + esc(w2[1]) : '') + '</li>'; }).join('') + '</ul><p class="sub" style="margin:4px 0 0">' + (engineOpen() ? 'Make the move in the JNN-Engine window; this window only explains.' : 'Make the move on the 18xx.games page; this window only explains.') + '</p>');
       // operating turn steps
       if (L.isOR) {
         var SEQ = [['Track', 'Lay track'], ['Token', 'Station'], ['Route', 'Run trains'], ['Dividend', 'Pay or withhold'], ['Train', 'Buy trains']];
@@ -4948,6 +4948,8 @@
   }
 
   // Put the stats window on the right half of the screen (the game keeps the left half).
+  // is the JNN-Engine window (the companion bookmark) open beside this one?
+  function engineOpen() { try { var E2 = window.__jnnEngine; return !!(E2 && E2.win && !E2.win.closed); } catch (e) { return false; } }
   function snapRight(w, parts) {
     try {
       var sc = w.screen || screen, aw = sc.availWidth, ah = sc.availHeight, al = sc.availLeft || 0, at = sc.availTop || 0, wd = Math.round(aw / (parts || 2));
